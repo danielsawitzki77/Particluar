@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 # Pre-push hook: runs build verification for both Debug and Release.
 # Install with: git config core.hooksPath .githooks
 # Bypass with:  git push --no-verify
