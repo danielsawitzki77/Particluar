@@ -1,4 +1,4 @@
-﻿# GitHub Issue-Driven Autonomous Workflow
+# GitHub Issue-Driven Autonomous Workflow
 
 ## Overview
 

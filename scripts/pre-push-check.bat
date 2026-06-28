@@ -1,4 +1,4 @@
-﻿@echo off
+@echo off
 REM Pre-push build verification - builds both Debug and Release configurations.
 REM Exit code 0 = success, non-zero = build failure (push should be blocked).
 

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 // Particluar - Application header
 // This file will contain the main application class declaration.

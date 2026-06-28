@@ -1,4 +1,4 @@
-﻿# Particluar
+# Particluar
 
 A particle-based game built in C++ with SDL3.
 
