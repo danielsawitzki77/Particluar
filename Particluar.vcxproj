@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <ProjectGuid>{C1D2E3F4-A5B6-7890-CDEF-123456789ABC}</ProjectGuid>
+    <RootNamespace>Particluar</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>Particluar</ProjectName>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(ProjectName)\$(Configuration)\</IntDir>
+    <TargetName>Particluar</TargetName>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <PreprocessorDefinitions>
+        _DEBUG;
+        PARTICLUAR_DEBUG;
+        _WINDOWS;
+        SDL_STATIC_LIB;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>
+        $(SolutionDir)include;
+        $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
+        $(SolutionDir)vendor\stb;
+        $(SolutionDir)vendor\picojson;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+        $(SolutionDir)vendor\SDL\lib\$(Configuration);
+        $(SolutionDir)vendor\SDL_image\lib\$(Configuration);
+        %(AdditionalLibraryDirectories)
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>
+        SDL3_static.lib;
+        SDL3_image_static.lib;
+        winmm.lib;
+        imm32.lib;
+        version.lib;
+        setupapi.lib;
+        cfgmgr32.lib;
+        ole32.lib;
+        oleaut32.lib;
+        uuid.lib;
+        shell32.lib;
+        advapi32.lib;
+        user32.lib;
+        gdi32.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>LIBCMTD;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+      <PreprocessorDefinitions>
+        NDEBUG;
+        _WINDOWS;
+        SDL_STATIC_LIB;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>
+        $(SolutionDir)include;
+        $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
+        $(SolutionDir)vendor\stb;
+        $(SolutionDir)vendor\picojson;
+        %(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>
+        $(SolutionDir)vendor\SDL\lib\$(Configuration);
+        $(SolutionDir)vendor\SDL_image\lib\$(Configuration);
+        %(AdditionalLibraryDirectories)
+      </AdditionalLibraryDirectories>
+      <AdditionalDependencies>
+        SDL3_static.lib;
+        SDL3_image_static.lib;
+        winmm.lib;
+        imm32.lib;
+        version.lib;
+        setupapi.lib;
+        cfgmgr32.lib;
+        ole32.lib;
+        oleaut32.lib;
+        uuid.lib;
+        shell32.lib;
+        advapi32.lib;
+        user32.lib;
+        gdi32.lib;
+        %(AdditionalDependencies)
+      </AdditionalDependencies>
+      <IgnoreSpecificDefaultLibraries>LIBCMT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <!-- Source files will be added as implementation progresses -->
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ClInclude Include="include\App.h" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="vendor\SDL\SDL3_static.vcxproj">
+      <Project>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</Project>
+    </ProjectReference>
+    <ProjectReference Include="vendor\SDL_image\SDL3_image_static.vcxproj">
+      <Project>{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}</Project>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>
