@@ -1,23 +1,48 @@
 // ============================================================
-// Particluar Web Editor — app.js
+// Particluar Tileset Editor — app.js
 // Single-page app with Tileset Configurator and Level Editor
 // ============================================================
 
 (function() {
   'use strict';
 
-  // --- Tab Switching ---
+  // --- Tab Switching (also syncs URL) ---
   const tabBtns = document.querySelectorAll('.tab-btn');
   const tabContents = document.querySelectorAll('.tab-content');
 
+  function activateTab(tabName) {
+    tabBtns.forEach(b => b.classList.remove('active'));
+    tabContents.forEach(c => c.classList.remove('active'));
+    const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    if (btn) btn.classList.add('active');
+    const tabEl = document.getElementById('tab-' + tabName);
+    if (tabEl) tabEl.classList.add('active');
+    // Update URL without reload
+    const url = tabName === 'configurator' ? '/tileset-configurator' : '/level-editor';
+    history.replaceState(null, '', url);
+  }
+
   tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabBtns.forEach(b => b.classList.remove('active'));
-      tabContents.forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      const tabId = 'tab-' + btn.dataset.tab;
-      document.getElementById(tabId).classList.add('active');
-    });
+    btn.addEventListener('click', () => activateTab(btn.dataset.tab));
+  });
+
+  // Activate tab based on current URL
+  if (window.location.pathname.includes('level-editor')) {
+    activateTab('level-editor');
+  } else {
+    activateTab('configurator');
+  }
+
+  // --- Close Button ---
+  document.getElementById('close-server-btn').addEventListener('click', async () => {
+    if (!confirm('Shut down the Tileset Editor server?')) return;
+    try {
+      await fetch('/api/shutdown', { method: 'POST' });
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;"><h1>Editor closed. You can close this tab.</h1></div>';
+    } catch (e) {
+      // Server already gone
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;"><h1>Editor closed. You can close this tab.</h1></div>';
+    }
   });
 
   function setStatus(msg) {
@@ -29,6 +54,7 @@
   // ============================================================
 
   const tilesetList = document.getElementById('tileset-list');
+  const sheetSelect = document.getElementById('sheet-select');
   const tilesetCanvas = document.getElementById('tileset-canvas');
   const ctx = tilesetCanvas.getContext('2d');
   const cellWidthInput = document.getElementById('cell-width');
@@ -39,6 +65,8 @@
   const tileInfoPanel = document.getElementById('tile-info-panel');
 
   let currentTilesetName = null;
+  let currentSheetFilename = null; // e.g. "ground_grasss.png"
+  let currentSheetBase = null;     // e.g. "ground_grasss" (JSON sidecar name)
   let currentTilesetImage = null;  // HTMLImageElement
   let currentTilesetData = null;   // parsed sidecar JSON
   let selectedTileIndex = -1;
@@ -56,7 +84,6 @@
         div.addEventListener('click', () => selectTileset(name));
         tilesetList.appendChild(div);
       });
-      // Also populate level editor dropdown
       populateLETilesetSelect(tilesets);
     } catch (err) {
       setStatus('Error loading tileset list');
@@ -65,19 +92,103 @@
   }
 
   async function selectTileset(name) {
-    // Mark selected in sidebar
     document.querySelectorAll('.tileset-item').forEach(el => {
       el.classList.toggle('selected', el.textContent === name);
     });
 
     currentTilesetName = name;
+    currentSheetFilename = null;
+    currentSheetBase = null;
     selectedTileIndex = -1;
     setStatus(`Loading tileset: ${name}...`);
+
+    try {
+      // Fetch list of PNG sheets in this tileset folder
+      const res = await fetch(`/api/tilesets/${name}/sheets`);
+      const sheets = await res.json();
+
+      // Populate sheet dropdown
+      sheetSelect.innerHTML = '';
+      sheetSelect.disabled = false;
+
+      if (sheets.length === 0) {
+        sheetSelect.innerHTML = '<option value="">No PNG files found</option>';
+        sheetSelect.disabled = true;
+        setStatus(`Tileset '${name}' has no PNG files.`);
+        return;
+      }
+
+      if (sheets.length === 1) {
+        // Auto-select the only sheet
+        const opt = document.createElement('option');
+        opt.value = sheets[0];
+        opt.textContent = sheets[0];
+        sheetSelect.appendChild(opt);
+        await loadSheet(name, sheets[0]);
+      } else {
+        // Multiple sheets — let user pick
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = `-- ${sheets.length} sheets available --`;
+        sheetSelect.appendChild(placeholder);
+        sheets.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          sheetSelect.appendChild(opt);
+        });
+        setStatus(`Tileset '${name}': ${sheets.length} sheets. Select one.`);
+      }
+    } catch (err) {
+      setStatus(`Error loading tileset: ${err.message}`);
+      console.error(err);
+    }
+  }
+
+  // Sheet dropdown change
+  sheetSelect.addEventListener('change', async () => {
+    const filename = sheetSelect.value;
+    if (!filename || !currentTilesetName) return;
+    await loadSheet(currentTilesetName, filename);
+  });
+
+  async function loadSheet(tilesetName, filename) {
+    currentSheetFilename = filename;
+    currentSheetBase = filename.replace(/\.[^/.]+$/, ''); // strip extension
+    selectedTileIndex = -1;
 
     try {
       // Load image
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = `/api/tilesets/${tilesetName}/sheets/${filename}?t=${Date.now()}`;
+      });
+      currentTilesetImage = img;
+
+      // Load per-sheet JSON sidecar
+      const res = await fetch(`/api/tilesets/${tilesetName}/json/${currentSheetBase}`);
+      currentTilesetData = await res.json();
+
+      // Auto-detect cell size from first tile
+      if (currentTilesetData.tiles && currentTilesetData.tiles.length > 0) {
+        const firstTile = currentTilesetData.tiles[0];
+        if (firstTile.source_rect) {
+          cellWidthInput.value = firstTile.source_rect.w || 32;
+          cellHeightInput.value = firstTile.source_rect.h || 32;
+        }
+      }
+
+      renderTilesetCanvas();
+      renderTileInfo();
+      setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles defined)`);
+    } catch (err) {
+      setStatus(`Error loading sheet: ${err.message}`);
+      console.error(err);
+    }
+  }
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
@@ -297,18 +408,18 @@
 
   // Save tileset
   saveTilesetBtn.addEventListener('click', async () => {
-    if (!currentTilesetName || !currentTilesetData) {
-      setStatus('No tileset loaded');
+    if (!currentTilesetName || !currentTilesetData || !currentSheetBase) {
+      setStatus('No sheet loaded to save');
       return;
     }
     try {
-      const res = await fetch(`/api/tilesets/${currentTilesetName}/json`, {
+      const res = await fetch(`/api/tilesets/${currentTilesetName}/json/${currentSheetBase}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentTilesetData)
       });
       if (res.ok) {
-        setStatus(`Tileset '${currentTilesetName}' saved successfully`);
+        setStatus(`Saved '${currentSheetBase}.json' in tileset '${currentTilesetName}'`);
       } else {
         setStatus('Error saving tileset');
       }
