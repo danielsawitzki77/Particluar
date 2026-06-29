@@ -102,6 +102,8 @@
   <ItemGroup>
     <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\JsonUtil.cpp" />
+    <ClCompile Include="src\GlobalConfig.cpp" />
+    <ClCompile Include="src\TilesetLoader.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
