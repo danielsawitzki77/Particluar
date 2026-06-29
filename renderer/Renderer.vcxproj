@@ -101,6 +101,7 @@
 
   <ItemGroup>
     <ClCompile Include="src\Renderer.cpp" />
+    <ClCompile Include="src\JsonUtil.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
