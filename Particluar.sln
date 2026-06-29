@@ -7,6 +7,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Particluar", "Particluar.vc
 	ProjectSection(ProjectDependencies) = postProject
 		{B2C3D4E5-F6A7-8901-BCDE-F12345678901} = {B2C3D4E5-F6A7-8901-BCDE-F12345678901}
 		{F1E2D3C4-B5A6-7890-1234-567890ABCDEF} = {F1E2D3C4-B5A6-7890-1234-567890ABCDEF}
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SDL3_static", "vendor\SDL\SDL3_static.vcxproj", "{B2C3D4E5-F6A7-8901-BCDE-F12345678901}"
@@ -15,6 +16,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SDL3_image_static", "vendor
 	ProjectSection(ProjectDependencies) = postProject
 		{B2C3D4E5-F6A7-8901-BCDE-F12345678901} = {B2C3D4E5-F6A7-8901-BCDE-F12345678901}
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Renderer", "renderer\Renderer.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,6 +37,10 @@ Global
 		{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}.Debug|x64.Build.0 = Debug|x64
 		{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}.Release|x64.ActiveCfg = Release|x64
 		{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}.Release|x64.Build.0 = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.ActiveCfg = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Debug|x64.Build.0 = Debug|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.ActiveCfg = Release|x64
+		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
