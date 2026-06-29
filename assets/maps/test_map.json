@@ -1,0 +1,22 @@
+{
+  "width": 20,
+  "height": 15,
+  "tileset": "test",
+  "grid": [
+    ["red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow"],
+    ["green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue"],
+    ["blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow", "red", "green"],
+    ["yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow", "red"],
+    ["red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue", "yellow"],
+    ["green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green", "blue"],
+    ["blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red", "green"],
+    ["yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow", "red"],
+    ["red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue", "yellow"],
+    ["green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green", "blue"],
+    ["blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red", "green"],
+    ["yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow", "red"],
+    ["red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow", "yellow"],
+    ["green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue", "yellow"],
+    ["blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "yellow", "blue", "green", "red", "red", "green", "green", "blue", "blue"]
+  ]
+}
