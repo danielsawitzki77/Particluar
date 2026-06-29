@@ -153,6 +153,7 @@
       renderTilesetCanvas();
       renderTileInfo();
       renderLabelsPanel();
+      renderCreatedTilesList();
       setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles)`);
     } catch (err) { setStatus(`Error loading sheet: ${err.message}`); }
   }
@@ -184,11 +185,20 @@
       ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
       ctx.strokeRect(sr.x*zoom+1, sr.y*zoom+1, sr.w*zoom-2, sr.h*zoom-2);
     }
+    // Draw outlines for all created tiles (subtle)
+    if (currentTilesetData && currentTilesetData.tiles) {
+      ctx.strokeStyle = 'rgba(79, 195, 247, 0.8)'; ctx.lineWidth = 1;
+      currentTilesetData.tiles.forEach((t, i) => {
+        if (i === selectedTileIndex) return; // skip selected (drawn above)
+        const sr = t.source_rect;
+        ctx.strokeRect(sr.x*zoom+0.5, sr.y*zoom+0.5, sr.w*zoom-1, sr.h*zoom-1);
+      });
+    }
   }
 
-  // --- Canvas click ---
+  // --- Canvas click: select existing tile OR highlight grid cell for creation ---
   tilesetCanvas.addEventListener('click', (e) => {
-    if (!currentTilesetData) return;
+    if (!currentTilesetData || !currentTilesetImage) return;
     const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
     const rect = tilesetCanvas.getBoundingClientRect();
     const scaleX = tilesetCanvas.width / rect.width;
@@ -203,26 +213,78 @@
     const row = Math.floor((clickY - offY) / cellH);
     const tileX = offX + col * cellW;
     const tileY = offY + row * cellH;
+
+    // Check if an existing tile matches this position
     let foundIndex = -1;
     for (let i = 0; i < currentTilesetData.tiles.length; i++) {
       const sr = currentTilesetData.tiles[i].source_rect;
-      if (sr.x === tileX && sr.y === tileY) { foundIndex = i; break; }
+      if (sr.x === tileX && sr.y === tileY && sr.w === cellW && sr.h === cellH) { foundIndex = i; break; }
     }
-    if (foundIndex === -1 && tileX >= 0 && tileY >= 0 &&
-        tileX + cellW <= currentTilesetImage.naturalWidth &&
-        tileY + cellH <= currentTilesetImage.naturalHeight) {
-      const newId = `tile_${col}_${row}`;
+
+    if (foundIndex >= 0) {
+      // Select existing tile
+      selectedTileIndex = foundIndex;
+    } else if (tileX >= 0 && tileY >= 0 &&
+               tileX + cellW <= currentTilesetImage.naturalWidth &&
+               tileY + cellH <= currentTilesetImage.naturalHeight) {
+      // Create a new tile from this grid cell
+      const newId = `tile_${tileX}_${tileY}_${cellW}x${cellH}`;
       currentTilesetData.tiles.push({
         id: newId, source_rect: {x:tileX, y:tileY, w:cellW, h:cellH},
         adjacency: {up:[],down:[],left:[],right:[]}, labels: []
       });
       foundIndex = currentTilesetData.tiles.length - 1;
-      setStatus(`Created tile '${newId}'`);
+      selectedTileIndex = foundIndex;
+      setStatus(`Created tile '${newId}' (${cellW}x${cellH} at ${tileX},${tileY})`);
+      renderCreatedTilesList();
     }
-    selectedTileIndex = foundIndex;
+
     renderTilesetCanvas();
     renderTileInfo();
   });
+
+  // --- Created Tiles list (persists across grid changes) ---
+  function renderCreatedTilesList() {
+    const container = document.getElementById('created-tiles-list');
+    if (!container || !currentTilesetData) return;
+    const tiles = currentTilesetData.tiles;
+    if (tiles.length === 0) {
+      container.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">Click grid cells to create tiles.</p>';
+      return;
+    }
+    let html = '';
+    tiles.forEach((t, i) => {
+      const active = (i === selectedTileIndex) ? ' active' : '';
+      html += `<div class="created-tile-item${active}" data-idx="${i}">
+        <span>${escapeHtml(t.id)} <span style="color:#666">(${t.source_rect.w}x${t.source_rect.h})</span></span>
+        <span class="del-tile" data-idx="${i}">&times;</span>
+      </div>`;
+    });
+    container.innerHTML = html;
+    // Click to select
+    container.querySelectorAll('.created-tile-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('del-tile')) return;
+        selectedTileIndex = parseInt(el.dataset.idx);
+        renderTilesetCanvas();
+        renderTileInfo();
+        renderCreatedTilesList();
+      });
+    });
+    // Delete button
+    container.querySelectorAll('.del-tile').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx);
+        currentTilesetData.tiles.splice(idx, 1);
+        if (selectedTileIndex === idx) selectedTileIndex = -1;
+        else if (selectedTileIndex > idx) selectedTileIndex--;
+        renderTilesetCanvas();
+        renderTileInfo();
+        renderCreatedTilesList();
+      });
+    });
+  }
 
   // --- Labels panel (tileset-level labels definition) ---
   function renderLabelsPanel() {

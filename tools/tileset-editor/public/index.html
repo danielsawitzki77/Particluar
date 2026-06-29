@@ -6,10 +6,10 @@
   <title>Particluar — Tileset Editor</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
-    
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
     /* Tab Bar */
-    .tab-bar { display: flex; background: #16213e; border-bottom: 2px solid #0f3460; align-items: center; }
+    .tab-bar { display: flex; background: #16213e; border-bottom: 2px solid #0f3460; align-items: center; flex-shrink: 0; }
     .tab-btn { padding: 12px 24px; cursor: pointer; border: none; background: transparent; color: #a0a0a0; font-size: 14px; font-weight: 600; transition: all 0.2s; }
     .tab-btn:hover { color: #e0e0e0; background: #1a1a2e; }
     .tab-btn.active { color: #4fc3f7; border-bottom: 2px solid #4fc3f7; background: #1a1a2e; }
@@ -17,165 +17,19 @@
     .close-btn:hover { background: #ff4444; }
 
     /* Main Content */
-    .tab-content { display: none; flex: 1; overflow: hidden; }
+    .tab-content { display: none; flex: 1; overflow: hidden; min-height: 0; }
     .tab-content.active { display: flex; }
 
     /* Tileset Configurator Layout */
-    #configurator { display: flex; height: 100%; }
-    .sidebar { width: 220px; background: #16213e; padding: 12px; overflow-y: auto; border-right: 1px solid #0f3460; }
+    #configurator { display: flex; height: 100%; min-height: 0; }
+    .sidebar { width: 200px; min-width: 200px; background: #16213e; padding: 12px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
     .sidebar h3 { margin-bottom: 8px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; }
     .tileset-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
     .tileset-item:hover { background: #1a1a2e; }
     .tileset-item.selected { background: #0f3460; color: #4fc3f7; }
     .sheet-select { width: 100%; padding: 6px; margin-top: 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; }
 
-    .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .controls-bar { display: flex; gap: 12px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #0f3460; align-items: center; flex-wrap: wrap; }
+    .main-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .controls-bar { display: flex; gap: 8px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #0f3460; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
     .control-group { display: flex; align-items: center; gap: 4px; }
-    .control-group label { font-size: 12px; color: #a0a0a0; }
-    .control-group input { width: 60px; padding: 4px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; }
-    .canvas-container { flex: 1; overflow: auto; padding: 12px; display: flex; align-items: flex-start; justify-content: flex-start; }
-    #tileset-canvas { background: #0d0d1a; border: 1px solid #0f3460; cursor: crosshair; }
-
-    .right-panel { width: 280px; background: #16213e; padding: 12px; overflow-y: auto; border-left: 1px solid #0f3460; }
-    .right-panel h3 { margin-bottom: 8px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; }
-    .tile-info { margin-bottom: 12px; padding: 8px; background: #1a1a2e; border-radius: 4px; font-size: 12px; }
-    .adjacency-section { margin-bottom: 12px; }
-    .adjacency-section h4 { font-size: 12px; color: #a0a0a0; margin-bottom: 4px; text-transform: uppercase; }
-    .adjacency-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
-    .adj-tag { padding: 2px 8px; background: #0f3460; border-radius: 3px; font-size: 11px; display: flex; align-items: center; gap: 4px; }
-    .adj-tag .remove-btn { cursor: pointer; color: #ff6b6b; font-weight: bold; }
-    .add-adj-row { display: flex; gap: 4px; margin-bottom: 8px; }
-    .add-adj-row input { flex: 1; padding: 4px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; }
-    .add-adj-row button { padding: 4px 8px; background: #4fc3f7; color: #1a1a2e; border: none; border-radius: 3px; cursor: pointer; font-size: 12px; font-weight: 600; }
-
-    .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .btn-primary { background: #4fc3f7; color: #1a1a2e; }
-    .btn-primary:hover { background: #81d4fa; }
-    .btn-secondary { background: #0f3460; color: #e0e0e0; }
-    .btn-secondary:hover { background: #1a4a7a; }
-    .btn-danger { background: #ff6b6b; color: #fff; }
-
-    /* Level Editor Layout */
-    #level-editor { display: flex; height: 100%; }
-    .le-sidebar { width: 250px; background: #16213e; padding: 12px; overflow-y: auto; border-right: 1px solid #0f3460; }
-    .le-sidebar h3 { margin-bottom: 8px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; }
-    .le-controls { margin-bottom: 16px; }
-    .le-controls label { display: block; font-size: 12px; color: #a0a0a0; margin-bottom: 4px; }
-    .le-controls input, .le-controls select { width: 100%; padding: 6px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; margin-bottom: 8px; }
-    .palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; }
-    .palette-tile { width: 40px; height: 40px; border: 2px solid transparent; cursor: pointer; background: #0d0d1a; border-radius: 3px; overflow: hidden; }
-    .palette-tile:hover { border-color: #4fc3f7; }
-    .palette-tile.selected { border-color: #4fc3f7; box-shadow: 0 0 6px #4fc3f7; }
-    .palette-tile canvas { width: 100%; height: 100%; }
-
-    .le-main { flex: 1; overflow: auto; padding: 12px; display: flex; align-items: flex-start; justify-content: flex-start; }
-    #level-canvas { background: #0d0d1a; border: 1px solid #0f3460; cursor: crosshair; }
-
-    .status-bar { padding: 4px 12px; background: #16213e; border-top: 1px solid #0f3460; font-size: 11px; color: #a0a0a0; }
-  </style>
-</head>
-<body>
-  <!-- Tab Bar -->
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="configurator">Tileset Configurator</button>
-    <button class="tab-btn" data-tab="level-editor">Level Editor</button>
-    <button class="close-btn" id="close-server-btn" title="Shut down editor server and close">Close Editor</button>
-  </div>
-
-  <!-- Tileset Configurator Tab -->
-  <div class="tab-content active" id="tab-configurator">
-    <div id="configurator">
-      <!-- Left Sidebar: Tileset List -->
-      <div class="sidebar">
-        <h3>Tilesets</h3>
-        <div id="tileset-list"></div>
-        <h3 style="margin-top:16px;">Spritesheet</h3>
-        <select class="sheet-select" id="sheet-select" disabled>
-          <option value="">-- Select a tileset first --</option>
-        </select>
-      </div>
-
-      <!-- Main Area: Canvas + Controls -->
-      <div class="main-area">
-        <div class="controls-bar">
-          <div class="control-group">
-            <label>Cell W:</label>
-            <input type="number" id="cell-width" value="32" min="1" max="512">
-          </div>
-          <div class="control-group">
-            <label>Cell H:</label>
-            <input type="number" id="cell-height" value="32" min="1" max="512">
-          </div>
-          <div class="control-group">
-            <label>Offset X:</label>
-            <input type="number" id="offset-x" value="0" min="0" max="512">
-          </div>
-          <div class="control-group">
-            <label>Offset Y:</label>
-            <input type="number" id="offset-y" value="0" min="0" max="512">
-          </div>
-          <div class="control-group">
-            <label>Zoom:</label>
-            <input type="number" id="zoom-level" value="1" min="1" max="8" style="width:40px">
-          </div>
-          <button class="btn btn-primary" id="save-tileset-btn">Save</button>
-        </div>
-        <div class="canvas-container">
-          <canvas id="tileset-canvas" width="512" height="512"></canvas>
-        </div>
-      </div>
-
-      <!-- Right Panel: Labels + Tile Info + Adjacency -->
-      <div class="right-panel">
-        <h3>Tileset Labels</h3>
-        <div id="labels-panel"></div>
-        <hr style="border-color:#0f3460;margin:12px 0">
-        <h3>Selected Tile</h3>
-        <div id="tile-info-panel">
-          <p style="color:#a0a0a0; font-size:12px;">Click a tile on the canvas to select it.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Level Editor Tab -->
-  <div class="tab-content" id="tab-level-editor">
-    <div id="level-editor">
-      <!-- Left Sidebar: Controls + Palette -->
-      <div class="le-sidebar">
-        <h3>Level Settings</h3>
-        <div class="le-controls">
-          <label>Width (tiles):</label>
-          <input type="number" id="le-width" value="16" min="1" max="256">
-          <label>Height (tiles):</label>
-          <input type="number" id="le-height" value="16" min="1" max="256">
-          <label>Tileset:</label>
-          <select id="le-tileset-select">
-            <option value="">-- Select Tileset --</option>
-          </select>
-          <button class="btn btn-primary" id="le-load-btn" style="width:100%; margin-top:4px;">Load Tileset</button>
-          <button class="btn btn-secondary" id="le-new-grid-btn" style="width:100%; margin-top:4px;">New Grid</button>
-          <label style="margin-top:8px">Filter by label:</label>
-          <select id="le-label-filter" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;margin-bottom:8px">
-            <option value="">All tiles</option>
-          </select>
-          <button class="btn btn-primary" id="le-export-btn" style="width:100%; margin-top:4px;">Export Map JSON</button>
-        </div>
-        <h3>Tile Palette</h3>
-        <div class="palette" id="le-palette"></div>
-      </div>
-
-      <!-- Main Area: Grid Canvas -->
-      <div class="le-main">
-        <canvas id="level-canvas" width="512" height="512"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Status Bar -->
-  <div class="status-bar" id="status-bar">Ready</div>
-
-  <script src="app.js"></script>
-</body>
-</html>
+    .control-group label { font-size: 13px; color: #a0a0a0; white-space: nowrap; }
