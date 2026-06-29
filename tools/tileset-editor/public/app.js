@@ -189,38 +189,6 @@
       console.error(err);
     }
   }
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = `/api/tilesets/${name}/image?t=${Date.now()}`;
-      });
-      currentTilesetImage = img;
-
-      // Load JSON
-      const res = await fetch(`/api/tilesets/${name}/json`);
-      if (res.ok) {
-        currentTilesetData = await res.json();
-      } else {
-        currentTilesetData = { tiles: [] };
-      }
-
-      // Auto-detect cell size from first tile if available
-      if (currentTilesetData.tiles && currentTilesetData.tiles.length > 0) {
-        const firstTile = currentTilesetData.tiles[0];
-        if (firstTile.source_rect) {
-          cellWidthInput.value = firstTile.source_rect.w || 32;
-          cellHeightInput.value = firstTile.source_rect.h || 32;
-        }
-      }
-
-      renderTilesetCanvas();
-      renderTileInfo();
-      setStatus(`Tileset '${name}' loaded (${currentTilesetData.tiles.length} tiles)`);
-    } catch (err) {
-      setStatus(`Error loading tileset: ${err.message}`);
-      console.error(err);
-    }
-  }
 
   function renderTilesetCanvas() {
     if (!currentTilesetImage) return;
