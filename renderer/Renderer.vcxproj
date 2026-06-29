@@ -107,6 +107,8 @@
     <ClCompile Include="src\MapLoader.cpp" />
     <ClCompile Include="src\Viewport.cpp" />
     <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\TileRenderer.cpp" />
+    <ClCompile Include="src\WFCGenerator.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
