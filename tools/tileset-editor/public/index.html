@@ -115,6 +115,10 @@
             <label>Offset Y:</label>
             <input type="number" id="offset-y" value="0" min="0" max="512">
           </div>
+          <div class="control-group">
+            <label>Zoom:</label>
+            <input type="number" id="zoom-level" value="1" min="1" max="8" style="width:40px">
+          </div>
           <button class="btn btn-primary" id="save-tileset-btn">Save</button>
         </div>
         <div class="canvas-container">
@@ -122,8 +126,11 @@
         </div>
       </div>
 
-      <!-- Right Panel: Tile Info + Adjacency -->
+      <!-- Right Panel: Labels + Tile Info + Adjacency -->
       <div class="right-panel">
+        <h3>Tileset Labels</h3>
+        <div id="labels-panel"></div>
+        <hr style="border-color:#0f3460;margin:12px 0">
         <h3>Selected Tile</h3>
         <div id="tile-info-panel">
           <p style="color:#a0a0a0; font-size:12px;">Click a tile on the canvas to select it.</p>
@@ -149,7 +156,11 @@
           </select>
           <button class="btn btn-primary" id="le-load-btn" style="width:100%; margin-top:4px;">Load Tileset</button>
           <button class="btn btn-secondary" id="le-new-grid-btn" style="width:100%; margin-top:4px;">New Grid</button>
-          <button class="btn btn-primary" id="le-export-btn" style="width:100%; margin-top:8px;">Export Map JSON</button>
+          <label style="margin-top:8px">Filter by label:</label>
+          <select id="le-label-filter" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;margin-bottom:8px">
+            <option value="">All tiles</option>
+          </select>
+          <button class="btn btn-primary" id="le-export-btn" style="width:100%; margin-top:4px;">Export Map JSON</button>
         </div>
         <h3>Tile Palette</h3>
         <div class="palette" id="le-palette"></div>
