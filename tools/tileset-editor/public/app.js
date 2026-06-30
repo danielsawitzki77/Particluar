@@ -35,7 +35,8 @@
   document.getElementById('close-server-btn').addEventListener('click', async () => {
     if (!confirm('Shut down the Tileset Editor server?')) return;
     try { await fetch('/api/shutdown', { method: 'POST' }); } catch(e) {}
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif"><h1>Editor closed. You can close this tab.</h1></div>';
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif"><h1>Editor closed.</h1></div>';
+    setTimeout(() => window.close(), 1000);
   });
 
   function setStatus(msg) {
@@ -67,6 +68,7 @@
   let currentTilesetImage = null;
   let currentTilesetData = null; // { tiles: [], labels: [] }
   let selectedTileIndex = -1;
+  let highlightedCell = null; // {x, y, w, h} for a grid cell with no existing tile
 
   // --- Tileset list ---
   async function loadTilesetList() {
@@ -95,6 +97,7 @@
     currentSheetFilename = null;
     currentSheetBase = null;
     selectedTileIndex = -1;
+    highlightedCell = null;
     setStatus(`Loading tileset: ${name}...`);
     try {
       const res = await fetch(`/api/tilesets/${name}/sheets`);
@@ -134,6 +137,7 @@
     currentSheetFilename = filename;
     currentSheetBase = filename.replace(/\.[^/.]+$/, '');
     selectedTileIndex = -1;
+    highlightedCell = null;
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -180,16 +184,24 @@
     for (let y = offY; y <= tilesetCanvas.height; y += cellH) {
       ctx.beginPath(); ctx.moveTo(0, y+0.5); ctx.lineTo(tilesetCanvas.width, y+0.5); ctx.stroke();
     }
+    // Draw selected tile highlight (red)
     if (selectedTileIndex >= 0 && currentTilesetData && currentTilesetData.tiles[selectedTileIndex]) {
       const sr = currentTilesetData.tiles[selectedTileIndex].source_rect;
       ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
       ctx.strokeRect(sr.x*zoom+1, sr.y*zoom+1, sr.w*zoom-2, sr.h*zoom-2);
     }
+    // Draw highlighted cell (yellow/orange) for potential new tile
+    if (highlightedCell) {
+      ctx.strokeStyle = '#ff9800'; ctx.lineWidth = 3;
+      ctx.strokeRect(highlightedCell.x*zoom+1, highlightedCell.y*zoom+1, highlightedCell.w*zoom-2, highlightedCell.h*zoom-2);
+      ctx.fillStyle = 'rgba(255, 152, 0, 0.2)';
+      ctx.fillRect(highlightedCell.x*zoom+1, highlightedCell.y*zoom+1, highlightedCell.w*zoom-2, highlightedCell.h*zoom-2);
+    }
     // Draw outlines for all created tiles (subtle)
     if (currentTilesetData && currentTilesetData.tiles) {
       ctx.strokeStyle = 'rgba(79, 195, 247, 0.8)'; ctx.lineWidth = 1;
       currentTilesetData.tiles.forEach((t, i) => {
-        if (i === selectedTileIndex) return; // skip selected (drawn above)
+        if (i === selectedTileIndex) return;
         const sr = t.source_rect;
         ctx.strokeRect(sr.x*zoom+0.5, sr.y*zoom+0.5, sr.w*zoom-1, sr.h*zoom-1);
       });
@@ -218,29 +230,27 @@
     let foundIndex = -1;
     for (let i = 0; i < currentTilesetData.tiles.length; i++) {
       const sr = currentTilesetData.tiles[i].source_rect;
-      if (sr.x === tileX && sr.y === tileY && sr.w === cellW && sr.h === cellH) { foundIndex = i; break; }
+      if (sr.x === tileX && sr.y === tileY && sr.w === cellW && sr.h === cellH) {
+        foundIndex = i; break;
+      }
     }
 
     if (foundIndex >= 0) {
       // Select existing tile
       selectedTileIndex = foundIndex;
+      highlightedCell = null;
     } else if (tileX >= 0 && tileY >= 0 &&
                tileX + cellW <= currentTilesetImage.naturalWidth &&
                tileY + cellH <= currentTilesetImage.naturalHeight) {
-      // Create a new tile from this grid cell
-      const newId = `tile_${tileX}_${tileY}_${cellW}x${cellH}`;
-      currentTilesetData.tiles.push({
-        id: newId, source_rect: {x:tileX, y:tileY, w:cellW, h:cellH},
-        adjacency: {up:[],down:[],left:[],right:[]}, labels: []
-      });
-      foundIndex = currentTilesetData.tiles.length - 1;
-      selectedTileIndex = foundIndex;
-      setStatus(`Created tile '${newId}' (${cellW}x${cellH} at ${tileX},${tileY})`);
-      renderCreatedTilesList();
+      // Highlight this empty cell (do NOT auto-create)
+      highlightedCell = { x: tileX, y: tileY, w: cellW, h: cellH };
+      selectedTileIndex = -1;
+      setStatus(`Cell highlighted at (${tileX},${tileY}) ${cellW}x${cellH} — click "Create Tile" to add it.`);
     }
 
     renderTilesetCanvas();
     renderTileInfo();
+    renderCreatedTilesList();
   });
 
   // --- Created Tiles list (persists across grid changes) ---
@@ -248,11 +258,18 @@
     const container = document.getElementById('created-tiles-list');
     if (!container || !currentTilesetData) return;
     const tiles = currentTilesetData.tiles;
-    if (tiles.length === 0) {
-      container.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">Click grid cells to create tiles.</p>';
+    let html = '';
+
+    // Show "Create Tile" button if a cell is highlighted but no tile exists there
+    if (highlightedCell) {
+      html += `<button class="create-tile-btn" id="create-tile-btn">Create Tile at (${highlightedCell.x},${highlightedCell.y})</button>`;
+    }
+
+    if (tiles.length === 0 && !highlightedCell) {
+      html += '<p style="color:#a0a0a0;font-size:11px;">Click grid cells to highlight, then create tiles.</p>';
+      container.innerHTML = html;
       return;
     }
-    let html = '';
     tiles.forEach((t, i) => {
       const active = (i === selectedTileIndex) ? ' active' : '';
       html += `<div class="created-tile-item${active}" data-idx="${i}">
@@ -261,11 +278,33 @@
       </div>`;
     });
     container.innerHTML = html;
+
+    // Bind Create Tile button
+    const createBtn = document.getElementById('create-tile-btn');
+    if (createBtn) {
+      createBtn.addEventListener('click', () => {
+        if (!highlightedCell || !currentTilesetData) return;
+        const hc = highlightedCell;
+        const newId = `tile_${hc.x}_${hc.y}_${hc.w}x${hc.h}`;
+        currentTilesetData.tiles.push({
+          id: newId, source_rect: {x: hc.x, y: hc.y, w: hc.w, h: hc.h},
+          adjacency: {up:[],down:[],left:[],right:[]}, labels: []
+        });
+        selectedTileIndex = currentTilesetData.tiles.length - 1;
+        highlightedCell = null;
+        setStatus(`Created tile '${newId}' (${hc.w}x${hc.h} at ${hc.x},${hc.y})`);
+        renderTilesetCanvas();
+        renderTileInfo();
+        renderCreatedTilesList();
+      });
+    }
+
     // Click to select
     container.querySelectorAll('.created-tile-item').forEach(el => {
       el.addEventListener('click', (e) => {
         if (e.target.classList.contains('del-tile')) return;
         selectedTileIndex = parseInt(el.dataset.idx);
+        highlightedCell = null;
         renderTilesetCanvas();
         renderTileInfo();
         renderCreatedTilesList();
@@ -305,7 +344,7 @@
         currentTilesetData.labels.push(val);
         input.value = '';
         renderLabelsPanel();
-        renderTileInfo(); // refresh label assignment on selected tile
+        renderTileInfo();
       }
     });
     document.getElementById('new-label-input').addEventListener('keydown', (e) => {
@@ -315,7 +354,6 @@
       btn.addEventListener('click', () => {
         const idx = parseInt(btn.dataset.idx);
         const removed = currentTilesetData.labels.splice(idx, 1)[0];
-        // Also remove from all tiles
         currentTilesetData.tiles.forEach(t => {
           if (t.labels) t.labels = t.labels.filter(l => l !== removed);
         });
@@ -328,7 +366,11 @@
   // --- Tile info panel (with label assignment) ---
   function renderTileInfo() {
     if (selectedTileIndex < 0 || !currentTilesetData || !currentTilesetData.tiles[selectedTileIndex]) {
-      tileInfoPanel.innerHTML = '<p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>';
+      if (highlightedCell) {
+        tileInfoPanel.innerHTML = `<p style="color:#ff9800;font-size:12px;">Cell (${highlightedCell.x},${highlightedCell.y}) ${highlightedCell.w}x${highlightedCell.h} highlighted.<br>Click "Create Tile" above to add it.</p>`;
+      } else {
+        tileInfoPanel.innerHTML = '<p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>';
+      }
       return;
     }
     const tile = currentTilesetData.tiles[selectedTileIndex];
@@ -373,6 +415,7 @@
     // Bind ID change
     document.getElementById('tile-id-input').addEventListener('change', (e) => {
       currentTilesetData.tiles[selectedTileIndex].id = e.target.value;
+      renderCreatedTilesList();
     });
     // Bind label add
     const labelSelect = document.getElementById('add-tile-label-select');
@@ -412,7 +455,8 @@
       });
     });
     // Enter key for adjacency
-    directions.forEach(dir => {
+    const directions2 = ['up','down','left','right'];
+    directions2.forEach(dir => {
       const input = document.getElementById(`add-adj-${dir}`);
       if (input) input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); tileInfoPanel.querySelector(`.add-adj-btn[data-dir="${dir}"]`).click(); }
@@ -459,7 +503,7 @@
   let leTilesetImage = null;
   let leSelectedTileId = null;
   let leCellW = 32, leCellH = 32;
-  let leActiveLabelFilter = ''; // empty = show all
+  let leActiveLabelFilter = '';
 
   function populateLETilesetSelect(tilesets) {
     leTilesetSelect.innerHTML = '<option value="">-- Select Tileset --</option>';
