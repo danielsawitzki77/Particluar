@@ -480,16 +480,49 @@
   }
 
   // Save
+  // Save with overwrite confirmation and feedback
   saveTilesetBtn.addEventListener('click', async () => {
     if (!currentTilesetName || !currentTilesetData || !currentSheetBase) { setStatus('No sheet loaded'); return; }
+    // Check if file exists — ask for overwrite confirmation
+    try {
+      const existsRes = await fetch(`/api/tilesets/${currentTilesetName}/exists/${currentSheetBase}.json`);
+      if (existsRes.ok) {
+        const { exists } = await existsRes.json();
+        if (exists && !confirm(`Overwrite ${currentSheetBase}.json?`)) {
+          setStatus('Save cancelled'); return;
+        }
+      }
+    } catch (e) { /* proceed anyway */ }
     try {
       const res = await fetch(`/api/tilesets/${currentTilesetName}/json/${currentSheetBase}`, {
         method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(currentTilesetData)
       });
-      if (res.ok) setStatus(`Saved '${currentSheetBase}.json'`);
-      else setStatus('Error saving');
-    } catch (err) { setStatus(`Save error: ${err.message}`); }
+      if (res.ok) {
+        setStatus(`Saved '${currentSheetBase}.json'`);
+        alert('Saved successfully!');
+      } else {
+        const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+        setStatus(`Error: ${msg}`);
+        alert(`Save failed: ${msg}`);
+      }
+    } catch (err) { setStatus(`Save error: ${err.message}`); alert(`Save error: ${err.message}`); }
   });
+
+  // Open in Explorer button
+  const openExplorerBtn = document.getElementById('open-explorer-btn');
+  if (openExplorerBtn) {
+    openExplorerBtn.addEventListener('click', async () => {
+      if (!currentTilesetName) { setStatus('No tileset selected'); return; }
+      const file = currentSheetFilename || (currentSheetBase ? currentSheetBase + '.json' : '');
+      try {
+        await fetch(`/api/tilesets/${currentTilesetName}/open-explorer`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ file })
+        });
+        setStatus('Opened Explorer');
+      } catch (e) { setStatus('Failed to open Explorer'); }
+    });
+  }
 
   // Re-render on control changes
   [cellWidthInput, cellHeightInput, offsetXInput, offsetYInput, zoomInput].forEach(input => {
