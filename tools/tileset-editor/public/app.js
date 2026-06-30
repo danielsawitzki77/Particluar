@@ -491,23 +491,20 @@
     if (input) input.addEventListener('input', renderTilesetCanvas);
   });
 
-  // Step-8 spinners: sync with main cell size inputs
-  const cellWidth8 = document.getElementById('cell-width-8');
-  const cellHeight8 = document.getElementById('cell-height-8');
-  if (cellWidth8) {
-    cellWidth8.addEventListener('input', () => {
-      cellWidthInput.value = cellWidth8.value;
-      renderTilesetCanvas();
+  // Step buttons (▲▼ ±1, ▲▲▼▼ ±8, ▲▲▲▼▼▼ ±16)
+  document.querySelectorAll('.step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      const step = parseInt(btn.dataset.step) || 0;
+      const min = parseInt(target.min) || 0;
+      const max = target.max ? parseInt(target.max) : 9999;
+      let val = parseInt(target.value) || 0;
+      val = Math.max(min, Math.min(max, val + step));
+      target.value = val;
+      target.dispatchEvent(new Event('input'));
     });
-    cellWidthInput.addEventListener('input', () => { cellWidth8.value = cellWidthInput.value; });
-  }
-  if (cellHeight8) {
-    cellHeight8.addEventListener('input', () => {
-      cellHeightInput.value = cellHeight8.value;
-      renderTilesetCanvas();
-    });
-    cellHeightInput.addEventListener('input', () => { cellHeight8.value = cellHeightInput.value; });
-  }
+  });
 
   // ============================================================
   // LEVEL EDITOR (with label filter)
