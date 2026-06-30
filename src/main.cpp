@@ -13,6 +13,58 @@
 #include "MapLayer.h"
 #include "WFCGenerator.h"
 
+#include <windows.h>
+#include <vector>
+#include <string>
+
+// ---------------------------------------------------------------------------
+// Discover all JSON sidecar files recursively under assets/tilesets/
+// Returns paths like "assets/tilesets/grassland/ground_grasss.json"
+// ---------------------------------------------------------------------------
+static std::vector<std::string> FindAllTilesetJsons(const std::string& rootDir)
+{
+    std::vector<std::string> results;
+    std::vector<std::string> dirs;
+    dirs.push_back(rootDir);
+
+    while (!dirs.empty()) {
+        std::string dir = dirs.back();
+        dirs.pop_back();
+
+        WIN32_FIND_DATAA fd;
+        std::string pattern = dir + "\\*";
+        HANDLE hFind = FindFirstFileA(pattern.c_str(), &fd);
+        if (hFind == INVALID_HANDLE_VALUE) continue;
+
+        do {
+            std::string name = fd.cFileName;
+            if (name == "." || name == "..") continue;
+            std::string fullPath = dir + "\\" + name;
+
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                dirs.push_back(fullPath);
+            } else {
+                // Check if it's a .json file with a matching .png sibling
+                if (name.size() > 5 && name.substr(name.size() - 5) == ".json") {
+                    std::string baseName = name.substr(0, name.size() - 5);
+                    std::string pngPath = dir + "\\" + baseName + ".png";
+                    // Check PNG exists
+                    DWORD attr = GetFileAttributesA(pngPath.c_str());
+                    if (attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+                        // Convert backslashes to forward slashes for SDL
+                        std::string result = fullPath;
+                        for (char& c : result) { if (c == '\\') c = '/'; }
+                        results.push_back(result);
+                    }
+                }
+            }
+        } while (FindNextFileA(hFind, &fd));
+        FindClose(hFind);
+    }
+
+    return results;
+}
+
 // ---------------------------------------------------------------------------
 // Procedural test tileset creation (in-memory, no file required)
 // Creates a 64x64 surface with 4 colored 32x32 tiles: red, green, blue, yellow
@@ -180,25 +232,40 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // --- Load Tileset from disk (fallback to procedural test tileset) ---
-    Tileset tileset;
+    // --- Auto-discover and load all tilesets with JSON sidecars ---
+    std::vector<Tileset> allTilesets;
     TilesetLoader tilesetLoader;
-    // Load the grassland ground sheet specifically
-    if (!tilesetLoader.LoadTilesetFromJson(renderer, "assets/tilesets/grassland/ground_grasss.json", tileset)) {
-        // Fallback: try the test tileset
-        if (!tilesetLoader.LoadTileset(renderer, "assets/tilesets/test", tileset)) {
-            // Last resort: procedural
-            SDL_Log("[PoC] No disk tileset found, using procedural fallback.");
-            if (!CreateTestTileset(renderer, tileset)) {
-                SDL_Log("[PoC] Failed to create test tileset.");
-                SDL_DestroyRenderer(renderer);
-                SDL_DestroyWindow(window);
-                SDL_Quit();
-                return 1;
+    {
+        std::vector<std::string> jsonPaths = FindAllTilesetJsons("assets/tilesets");
+        SDL_Log("[PoC] Found %d tileset JSON(s) in assets/tilesets/", (int)jsonPaths.size());
+        for (const std::string& jsonPath : jsonPaths) {
+            Tileset ts;
+            if (tilesetLoader.LoadTilesetFromJson(renderer, jsonPath, ts)) {
+                SDL_Log("[PoC]   Loaded: %s (%d tiles)", jsonPath.c_str(), (int)ts.tiles.size());
+                allTilesets.push_back(ts);
+            } else {
+                SDL_Log("[PoC]   Failed: %s", jsonPath.c_str());
             }
         }
     }
 
+    // Fallback: procedural test tileset if nothing was found
+    if (allTilesets.empty()) {
+        SDL_Log("[PoC] No disk tilesets found, using procedural fallback.");
+        Tileset procTs;
+        if (CreateTestTileset(renderer, procTs)) {
+            allTilesets.push_back(procTs);
+        } else {
+            SDL_Log("[PoC] Failed to create test tileset.");
+            SDL_DestroyRenderer(renderer);
+            SDL_DestroyWindow(window);
+            SDL_Quit();
+            return 1;
+        }
+    }
+
+    // Use the first loaded tileset for the single-layer demo and WFC
+    Tileset& tileset = allTilesets[0];
     TilesetDef tilesetDef = BuildTilesetDef(tileset);
 
     // --- Create Initial Map ---
@@ -343,8 +410,8 @@ int main(int argc, char* argv[])
     }
 
     // --- Cleanup ---
-    if (tileset.texture) {
-        SDL_DestroyTexture(tileset.texture);
+    for (Tileset& ts : allTilesets) {
+        if (ts.texture) SDL_DestroyTexture(ts.texture);
     }
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
