@@ -5,6 +5,7 @@
 #include "TilesetLoader.h"
 #include "MapLoader.h"
 #include "MapLayer.h"
+#include "JigsawMap.h"
 #include <SDL3/SDL.h>
 #include <vector>
 
@@ -32,6 +33,18 @@ public:
         const Viewport& viewport,
         const Camera& camera,
         int base_tile_width, int base_tile_height
+    );
+
+    // Render visible jigsaw tiles for a single layer.
+    // Queries the JigsawMap's spatial index with the viewport rect,
+    // renders each tile at its absolute position, and applies layer config.
+    void RenderJigsawLayer(
+        SDL_Renderer* renderer,
+        const Tileset& tileset,
+        const JigsawMap& map,
+        const Viewport& viewport,
+        const Camera& camera,
+        const MapLayerConfig& config
     );
 
     // Set the fallback tile color for unresolved tile IDs.

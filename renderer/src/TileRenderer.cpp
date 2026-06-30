@@ -1,6 +1,7 @@
 #include "TileRenderer.h"
 #include <algorithm>
 #include <vector>
+#include <cstddef>
 
 void TileRenderer::RenderLayer(
     SDL_Renderer* renderer,
@@ -242,5 +243,110 @@ void TileRenderer::RenderLayers(
     }
 
     // Remove clip rect after rendering all layers
+    viewport.RemoveClip(renderer);
+}
+
+void TileRenderer::RenderJigsawLayer(
+    SDL_Renderer* renderer,
+    const Tileset& tileset,
+    const JigsawMap& map,
+    const Viewport& viewport,
+    const Camera& camera,
+    const MapLayerConfig& config)
+{
+    // Skip rendering when viewport is invalid
+    if (!viewport.IsValid()) {
+        return;
+    }
+
+    // Set sampling mode on the tileset texture
+    if (tileset.texture) {
+        SDL_ScaleMode scaleMode = (config.sampling == SamplingMode::Linear)
+            ? SDL_SCALEMODE_LINEAR
+            : SDL_SCALEMODE_NEAREST;
+        SDL_SetTextureScaleMode(tileset.texture, scaleMode);
+    }
+
+    // Apply clip rect to constrain drawing within viewport
+    viewport.ApplyClip(renderer);
+
+    const ViewportRect& vp = viewport.GetRect();
+    const float cam_x = camera.GetX();
+    const float cam_y = camera.GetY();
+    const float pivot_x = config.pivot_x;
+    const float pivot_y = config.pivot_y;
+    const float offset_x = config.offset_x;
+    const float offset_y = config.offset_y;
+    const float scale = config.scale;
+
+    // Compute the world-space rect visible in the viewport.
+    // Screen origin: the screen point where world (cam_x, cam_y) maps to.
+    // screen_origin_x = vp.x + pivot_x * vp.width + offset_x
+    // A world point (wx, wy) maps to screen:
+    //   sx = screen_origin_x + (wx - cam_x) * scale
+    //   sy = screen_origin_y + (wy - cam_y) * scale
+    // Inverting to find world rect from viewport edges:
+    //   wx = cam_x + (sx - screen_origin_x) / scale
+    float screen_origin_x = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width) + offset_x;
+    float screen_origin_y = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height) + offset_y;
+
+    // World-space coordinates at viewport edges
+    float world_left = cam_x + (static_cast<float>(vp.x) - screen_origin_x) / scale;
+    float world_top = cam_y + (static_cast<float>(vp.y) - screen_origin_y) / scale;
+    float world_right = cam_x + (static_cast<float>(vp.x + vp.width) - screen_origin_x) / scale;
+    float world_bottom = cam_y + (static_cast<float>(vp.y + vp.height) - screen_origin_y) / scale;
+
+    float query_w = world_right - world_left;
+    float query_h = world_bottom - world_top;
+
+    // Query the JigsawMap spatial index for tiles in the visible world rect
+    std::vector<const PlacedTile*> visibleTiles = map.QueryRect(world_left, world_top, query_w, query_h);
+
+    // Sort by y then x for deterministic render order (Property 14)
+    std::sort(visibleTiles.begin(), visibleTiles.end(),
+        [](const PlacedTile* a, const PlacedTile* b) {
+            if (a->y != b->y) return a->y < b->y;
+            return a->x < b->x;
+        });
+
+    // Render each visible tile
+    for (size_t i = 0; i < visibleTiles.size(); ++i) {
+        const PlacedTile& tile = *visibleTiles[i];
+
+        // Compute screen position from world position
+        float dest_x = screen_origin_x + (tile.x - cam_x) * scale;
+        float dest_y = screen_origin_y + (tile.y - cam_y) * scale;
+        float dest_w = tile.w * scale;
+        float dest_h = tile.h * scale;
+
+        SDL_FRect destRect = { dest_x, dest_y, dest_w, dest_h };
+
+        // Look up tile_id in tileset
+        auto it = tileset.id_index.find(tile.tile_id);
+        if (it != tileset.id_index.end()) {
+            // Resolved tile — render texture with source rect
+            const TileDef& tileDef = tileset.tiles[it->second];
+            const SourceRect& src = tileDef.source_rect;
+
+            SDL_FRect srcRect = {
+                static_cast<float>(src.x),
+                static_cast<float>(src.y),
+                static_cast<float>(src.w),
+                static_cast<float>(src.h)
+            };
+
+            // Apply alpha modulation
+            SDL_SetTextureAlphaMod(tileset.texture, config.alpha);
+
+            // Render the tile texture
+            SDL_RenderTexture(renderer, tileset.texture, &srcRect, &destRect);
+        } else {
+            // Unresolved tile ID — render magenta fallback rectangle
+            SDL_SetRenderDrawColor(renderer, m_fallback_r, m_fallback_g, m_fallback_b, config.alpha);
+            SDL_RenderFillRect(renderer, &destRect);
+        }
+    }
+
+    // Remove clip rect after rendering
     viewport.RemoveClip(renderer);
 }
