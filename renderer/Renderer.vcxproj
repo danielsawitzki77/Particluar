@@ -60,6 +60,7 @@
       <AdditionalIncludeDirectories>
         $(SolutionDir)renderer\include;
         $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
         $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -89,6 +90,7 @@
       <AdditionalIncludeDirectories>
         $(SolutionDir)renderer\include;
         $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
         $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>

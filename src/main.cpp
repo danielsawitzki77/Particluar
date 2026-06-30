@@ -178,14 +178,23 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    // --- Create Test Tileset ---
+    // --- Load Tileset from disk (fallback to procedural test tileset) ---
     Tileset tileset;
-    if (!CreateTestTileset(renderer, tileset)) {
-        SDL_Log("[PoC] Failed to create test tileset.");
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
+    TilesetLoader tilesetLoader;
+    // Try to load from assets/tilesets/grassland (first PNG sheet)
+    if (!tilesetLoader.LoadTileset(renderer, "assets/tilesets/grassland", tileset)) {
+        // Fallback: try the test tileset
+        if (!tilesetLoader.LoadTileset(renderer, "assets/tilesets/test", tileset)) {
+            // Last resort: procedural
+            SDL_Log("[PoC] No disk tileset found, using procedural fallback.");
+            if (!CreateTestTileset(renderer, tileset)) {
+                SDL_Log("[PoC] Failed to create test tileset.");
+                SDL_DestroyRenderer(renderer);
+                SDL_DestroyWindow(window);
+                SDL_Quit();
+                return 1;
+            }
+        }
     }
 
     TilesetDef tilesetDef = BuildTilesetDef(tileset);

@@ -1,5 +1,6 @@
 #include "TilesetLoader.h"
 #include <SDL3/SDL.h>
+#include <SDL3_image/SDL_image.h>
 #include <algorithm>
 #include <set>
 
@@ -178,25 +179,18 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
     std::string pngPath, jsonPath, name;
     FindTilesetFiles(folderPath, pngPath, jsonPath, name);
 
-    // Load spritesheet via SDL_LoadBMP (SDL3-only, no SDL_image dependency).
-    // For PNG support, swap this with IMG_LoadTexture when SDL_image is linked.
-    SDL_Surface* surface = SDL_LoadBMP(pngPath.c_str());
-    if (!surface) {
+    // Load spritesheet via SDL_image (supports PNG, BMP, etc.)
+    SDL_Texture* tex = IMG_LoadTexture(renderer, pngPath.c_str());
+    if (!tex) {
         SDL_Log("[TilesetLoader] Failed to load texture: %s - %s",
                 pngPath.c_str(), SDL_GetError());
         return false;
     }
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    int texW = surface->w;
-    int texH = surface->h;
-    SDL_DestroySurface(surface);
-
-    if (!tex) {
-        SDL_Log("[TilesetLoader] Failed to create texture: %s - %s",
-                pngPath.c_str(), SDL_GetError());
-        return false;
-    }
+    float fw = 0, fh = 0;
+    SDL_GetTextureSize(tex, &fw, &fh);
+    int texW = static_cast<int>(fw);
+    int texH = static_cast<int>(fh);
 
     // Parse sidecar JSON
     std::vector<TileDef> tiles;
