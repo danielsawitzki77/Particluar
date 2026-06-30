@@ -24,17 +24,28 @@ app.get('/level-editor', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
-// --- API: List tilesets ---
+// --- API: List tilesets (recursive — any folder containing PNGs) ---
 app.get('/api/tilesets', (req, res) => {
   try {
     if (!fs.existsSync(ASSETS_DIR)) {
       return res.json([]);
     }
-    const entries = fs.readdirSync(ASSETS_DIR, { withFileTypes: true });
-    const tilesets = entries
-      .filter(e => e.isDirectory())
-      .map(e => e.name);
-    res.json(tilesets);
+    const results: string[] = [];
+    function walkDir(dir: string, prefix: string) {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      const hasPngs = entries.some(e => !e.isDirectory() && e.name.toLowerCase().endsWith('.png'));
+      if (hasPngs && prefix) {
+        results.push(prefix);
+      }
+      for (const e of entries) {
+        if (e.isDirectory()) {
+          const subPath = prefix ? `${prefix}/${e.name}` : e.name;
+          walkDir(path.join(dir, e.name), subPath);
+        }
+      }
+    }
+    walkDir(ASSETS_DIR, '');
+    res.json(results);
   } catch (err) {
     console.error('Error listing tilesets:', err);
     res.status(500).json({ error: 'Failed to list tilesets' });

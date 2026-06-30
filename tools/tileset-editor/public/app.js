@@ -79,7 +79,12 @@
       tilesets.forEach(name => {
         const div = document.createElement('div');
         div.className = 'tileset-item';
-        div.textContent = name;
+        // Show folder icon + relative path
+        const parts = name.split('/');
+        const folderName = parts[parts.length - 1];
+        const pathPrefix = parts.length > 1 ? parts.slice(0, -1).join('/') + '/' : '';
+        div.innerHTML = `<span style="opacity:0.5;font-size:11px">${escapeHtml(pathPrefix)}</span>${escapeHtml(folderName)} <span style="opacity:0.4">📁</span>`;
+        div.dataset.path = name;
         div.addEventListener('click', () => selectTileset(name));
         tilesetList.appendChild(div);
       });
@@ -91,7 +96,7 @@
 
   async function selectTileset(name) {
     document.querySelectorAll('.tileset-item').forEach(el => {
-      el.classList.toggle('selected', el.textContent === name);
+      el.classList.toggle('selected', el.dataset.path === name);
     });
     currentTilesetName = name;
     currentSheetFilename = null;
