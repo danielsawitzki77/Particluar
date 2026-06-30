@@ -235,6 +235,16 @@
       }
     }
 
+    // If no exact grid match, try to find any existing tile whose rect contains the click point
+    if (foundIndex === -1) {
+      for (let i = 0; i < currentTilesetData.tiles.length; i++) {
+        const sr = currentTilesetData.tiles[i].source_rect;
+        if (clickX >= sr.x && clickX < sr.x + sr.w && clickY >= sr.y && clickY < sr.y + sr.h) {
+          foundIndex = i; break;
+        }
+      }
+    }
+
     if (foundIndex >= 0) {
       // Select existing tile
       selectedTileIndex = foundIndex;
@@ -480,6 +490,24 @@
   [cellWidthInput, cellHeightInput, offsetXInput, offsetYInput, zoomInput].forEach(input => {
     if (input) input.addEventListener('input', renderTilesetCanvas);
   });
+
+  // Step-8 spinners: sync with main cell size inputs
+  const cellWidth8 = document.getElementById('cell-width-8');
+  const cellHeight8 = document.getElementById('cell-height-8');
+  if (cellWidth8) {
+    cellWidth8.addEventListener('input', () => {
+      cellWidthInput.value = cellWidth8.value;
+      renderTilesetCanvas();
+    });
+    cellWidthInput.addEventListener('input', () => { cellWidth8.value = cellWidthInput.value; });
+  }
+  if (cellHeight8) {
+    cellHeight8.addEventListener('input', () => {
+      cellHeightInput.value = cellHeight8.value;
+      renderTilesetCanvas();
+    });
+    cellHeightInput.addEventListener('input', () => { cellHeight8.value = cellHeightInput.value; });
+  }
 
   // ============================================================
   // LEVEL EDITOR (with label filter)
