@@ -161,11 +161,26 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
         }
         // If adjacency is missing, treat as empty rules (all directions empty)
 
+        // Extract per-tile scale (optional, defaults to 1.0)
+        float tileScale = 1.0f;
+        {
+            double scaleVal = 0.0;
+            if (JsonUtil::GetDouble(tileObj, "scale", scaleVal)) {
+                tileScale = static_cast<float>(scaleVal);
+                if (tileScale <= 0.0f) {
+                    SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): invalid scale %.2f, using 1.0.",
+                            id.c_str(), i, tileScale);
+                    tileScale = 1.0f;
+                }
+            }
+        }
+
         // Tile is valid - add it
         TileDef tileDef;
         tileDef.id = id;
         tileDef.source_rect = sr;
         tileDef.adjacency = adj;
+        tileDef.scale = tileScale;
 
         seenIds.insert(id);
         outTiles.push_back(tileDef);
@@ -208,6 +223,23 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
     out.tiles = std::move(tiles);
     out.rawJson = rawJson;
 
+    // Extract per-sheet scale from JSON root (optional, default 1.0)
+    // Accepts both "scale" and "sheet_scale" field names for compatibility
+    out.sheet_scale = 1.0f;
+    if (rawJson.is<picojson::object>()) {
+        const picojson::object& rootObj = rawJson.get<picojson::object>();
+        double sheetScaleVal = 0.0;
+        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
+        if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
+            out.sheet_scale = static_cast<float>(sheetScaleVal);
+            if (out.sheet_scale <= 0.0f) {
+                SDL_Log("[TilesetLoader] Invalid sheet_scale %.2f, using 1.0.", out.sheet_scale);
+                out.sheet_scale = 1.0f;
+            }
+        }
+    }
+
     // Build id -> index map
     out.id_index.clear();
     for (size_t i = 0; i < out.tiles.size(); ++i) {
@@ -236,6 +268,23 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     out.texture_height = 0;
     out.tiles = std::move(tiles);
     out.rawJson = rawJson;
+
+    // Extract per-sheet scale from JSON root (optional, default 1.0)
+    // Accepts both "scale" and "sheet_scale" field names for compatibility
+    out.sheet_scale = 1.0f;
+    if (rawJson.is<picojson::object>()) {
+        const picojson::object& rootObj = rawJson.get<picojson::object>();
+        double sheetScaleVal = 0.0;
+        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
+        if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
+            out.sheet_scale = static_cast<float>(sheetScaleVal);
+            if (out.sheet_scale <= 0.0f) {
+                SDL_Log("[TilesetLoader] Invalid sheet_scale %.2f, using 1.0.", out.sheet_scale);
+                out.sheet_scale = 1.0f;
+            }
+        }
+    }
 
     // Build id -> index map
     out.id_index.clear();

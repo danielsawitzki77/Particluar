@@ -25,6 +25,9 @@ struct TileDef {
     std::string id;            // unique within tileset, 1-64 chars
     SourceRect source_rect;
     AdjacencyRules adjacency;
+    float scale;               // per-tile scale from JSON, default 1.0
+
+    TileDef() : scale(1.0f) {}
 };
 
 // Pure data version (no SDL_Texture) for CLI tools and WFC generator
@@ -32,9 +35,12 @@ struct TilesetDef {
     std::string name;
     int texture_width;     // 0 = not validated (LoadTilesetDef doesn't load texture)
     int texture_height;    // 0 = not validated
+    float sheet_scale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
     std::map<std::string, size_t> id_index; // id -> index in tiles vector
     picojson::value rawJson; // preserved for round-trip fidelity
+
+    TilesetDef() : texture_width(0), texture_height(0), sheet_scale(1.0f) {}
 };
 
 // Full version with texture for runtime rendering
@@ -42,9 +48,12 @@ struct Tileset {
     std::string name;
     SDL_Texture* texture;
     int texture_width, texture_height;
+    float sheet_scale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
     std::map<std::string, size_t> id_index; // id -> index in tiles vector
     picojson::value rawJson; // preserved for round-trip fidelity
+
+    Tileset() : texture(nullptr), texture_width(0), texture_height(0), sheet_scale(1.0f) {}
 };
 
 class TilesetLoader {

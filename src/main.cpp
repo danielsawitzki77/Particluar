@@ -1,5 +1,6 @@
 // Particluar — 2D Map System PoC
 // Tasks 9 & 11: WASD Camera Scrolling + Real-Time WFC Generation (G key)
+// Issue #91: Multi-Layer Rendering with Three-Level Scaling
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -9,6 +10,7 @@
 #include "TileRenderer.h"
 #include "TilesetLoader.h"
 #include "MapLoader.h"
+#include "MapLayer.h"
 #include "WFCGenerator.h"
 
 // ---------------------------------------------------------------------------
@@ -160,7 +162,7 @@ int main(int argc, char* argv[])
 
     // --- Create Window and Renderer ---
     SDL_Window* window = SDL_CreateWindow(
-        "Particluar - 2D Map PoC (WASD=scroll, G=generate)",
+        "Particluar - Multi-Layer PoC (WASD=scroll, G=generate)",
         cfg.viewport_width, cfg.viewport_height,
         0);
 
@@ -225,7 +227,7 @@ int main(int argc, char* argv[])
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
 
-    SDL_Log("[PoC] Running. WASD=scroll, G=regenerate map via WFC, ESC/close=quit");
+    SDL_Log("[PoC] Running. WASD=scroll, G=regenerate map via WFC, ESC/close=quit (2 layers active)");
 
     while (running) {
         // --- Delta time ---
@@ -289,22 +291,52 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
 
-        // Task 9.4: Compute visible tiles and render
-        VisibleTileRange visibleRange = viewport.ComputeVisibleTiles(
-            camera.GetX(), camera.GetY(),
-            camera.GetPivotX(), camera.GetPivotY(),
-            cfg.tile_width, cfg.tile_height);
+        // Issue #91: Multi-layer rendering demonstration
+        // Layer 0: Base ground layer (full opacity, no offset, nearest sampling)
+        MapLayer baseLayer;
+        {
+            MapLayerConfig layerCfg;
+            layerCfg.z_depth = 0;
+            layerCfg.alpha = 255;
+            layerCfg.pivot_x = camera.GetPivotX();
+            layerCfg.pivot_y = camera.GetPivotY();
+            layerCfg.offset_x = 0.0f;
+            layerCfg.offset_y = 0.0f;
+            layerCfg.scale = 1.0f;
+            layerCfg.sampling = SamplingMode::Nearest;
+            baseLayer.SetConfig(layerCfg);
+            baseLayer.SetMapData(activeMap);
+            baseLayer.SetTileset(&tileset);
+        }
 
-        tileRenderer.RenderLayer(
+        // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
+        // Demonstrates: different alpha, offset, z_depth, and scale mode per layer
+        MapLayer overlayLayer;
+        {
+            MapLayerConfig layerCfg;
+            layerCfg.z_depth = 1;           // drawn on top of base layer
+            layerCfg.alpha = 100;           // semi-transparent
+            layerCfg.pivot_x = camera.GetPivotX();
+            layerCfg.pivot_y = camera.GetPivotY();
+            layerCfg.offset_x = 16.0f;     // offset right by half a tile
+            layerCfg.offset_y = 16.0f;     // offset down by half a tile
+            layerCfg.scale = 1.0f;
+            layerCfg.sampling = SamplingMode::Linear;  // smooth filtering
+            overlayLayer.SetConfig(layerCfg);
+            overlayLayer.SetMapData(activeMap);
+            overlayLayer.SetTileset(&tileset);
+        }
+
+        std::vector<MapLayer> layers;
+        layers.push_back(baseLayer);
+        layers.push_back(overlayLayer);
+
+        tileRenderer.RenderLayers(
             renderer,
-            tileset,
-            activeMap,
-            visibleRange,
+            layers,
             viewport,
             camera,
-            cfg.tile_width, cfg.tile_height,
-            0,    // layer 0
-            255   // full opacity
+            cfg.tile_width, cfg.tile_height
         );
 
         SDL_RenderPresent(renderer);
