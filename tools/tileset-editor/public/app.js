@@ -46,6 +46,22 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // Helper to enable/disable sidebar buttons visually
+  function enableBtn(id, enabled) {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !enabled;
+    if (enabled) {
+      if (id === 'open-explorer-btn') {
+        btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:3px;cursor:pointer;font-size:11px;';
+      } else if (id === 'import-tmx-btn') {
+        btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#ff9800;border:1px solid #ff9800;border-radius:3px;cursor:pointer;font-size:11px;';
+      }
+    } else {
+      btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;';
+    }
+  }
+
   // ============================================================
   // TILESET CONFIGURATOR
   // ============================================================
@@ -113,6 +129,9 @@
     currentSheetBase = null;
     selectedTileIndex = -1;
     highlightedCell = null;
+    // Enable "Open in Explorer" now that a folder is picked
+    enableBtn('open-explorer-btn', true);
+    enableBtn('import-tmx-btn', false); // need a sheet first
     setStatus(`Loading tileset: ${name}...`);
     try {
       const res = await fetch(`/api/tilesets/${name}/sheets`);
@@ -178,7 +197,9 @@
       renderTileInfo();
       renderLabelsPanel();
       renderCreatedTilesList();
-      renderBlockersList();
+      if (typeof renderBlockersList === 'function') renderBlockersList();
+      // Enable import button now that a sheet is loaded
+      enableBtn('import-tmx-btn', true);
       setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles, ${blockerRects.length} blockers)`);
     } catch (err) { setStatus(`Error loading sheet: ${err.message}`); }
   }
@@ -618,101 +639,102 @@
     });
   }
 
-  // Import TMX button
+  // Import TMX button — opens a native file picker for .tmx files
   const importTmxBtn = document.getElementById('import-tmx-btn');
   if (importTmxBtn) {
-    importTmxBtn.addEventListener('click', async () => {
-      if (!currentTilesetName) { setStatus('Select a tileset folder first'); return; }
-      if (!currentSheetFilename) { setStatus('Load a spritesheet first, then import TMX'); return; }
-      try {
-        // List TMX files in this tileset folder
-        const res = await fetch(`/api/tilesets/${currentTilesetName}/tmx-files`);
-        const tmxFiles = await res.json();
-        if (!tmxFiles || tmxFiles.length === 0) {
-          alert('No .tmx files found in this tileset folder.');
-          return;
+    importTmxBtn.addEventListener('click', () => {
+      if (!currentTilesetName || !currentSheetFilename) return;
+      // Create a hidden file input filtered to .tmx
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = '.tmx';
+      fileInput.style.display = 'none';
+      document.body.appendChild(fileInput);
+      fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        document.body.removeChild(fileInput);
+        if (!file) return;
+        try {
+          const xmlText = await file.text();
+          // Parse tileset entries from the TMX XML
+          const tilesets = parseTmxTilesets(xmlText);
+          if (tilesets.length === 0) {
+            alert('No tileset definitions found in this TMX file.');
+            return;
+          }
+          // Auto-match by current sheet filename
+          let targetTs = tilesets.find(ts => ts.image === currentSheetFilename);
+          if (!targetTs) {
+            alert(`No tileset in "${file.name}" references "${currentSheetFilename}".\n\nFound: ${tilesets.map(ts => ts.image).join(', ')}`);
+            return;
+          }
+          // Generate tiles
+          const tw = targetTs.tilewidth;
+          const th = targetTs.tileheight;
+          const cols = targetTs.columns;
+          const count = targetTs.tilecount;
+          const newTiles = [];
+          for (let i = 0; i < count; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            newTiles.push({
+              id: `${targetTs.name}_${i}`,
+              source_rect: { x: col * tw, y: row * th, w: tw, h: th },
+              adjacency: { up: [], down: [], left: [], right: [] },
+              labels: []
+            });
+          }
+          if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th}, ${cols} cols) for "${currentSheetFilename}"?\n\nThis replaces current tiles.`)) {
+            return;
+          }
+          if (!currentTilesetData) currentTilesetData = { tiles: [], labels: [] };
+          currentTilesetData.tiles = newTiles;
+          selectedTileIndex = -1;
+          highlightedCell = null;
+          cellWidthInput.value = tw;
+          cellHeightInput.value = th;
+          renderTilesetCanvas();
+          renderTileInfo();
+          renderCreatedTilesList();
+          if (typeof renderBlockersList === 'function') renderBlockersList();
+          setStatus(`Imported ${newTiles.length} tiles from TMX "${targetTs.name}" — Save to persist.`);
+        } catch (err) {
+          alert(`TMX import failed: ${err.message}`);
         }
-        // Show a picker dropdown for the TMX file
-        let tmxFile = tmxFiles[0];
-        if (tmxFiles.length > 1) {
-          tmxFile = await showTmxPicker(tmxFiles);
-          if (!tmxFile) return;
-        }
-        // Parse the TMX
-        const parseRes = await fetch(`/api/tilesets/${currentTilesetName}/parse-tmx/${tmxFile}`);
-        const parsed = await parseRes.json();
-        if (!parsed.tilesets || parsed.tilesets.length === 0) {
-          alert('TMX file contains no tileset definitions.');
-          return;
-        }
-        // Auto-match: find the tileset entry whose image matches the currently loaded PNG
-        let targetTs = parsed.tilesets.find(ts => ts.image === currentSheetFilename);
-        if (!targetTs) {
-          alert(`No tileset in "${tmxFile}" references "${currentSheetFilename}".\n\nAvailable: ${parsed.tilesets.map(ts => ts.image).join(', ')}`);
-          return;
-        }
-        // Generate tile definitions from the TMX tileset partition
-        const tw = targetTs.tilewidth;
-        const th = targetTs.tileheight;
-        const cols = targetTs.columns;
-        const count = targetTs.tilecount;
-        const newTiles = [];
-        for (let i = 0; i < count; i++) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          newTiles.push({
-            id: `${targetTs.name}_${i}`,
-            source_rect: { x: col * tw, y: row * th, w: tw, h: th },
-            adjacency: { up: [], down: [], left: [], right: [] },
-            labels: []
-          });
-        }
-        if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th}, ${cols} cols) for "${currentSheetFilename}"?\n\nThis replaces current tiles.`)) {
-          return;
-        }
-        if (!currentTilesetData) currentTilesetData = { tiles: [], labels: [] };
-        currentTilesetData.tiles = newTiles;
-        selectedTileIndex = -1;
-        highlightedCell = null;
-        cellWidthInput.value = tw;
-        cellHeightInput.value = th;
-        renderTilesetCanvas();
-        renderTileInfo();
-        renderCreatedTilesList();
-        if (typeof renderBlockersList === 'function') renderBlockersList();
-        setStatus(`Imported ${newTiles.length} tiles from TMX "${targetTs.name}" — Save to persist.`);
-      } catch (err) {
-        setStatus(`TMX import error: ${err.message}`);
-        alert(`TMX import failed: ${err.message}`);
-      }
+      });
+      fileInput.click();
     });
   }
 
-  // TMX file picker helper (shows a mini modal)
-  function showTmxPicker(files) {
-    return new Promise((resolve) => {
-      const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999';
-      const box = document.createElement('div');
-      box.style.cssText = 'background:#16213e;border:2px solid #4fc3f7;border-radius:8px;padding:20px;min-width:300px;max-width:500px';
-      box.innerHTML = '<h3 style="color:#4fc3f7;margin-bottom:12px">Select TMX File</h3>';
-      files.forEach(f => {
-        const btn = document.createElement('button');
-        btn.textContent = f;
-        btn.style.cssText = 'display:block;width:100%;padding:10px;margin-bottom:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:4px;cursor:pointer;font-size:13px;text-align:left';
-        btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(f); });
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#4fc3f7'; btn.style.color = '#1a1a2e'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = '#0f3460'; btn.style.color = '#e0e0e0'; });
-        box.appendChild(btn);
+  // Parse TMX XML string and extract tileset partition info (client-side)
+  function parseTmxTilesets(xml) {
+    const results = [];
+    const blocks = xml.split(/<tileset\s+/);
+    blocks.shift(); // remove content before first tileset
+    for (const block of blocks) {
+      const attrStr = block.substring(0, block.indexOf('>'));
+      const getAttr = (name) => { const m = attrStr.match(new RegExp(name + '="([^"]+)"')); return m ? m[1] : ''; };
+      const imgMatch = block.match(/<image\s+([^>]+)\/?>/) ;
+      let imgSource = '', imgW = 0, imgH = 0;
+      if (imgMatch) {
+        const ia = imgMatch[1];
+        const getIA = (n) => { const m2 = ia.match(new RegExp(n + '="([^"]+)"')); return m2 ? m2[1] : ''; };
+        imgSource = getIA('source');
+        imgW = parseInt(getIA('width')) || 0;
+        imgH = parseInt(getIA('height')) || 0;
+      }
+      results.push({
+        name: getAttr('name'),
+        tilewidth: parseInt(getAttr('tilewidth')) || 16,
+        tileheight: parseInt(getAttr('tileheight')) || 16,
+        tilecount: parseInt(getAttr('tilecount')) || 0,
+        columns: parseInt(getAttr('columns')) || 1,
+        image: imgSource,
+        imagewidth: imgW,
+        imageheight: imgH
       });
-      const cancelBtn = document.createElement('button');
-      cancelBtn.textContent = 'Cancel';
-      cancelBtn.style.cssText = 'display:block;width:100%;padding:8px;margin-top:8px;background:#1a1a2e;color:#a0a0a0;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px';
-      cancelBtn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(null); });
-      box.appendChild(cancelBtn);
-      overlay.appendChild(box);
-      document.body.appendChild(overlay);
-    });
+    }
+    return results;
   }
 
   // Re-render on control changes
