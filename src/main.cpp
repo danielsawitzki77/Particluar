@@ -183,8 +183,8 @@ int main(int argc, char* argv[])
     // --- Load Tileset from disk (fallback to procedural test tileset) ---
     Tileset tileset;
     TilesetLoader tilesetLoader;
-    // Try to load from assets/tilesets/grassland (first PNG sheet)
-    if (!tilesetLoader.LoadTileset(renderer, "assets/tilesets/grassland", tileset)) {
+    // Load the grassland ground sheet specifically
+    if (!tilesetLoader.LoadTilesetFromJson(renderer, "assets/tilesets/grassland/ground_grasss.json", tileset)) {
         // Fallback: try the test tileset
         if (!tilesetLoader.LoadTileset(renderer, "assets/tilesets/test", tileset)) {
             // Last resort: procedural
