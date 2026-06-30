@@ -113,6 +113,7 @@
     <ClCompile Include="src\TileRenderer.cpp" />
     <ClCompile Include="src\WFCGenerator.cpp" />
     <ClCompile Include="src\SpatialIndex.cpp" />
+    <ClCompile Include="src\JigsawMap.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
