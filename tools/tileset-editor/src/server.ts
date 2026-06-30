@@ -254,6 +254,16 @@ app.get('/api/tilesets/:name/tmx-files', (req, res) => {
   res.json(tmxFiles);
 });
 
+// --- API: Serve raw TMX file content ---
+app.get('/api/tilesets/:name/tmx-raw/:filename', (req, res) => {
+  const { name, filename } = req.params;
+  const filePath = path.join(ASSETS_DIR, name, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: `TMX file not found: ${filename}` });
+  }
+  res.type('application/xml').sendFile(filePath);
+});
+
 // --- API: Parse a TMX file and extract tileset partition info ---
 app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
   const { name, filename } = req.params;
