@@ -259,6 +259,12 @@ void TileRenderer::RenderJigsawLayer(
         return;
     }
 
+    // NOTE (Req 9 — Border Overflow): This renderer intentionally does NOT clip
+    // tiles to the map boundary. Tiles at edges are allowed to overflow past the
+    // boundary. The only clipping applied is the viewport clip rect below, which
+    // constrains drawing to the screen region. This preserves visual continuity
+    // for tiles placed at the edge of a finite JigsawMap.
+
     // Set sampling mode on the tileset texture
     if (tileset.texture) {
         SDL_ScaleMode scaleMode = (config.sampling == SamplingMode::Linear)

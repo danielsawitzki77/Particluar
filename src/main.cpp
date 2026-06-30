@@ -1,6 +1,7 @@
 // Particluar — 2D Map System PoC
 // Tasks 9 & 11: WASD Camera Scrolling + Real-Time WFC Generation (G key)
 // Issue #91: Multi-Layer Rendering with Three-Level Scaling
+// Task 10: Jigsaw PoC integration (J key)
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -12,6 +13,7 @@
 #include "MapLoader.h"
 #include "MapLayer.h"
 #include "WFCGenerator.h"
+#include "ChunkManager.h"
 
 #include <windows.h>
 #include <vector>
@@ -214,7 +216,7 @@ int main(int argc, char* argv[])
 
     // --- Create Window and Renderer ---
     SDL_Window* window = SDL_CreateWindow(
-        "Particluar - Multi-Layer PoC (WASD=scroll, G=generate)",
+        "Particluar - Multi-Layer PoC (WASD=scroll, G=grid WFC, J=jigsaw WFC)",
         cfg.viewport_width, cfg.viewport_height,
         0);
 
@@ -290,11 +292,15 @@ int main(int argc, char* argv[])
     // --- WFC Generator ---
     WFCGenerator wfcGenerator;
 
+    // --- Jigsaw Map (Task 10: PoC integration) ---
+    JigsawMap jigsawMap;
+    bool useJigsawRendering = false;
+
     // --- Main Loop ---
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
 
-    SDL_Log("[PoC] Running. WASD=scroll, G=regenerate map via WFC, ESC/close=quit (2 layers active)");
+    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, ESC/close=quit (2 layers active)");
 
     while (running) {
         // --- Delta time ---
@@ -320,6 +326,7 @@ int main(int argc, char* argv[])
                 // Task 11.1: G-key triggers WFC generation
                 else if (event.key.scancode == SDL_SCANCODE_G && !event.key.repeat) {
                     SDL_Log("[PoC] Generating new map via WFC (64x64)...");
+                    useJigsawRendering = false;
 
                     Uint64 genStart = SDL_GetTicks();
 
@@ -347,6 +354,39 @@ int main(int argc, char* argv[])
                         SDL_Log("[PoC] WFC invalid input after %.3f seconds.", genTime);
                     }
                 }
+                // Task 10: J-key triggers jigsaw WFC generation on a 512x512 area
+                else if (event.key.scancode == SDL_SCANCODE_J && !event.key.repeat) {
+                    SDL_Log("[PoC] Generating jigsaw map (512x512)...");
+
+                    Uint64 genStart = SDL_GetTicks();
+
+                    JigsawWFCParams jParams;
+                    jParams.target_width = 512.0f;
+                    jParams.target_height = 512.0f;
+                    jParams.origin_x = 0.0f;
+                    jParams.origin_y = 0.0f;
+                    jParams.seed = 0; // non-deterministic
+                    jParams.tileset = &tilesetDef;
+                    jParams.layer_scale = 1.0f;
+
+                    JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
+
+                    Uint64 genEnd = SDL_GetTicks();
+                    float genTime = static_cast<float>(genEnd - genStart) / 1000.0f;
+
+                    if (jResult.status == WFCStatus::Success) {
+                        jigsawMap = jResult.map;
+                        useJigsawRendering = true;
+                        SDL_Log("[PoC] Jigsaw generation succeeded in %.3f seconds (%d tiles).",
+                                genTime, (int)jigsawMap.GetTileCount());
+                    }
+                    else if (jResult.status == WFCStatus::Contradiction) {
+                        SDL_Log("[PoC] Jigsaw WFC contradiction after %.3f seconds.", genTime);
+                    }
+                    else {
+                        SDL_Log("[PoC] Jigsaw WFC invalid input after %.3f seconds.", genTime);
+                    }
+                }
             }
         }
 
@@ -358,53 +398,69 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
 
-        // Issue #91: Multi-layer rendering demonstration
-        // Layer 0: Base ground layer (full opacity, no offset, nearest sampling)
-        MapLayer baseLayer;
-        {
-            MapLayerConfig layerCfg;
-            layerCfg.z_depth = 0;
-            layerCfg.alpha = 255;
-            layerCfg.pivot_x = camera.GetPivotX();
-            layerCfg.pivot_y = camera.GetPivotY();
-            layerCfg.offset_x = 0.0f;
-            layerCfg.offset_y = 0.0f;
-            layerCfg.scale = 1.0f;
-            layerCfg.sampling = SamplingMode::Nearest;
-            baseLayer.SetConfig(layerCfg);
-            baseLayer.SetMapData(activeMap);
-            baseLayer.SetTileset(&tileset);
+        if (useJigsawRendering) {
+            // Task 10: Render jigsaw map using RenderJigsawLayer
+            MapLayerConfig jigsawCfg;
+            jigsawCfg.z_depth = 0;
+            jigsawCfg.alpha = 255;
+            jigsawCfg.pivot_x = camera.GetPivotX();
+            jigsawCfg.pivot_y = camera.GetPivotY();
+            jigsawCfg.offset_x = 0.0f;
+            jigsawCfg.offset_y = 0.0f;
+            jigsawCfg.scale = 1.0f;
+            jigsawCfg.sampling = SamplingMode::Nearest;
+
+            tileRenderer.RenderJigsawLayer(
+                renderer, tileset, jigsawMap, viewport, camera, jigsawCfg);
+        } else {
+            // Legacy grid-based rendering (G-key / initial map)
+            // Issue #91: Multi-layer rendering demonstration
+            // Layer 0: Base ground layer (full opacity, no offset, nearest sampling)
+            MapLayer baseLayer;
+            {
+                MapLayerConfig layerCfg;
+                layerCfg.z_depth = 0;
+                layerCfg.alpha = 255;
+                layerCfg.pivot_x = camera.GetPivotX();
+                layerCfg.pivot_y = camera.GetPivotY();
+                layerCfg.offset_x = 0.0f;
+                layerCfg.offset_y = 0.0f;
+                layerCfg.scale = 1.0f;
+                layerCfg.sampling = SamplingMode::Nearest;
+                baseLayer.SetConfig(layerCfg);
+                baseLayer.SetMapData(activeMap);
+                baseLayer.SetTileset(&tileset);
+            }
+
+            // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
+            MapLayer overlayLayer;
+            {
+                MapLayerConfig layerCfg;
+                layerCfg.z_depth = 1;
+                layerCfg.alpha = 100;
+                layerCfg.pivot_x = camera.GetPivotX();
+                layerCfg.pivot_y = camera.GetPivotY();
+                layerCfg.offset_x = 16.0f;
+                layerCfg.offset_y = 16.0f;
+                layerCfg.scale = 1.0f;
+                layerCfg.sampling = SamplingMode::Linear;
+                overlayLayer.SetConfig(layerCfg);
+                overlayLayer.SetMapData(activeMap);
+                overlayLayer.SetTileset(&tileset);
+            }
+
+            std::vector<MapLayer> layers;
+            layers.push_back(baseLayer);
+            layers.push_back(overlayLayer);
+
+            tileRenderer.RenderLayers(
+                renderer,
+                layers,
+                viewport,
+                camera,
+                cfg.tile_width, cfg.tile_height
+            );
         }
-
-        // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
-        // Demonstrates: different alpha, offset, z_depth, and scale mode per layer
-        MapLayer overlayLayer;
-        {
-            MapLayerConfig layerCfg;
-            layerCfg.z_depth = 1;           // drawn on top of base layer
-            layerCfg.alpha = 100;           // semi-transparent
-            layerCfg.pivot_x = camera.GetPivotX();
-            layerCfg.pivot_y = camera.GetPivotY();
-            layerCfg.offset_x = 16.0f;     // offset right by half a tile
-            layerCfg.offset_y = 16.0f;     // offset down by half a tile
-            layerCfg.scale = 1.0f;
-            layerCfg.sampling = SamplingMode::Linear;  // smooth filtering
-            overlayLayer.SetConfig(layerCfg);
-            overlayLayer.SetMapData(activeMap);
-            overlayLayer.SetTileset(&tileset);
-        }
-
-        std::vector<MapLayer> layers;
-        layers.push_back(baseLayer);
-        layers.push_back(overlayLayer);
-
-        tileRenderer.RenderLayers(
-            renderer,
-            layers,
-            viewport,
-            camera,
-            cfg.tile_width, cfg.tile_height
-        );
 
         SDL_RenderPresent(renderer);
     }

@@ -114,6 +114,7 @@
     <ClCompile Include="src\WFCGenerator.cpp" />
     <ClCompile Include="src\SpatialIndex.cpp" />
     <ClCompile Include="src\JigsawMap.cpp" />
+    <ClCompile Include="src\ChunkManager.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
