@@ -538,12 +538,14 @@
       }
     } catch (e) { /* proceed anyway */ }
     try {
+      const saveData = Object.assign({}, currentTilesetData, { blockers: blockerRects });
       const res = await fetch(`/api/tilesets/${currentTilesetName}/json/${currentSheetBase}`, {
-        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(currentTilesetData)
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(saveData)
       });
       if (res.ok) {
-        setStatus(`Saved '${currentSheetBase}.json'`);
-        alert('Saved successfully!');
+        const blockerNote = blockerRects.length > 0 ? ` (includes ${blockerRects.length} blockers)` : '';
+        setStatus(`Saved '${currentSheetBase}.json'${blockerNote}`);
+        alert(`Saved successfully!${blockerNote}`);
       } else {
         const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
         setStatus(`Error: ${msg}`);
