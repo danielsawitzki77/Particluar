@@ -180,6 +180,68 @@ app.put('/api/tilesets/:name/json', (req, res) => {
   }
 });
 
+// --- API: Save blocker bitmap (base64 PNG) ---
+app.put('/api/tilesets/:name/blocker-bitmap/:sheetBase', (req, res) => {
+  const { name, sheetBase } = req.params;
+  const tilesetDir = path.join(ASSETS_DIR, name);
+
+  if (!fs.existsSync(tilesetDir)) {
+    return res.status(404).json({ error: `Tileset '${name}' not found` });
+  }
+
+  const { data } = req.body;
+  if (!data || typeof data !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid "data" field (expected base64 PNG)' });
+  }
+
+  try {
+    const buffer = Buffer.from(data, 'base64');
+    const outputPath = path.join(tilesetDir, `${sheetBase}_blockers.png`);
+    fs.writeFileSync(outputPath, buffer);
+    console.log(`Blocker bitmap saved: ${outputPath}`);
+    res.json({ success: true, path: `${sheetBase}_blockers.png` });
+  } catch (err) {
+    console.error(`Error writing blocker bitmap for '${name}/${sheetBase}':`, err);
+    res.status(500).json({ error: 'Failed to write blocker bitmap' });
+  }
+});
+
+// --- API: Check if file exists ---
+app.get('/api/tilesets/:name/exists/:filename', (req, res) => {
+  const { name, filename } = req.params;
+  const filePath = path.join(ASSETS_DIR, name, filename);
+  res.json({ exists: fs.existsSync(filePath) });
+});
+
+// --- API: Open in system file explorer ---
+app.post('/api/tilesets/:name/open-explorer', (req, res) => {
+  const name = req.params.name;
+  const tilesetDir = path.join(ASSETS_DIR, name);
+
+  if (!fs.existsSync(tilesetDir)) {
+    return res.status(404).json({ error: `Tileset '${name}' not found` });
+  }
+
+  const { file } = req.body || {};
+  let target = tilesetDir;
+  if (file) {
+    const filePath = path.join(tilesetDir, file);
+    if (fs.existsSync(filePath)) {
+      target = filePath;
+    }
+  }
+
+  if (process.platform === 'win32') {
+    exec(`explorer /select,"${target}"`);
+  } else if (process.platform === 'darwin') {
+    exec(`open -R "${target}"`);
+  } else {
+    exec(`xdg-open "${path.dirname(target)}"`);
+  }
+
+  res.json({ success: true });
+});
+
 // --- Shutdown endpoint (called by the Close button in the UI) ---
 app.post('/api/shutdown', (req, res) => {
   res.json({ message: 'Server shutting down...' });

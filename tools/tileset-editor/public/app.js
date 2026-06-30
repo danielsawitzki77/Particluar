@@ -73,10 +73,10 @@
   // --- Blocker state ---
   let blockerRects = [];
   let blockerDrawMode = false;
-  let blockerDisplay = 'outlines';
+  let blockerDisplay = 'outlines'; // 'off', 'outlines', 'overlay'
   let selectedBlockerIndex = -1;
-  let blockerUndoStack = [];
-  let blockerRedoStack = [];
+  let blockerHistory = [[]]; // snapshot-based history: array of blocker rect arrays
+  let blockerHistoryIndex = 0;
   let blockerDragStart = null; // {x, y} in source px
   let blockerDragCurrent = null; // {x, y} in source px
 
@@ -168,8 +168,8 @@
       // Load blockers from JSON
       blockerRects = Array.isArray(currentTilesetData.blockers) ? currentTilesetData.blockers.slice() : [];
       selectedBlockerIndex = -1;
-      blockerUndoStack = [];
-      blockerRedoStack = [];
+      blockerHistory = [blockerRects.map(r => ({...r}))];
+      blockerHistoryIndex = 0;
       if (currentTilesetData.tiles.length > 0 && currentTilesetData.tiles[0].source_rect) {
         cellWidthInput.value = currentTilesetData.tiles[0].source_rect.w || 32;
         cellHeightInput.value = currentTilesetData.tiles[0].source_rect.h || 32;
@@ -231,16 +231,23 @@
     if (blockerDisplay !== 'off' && blockerRects.length > 0) {
       blockerRects.forEach((r, i) => {
         const rx = r.x * zoom, ry = r.y * zoom, rw = r.w * zoom, rh = r.h * zoom;
-        if (blockerDisplay === 'filled') {
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+        if (blockerDisplay === 'overlay') {
+          // Overlay mode: semi-transparent red fill, NO outlines (except selected)
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.18)';
           ctx.fillRect(rx, ry, rw, rh);
-        }
-        if (i === selectedBlockerIndex) {
-          ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+          if (i === selectedBlockerIndex) {
+            ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+            ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+          }
         } else {
-          ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5;
+          // Outlines mode: red outlines only
+          if (i === selectedBlockerIndex) {
+            ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+          } else {
+            ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5;
+          }
+          ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
         }
-        ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
       });
     }
     // Draw in-progress blocker drag rect
@@ -545,6 +552,10 @@
       if (res.ok) {
         const blockerNote = blockerRects.length > 0 ? ` (includes ${blockerRects.length} blockers)` : '';
         setStatus(`Saved '${currentSheetBase}.json'${blockerNote}`);
+        // Export blocker bitmap if there are any blockers
+        if (blockerRects.length > 0 && currentTilesetImage) {
+          await exportBlockerBitmap();
+        }
         alert(`Saved successfully!${blockerNote}`);
       } else {
         const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
@@ -553,6 +564,43 @@
       }
     } catch (err) { setStatus(`Save error: ${err.message}`); alert(`Save error: ${err.message}`); }
   });
+
+  // Generate and upload blocker bitmap (black=blocked, white=passable)
+  async function exportBlockerBitmap() {
+    if (!currentTilesetImage || !currentTilesetName || !currentSheetBase) return;
+    const w = currentTilesetImage.naturalWidth;
+    const h = currentTilesetImage.naturalHeight;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    const octx = offscreen.getContext('2d');
+    // Fill white (passable)
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, w, h);
+    // Fill black (blocked) for each blocker rect
+    octx.fillStyle = '#000000';
+    blockerRects.forEach(r => {
+      octx.fillRect(r.x, r.y, r.w, r.h);
+    });
+    // Export as PNG data URL
+    const dataUrl = offscreen.toDataURL('image/png');
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+    try {
+      const res = await fetch(`/api/tilesets/${currentTilesetName}/blocker-bitmap/${currentSheetBase}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64 })
+      });
+      if (res.ok) {
+        setStatus(`Blocker bitmap saved: ${currentSheetBase}_blockers.png`);
+      } else {
+        const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+        console.error('Blocker bitmap save failed:', msg);
+      }
+    } catch (err) {
+      console.error('Blocker bitmap export error:', err.message);
+    }
+  }
 
   // Open in Explorer button
   const openExplorerBtn = document.getElementById('open-explorer-btn');
@@ -666,13 +714,20 @@
 
     const newRect = { x: x, y: y, w: w, h: h };
     blockerRects.push(newRect);
-    blockerUndoStack.push({ action: 'add', index: blockerRects.length - 1, rect: newRect });
-    blockerRedoStack = [];
+    pushBlockerHistory();
     selectedBlockerIndex = blockerRects.length - 1;
     setStatus(`Blocker added: (${x},${y}) ${w}×${h}`);
     renderTilesetCanvas();
     renderBlockersList();
   });
+
+  // Helper: push current blocker state to history (call after any modification)
+  function pushBlockerHistory() {
+    // Trim any redo states beyond current index
+    blockerHistory = blockerHistory.slice(0, blockerHistoryIndex + 1);
+    blockerHistory.push(blockerRects.map(r => ({...r})));
+    blockerHistoryIndex = blockerHistory.length - 1;
+  }
 
   // Undo/Redo for blockers (Ctrl+Z / Ctrl+Y)
   document.addEventListener('keydown', (e) => {
@@ -682,32 +737,19 @@
 
     if (e.ctrlKey && e.key === 'z') {
       e.preventDefault();
-      if (blockerUndoStack.length === 0) return;
-      const op = blockerUndoStack.pop();
-      if (op.action === 'add') {
-        blockerRects.splice(op.index, 1);
-        blockerRedoStack.push(op);
-        if (selectedBlockerIndex >= blockerRects.length) selectedBlockerIndex = -1;
-      } else if (op.action === 'remove') {
-        blockerRects.splice(op.index, 0, op.rect);
-        blockerRedoStack.push(op);
-      }
+      if (blockerHistoryIndex <= 0) return;
+      blockerHistoryIndex--;
+      blockerRects = blockerHistory[blockerHistoryIndex].map(r => ({...r}));
+      selectedBlockerIndex = -1;
       renderTilesetCanvas();
       renderBlockersList();
       setStatus('Blocker undo');
     } else if (e.ctrlKey && e.key === 'y') {
       e.preventDefault();
-      if (blockerRedoStack.length === 0) return;
-      const op = blockerRedoStack.pop();
-      if (op.action === 'add') {
-        blockerRects.splice(op.index, 0, op.rect);
-        blockerUndoStack.push(op);
-        selectedBlockerIndex = op.index;
-      } else if (op.action === 'remove') {
-        blockerRects.splice(op.index, 1);
-        blockerUndoStack.push(op);
-        if (selectedBlockerIndex >= blockerRects.length) selectedBlockerIndex = -1;
-      }
+      if (blockerHistoryIndex >= blockerHistory.length - 1) return;
+      blockerHistoryIndex++;
+      blockerRects = blockerHistory[blockerHistoryIndex].map(r => ({...r}));
+      selectedBlockerIndex = -1;
       renderTilesetCanvas();
       renderBlockersList();
       setStatus('Blocker redo');
@@ -747,8 +789,7 @@
         e.stopPropagation();
         const idx = parseInt(btn.dataset.idx);
         const removed = blockerRects.splice(idx, 1)[0];
-        blockerUndoStack.push({ action: 'remove', index: idx, rect: removed });
-        blockerRedoStack = [];
+        pushBlockerHistory();
         if (selectedBlockerIndex === idx) selectedBlockerIndex = -1;
         else if (selectedBlockerIndex > idx) selectedBlockerIndex--;
         renderTilesetCanvas();
