@@ -20,6 +20,11 @@ The following repos are monitored for issues:
 ### Exclusion Filter
 
 - **Skip issues with the `Draft` label.** These are not ready for automated pickup. Do not assign, comment, or work on them. Treat them as invisible during issue scanning.
+- **Only pick up issues that have the `Ready for Pickup` label.** Issues without this label are not eligible for automated work, even if they have no `Draft` label. Treat unlabeled issues as invisible during scanning.
+
+In summary, an issue is eligible for pickup if and only if:
+1. It does NOT have the `Draft` label, AND
+2. It DOES have the `Ready for Pickup` label.
 
 ### Priority Order
 

@@ -1,0 +1,53 @@
+{
+  "tiles": [
+    {
+      "id": "tile_0_0_48x48",
+      "source_rect": {
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 48
+      },
+      "adjacency": {
+        "up": [],
+        "down": [],
+        "left": [],
+        "right": []
+      },
+      "labels": []
+    },
+    {
+      "id": "tile_0_48_48x32",
+      "source_rect": {
+        "x": 0,
+        "y": 48,
+        "w": 48,
+        "h": 32
+      },
+      "adjacency": {
+        "up": [],
+        "down": [],
+        "left": [],
+        "right": []
+      },
+      "labels": []
+    },
+    {
+      "id": "tile_117_0_38x48",
+      "source_rect": {
+        "x": 117,
+        "y": 0,
+        "w": 38,
+        "h": 48
+      },
+      "adjacency": {
+        "up": [],
+        "down": [],
+        "left": [],
+        "right": []
+      },
+      "labels": []
+    }
+  ],
+  "labels": []
+}

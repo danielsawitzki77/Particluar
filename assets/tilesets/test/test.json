@@ -1,0 +1,44 @@
+{
+  "tiles": [
+    {
+      "id": "red",
+      "source_rect": { "x": 0, "y": 0, "w": 32, "h": 32 },
+      "adjacency": {
+        "up": ["red", "green", "blue", "yellow"],
+        "down": ["red", "green", "blue", "yellow"],
+        "left": ["red", "green", "blue", "yellow"],
+        "right": ["red", "green", "blue", "yellow"]
+      }
+    },
+    {
+      "id": "green",
+      "source_rect": { "x": 32, "y": 0, "w": 32, "h": 32 },
+      "adjacency": {
+        "up": ["red", "green", "blue", "yellow"],
+        "down": ["red", "green", "blue", "yellow"],
+        "left": ["red", "green", "blue", "yellow"],
+        "right": ["red", "green", "blue", "yellow"]
+      }
+    },
+    {
+      "id": "blue",
+      "source_rect": { "x": 0, "y": 32, "w": 32, "h": 32 },
+      "adjacency": {
+        "up": ["red", "green", "blue", "yellow"],
+        "down": ["red", "green", "blue", "yellow"],
+        "left": ["red", "green", "blue", "yellow"],
+        "right": ["red", "green", "blue", "yellow"]
+      }
+    },
+    {
+      "id": "yellow",
+      "source_rect": { "x": 32, "y": 32, "w": 32, "h": 32 },
+      "adjacency": {
+        "up": ["red", "green", "blue", "yellow"],
+        "down": ["red", "green", "blue", "yellow"],
+        "left": ["red", "green", "blue", "yellow"],
+        "right": ["red", "green", "blue", "yellow"]
+      }
+    }
+  ]
+}

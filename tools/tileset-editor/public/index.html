@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particluar — Tileset Editor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Tab Bar */
+    .tab-bar { display: flex; background: #16213e; border-bottom: 2px solid #0f3460; align-items: center; flex-shrink: 0; }
+    .tab-btn { padding: 12px 24px; cursor: pointer; border: none; background: transparent; color: #a0a0a0; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+    .tab-btn:hover { color: #e0e0e0; background: #1a1a2e; }
+    .tab-btn.active { color: #4fc3f7; border-bottom: 2px solid #4fc3f7; background: #1a1a2e; }
+    .close-btn { margin-left: auto; padding: 8px 16px; margin-right: 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .close-btn:hover { background: #ff4444; }
+
+    /* Main Content */
+    .tab-content { display: none; flex: 1; overflow: hidden; min-height: 0; }
+    .tab-content.active { display: flex; }
+
+    /* Tileset Configurator Layout */
+    #configurator { display: flex; height: 100%; min-height: 0; overflow: hidden; }
+    .sidebar { width: 200px; min-width: 200px; background: #16213e; padding: 12px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
+    .sidebar h3 { margin-bottom: 8px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; }
+    .tileset-item { padding: 8px 12px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
+    .tileset-item:hover { background: #1a1a2e; }
+    .tileset-item.selected { background: #0f3460; color: #4fc3f7; }
+    .sheet-select { width: 100%; padding: 6px; margin-top: 8px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; }
+
+    .main-area { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+    .controls-bar { display: flex; gap: 6px; padding: 6px 10px; background: #16213e; border-bottom: 1px solid #0f3460; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+    .control-group { display: flex; align-items: center; gap: 2px; padding-right: 10px; margin-right: 4px; border-right: 1px solid #0f3460; }
+    .control-group:last-of-type { border-right: none; padding-right: 0; margin-right: 0; }
+    .control-group label { font-size: 12px; color: #a0a0a0; white-space: nowrap; margin-right: 2px; }
+    .control-group input[type="number"] {
+      width: 60px; padding: 6px 4px; background: #1a1a2e; border: 1px solid #0f3460;
+      color: #e0e0e0; border-radius: 3px; font-size: 15px; text-align: center;
+      -moz-appearance: textfield;
+    }
+    .control-group input[type="number"]::-webkit-inner-spin-button,
+    .control-group input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    /* Custom step buttons */
+    .step-btns { display: flex; flex-direction: column; gap: 1px; margin-left: 1px; }
+    .step-btn { width: 22px; height: 14px; border: 1px solid #0f3460; background: #1a1a2e; color: #4fc3f7; font-size: 8px; line-height: 12px; text-align: center; cursor: pointer; border-radius: 2px; padding: 0; }
+    .step-btn:hover { background: #0f3460; }
+    .step-btn:active { background: #4fc3f7; color: #1a1a2e; }
+
+    .canvas-wrapper { flex: 1 1 0; overflow: auto; background: #0d0d1a; min-height: 0; min-width: 0; }
+    .canvas-wrapper canvas { display: block; cursor: crosshair; }
+
+    /* Right Panel — FIXED position in flex, never scrolls with canvas */
+    .right-panel { width: 300px; min-width: 300px; max-width: 300px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; flex-grow: 0; }
+    .right-panel h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; }
+    .right-panel-section { padding: 8px 12px; border-bottom: 1px solid #0f3460; }
+
+    /* Created tiles list */
+    .created-tile-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; margin-bottom: 2px; border-radius: 3px; font-size: 12px; cursor: pointer; }
+    .created-tile-item:hover { background: #1a1a2e; }
+    .created-tile-item.active { background: #0f3460; color: #4fc3f7; }
+    .created-tile-item .del-tile { color: #ff6b6b; cursor: pointer; font-weight: bold; padding: 0 4px; }
+
+    /* Tile info panel */
+    .tile-info { font-size: 12px; margin-bottom: 8px; }
+    .tile-info input { margin-top: 2px; }
+    .adjacency-section { margin-top: 8px; }
+    .adjacency-section h4 { font-size: 11px; color: #4fc3f7; margin-bottom: 4px; text-transform: uppercase; }
+    .adjacency-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    .adj-tag { background: #0f3460; padding: 2px 8px; border-radius: 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .adj-tag .remove-btn, .adj-tag .remove-label-btn, .adj-tag .remove-tile-label { cursor: pointer; color: #ff6b6b; font-weight: bold; }
+    .add-adj-row { display: flex; gap: 4px; margin-top: 4px; }
+    .add-adj-row input { flex: 1; padding: 4px 6px; background: #0d0d1a; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 11px; }
+    .add-adj-row button { padding: 4px 8px; background: #4fc3f7; color: #1a1a2e; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; font-size: 12px; }
+
+    /* Create Tile button */
+    .create-tile-btn { display: block; width: 100%; padding: 10px; margin-top: 8px; background: #ff9800; color: #1a1a2e; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 700; text-align: center; }
+    .create-tile-btn:hover { background: #ffb74d; }
+
+    /* Level Editor */
+    .le-layout { display: flex; height: 100%; min-height: 0; }
+    .le-sidebar { width: 220px; min-width: 220px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
+    .le-sidebar h3 { color: #4fc3f7; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; }
+    .le-sidebar label { font-size: 12px; color: #a0a0a0; }
+    .le-sidebar input, .le-sidebar select { width: 100%; padding: 6px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; margin-bottom: 4px; }
+    .le-sidebar button { padding: 8px; background: #4fc3f7; color: #1a1a2e; border: none; border-radius: 3px; cursor: pointer; font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+    .le-sidebar button:hover { background: #81d4fa; }
+    .le-canvas-area { flex: 1; overflow: auto; background: #0d0d1a; min-width: 0; }
+    .le-canvas-area canvas { display: block; }
+    .palette-wrap { max-height: 300px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
+    .palette-tile { border: 2px solid transparent; border-radius: 3px; cursor: pointer; }
+    .palette-tile:hover { border-color: #4fc3f7; }
+    .palette-tile.selected { border-color: #ff6b6b; }
+    .palette-tile canvas { display: block; width: 48px; height: 48px; image-rendering: pixelated; }
+
+    /* Status bar */
+    .status-bar { padding: 4px 12px; background: #0f3460; font-size: 11px; color: #a0a0a0; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="configurator">Tileset Configurator</button>
+    <button class="tab-btn" data-tab="level-editor">Level Editor</button>
+    <button class="close-btn" id="close-server-btn">Close Editor</button>
+  </div>
+
+  <!-- Tileset Configurator -->
+  <div class="tab-content active" id="tab-configurator">
+    <div id="configurator">
+      <!-- Left Sidebar -->
+      <div class="sidebar">
+        <h3>📁 Tileset Folders</h3>
+        <div id="tileset-list"></div>
+        <select id="sheet-select" class="sheet-select" disabled>
+          <option value="">Select tileset first</option>
+        </select>
+      </div>
+
+      <!-- Middle: Controls + Canvas (scrollable) -->
+      <div class="main-area">
+        <div class="controls-bar">
+          <div class="control-group">
+            <label>Cell W:</label>
+            <input type="number" id="cell-width" value="32" min="1">
+            <div class="step-btns"><button class="step-btn" data-target="cell-width" data-step="1">▲</button><button class="step-btn" data-target="cell-width" data-step="-1">▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="cell-width" data-step="8">▲▲</button><button class="step-btn" data-target="cell-width" data-step="-8">▼▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="cell-width" data-step="16">▲▲▲</button><button class="step-btn" data-target="cell-width" data-step="-16">▼▼▼</button></div>
+          </div>
+          <div class="control-group">
+            <label>Cell H:</label>
+            <input type="number" id="cell-height" value="32" min="1">
+            <div class="step-btns"><button class="step-btn" data-target="cell-height" data-step="1">▲</button><button class="step-btn" data-target="cell-height" data-step="-1">▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="cell-height" data-step="8">▲▲</button><button class="step-btn" data-target="cell-height" data-step="-8">▼▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="cell-height" data-step="16">▲▲▲</button><button class="step-btn" data-target="cell-height" data-step="-16">▼▼▼</button></div>
+          </div>
+          <div class="control-group">
+            <label>Off X:</label>
+            <input type="number" id="offset-x" value="0" min="0">
+            <div class="step-btns"><button class="step-btn" data-target="offset-x" data-step="1">▲</button><button class="step-btn" data-target="offset-x" data-step="-1">▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="offset-x" data-step="8">▲▲</button><button class="step-btn" data-target="offset-x" data-step="-8">▼▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="offset-x" data-step="16">▲▲▲</button><button class="step-btn" data-target="offset-x" data-step="-16">▼▼▼</button></div>
+          </div>
+          <div class="control-group">
+            <label>Off Y:</label>
+            <input type="number" id="offset-y" value="0" min="0">
+            <div class="step-btns"><button class="step-btn" data-target="offset-y" data-step="1">▲</button><button class="step-btn" data-target="offset-y" data-step="-1">▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="offset-y" data-step="8">▲▲</button><button class="step-btn" data-target="offset-y" data-step="-8">▼▼</button></div>
+            <div class="step-btns"><button class="step-btn" data-target="offset-y" data-step="16">▲▲▲</button><button class="step-btn" data-target="offset-y" data-step="-16">▼▼▼</button></div>
+          </div>
+          <div class="control-group">
+            <label>Zoom:</label>
+            <input type="number" id="zoom-level" value="2" min="1" max="8">
+            <div class="step-btns"><button class="step-btn" data-target="zoom-level" data-step="1">▲</button><button class="step-btn" data-target="zoom-level" data-step="-1">▼</button></div>
+          </div>
+          <button id="save-tileset-btn" style="padding:6px 14px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Save</button>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="tileset-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Right Panel (fixed, no scroll with canvas) -->
+      <div class="right-panel">
+        <h3>Labels</h3>
+        <div class="right-panel-section" id="labels-panel"></div>
+
+        <h3>Created Tiles</h3>
+        <div class="right-panel-section" id="created-tiles-list"></div>
+
+        <h3>Selected Tile</h3>
+        <div class="right-panel-section" id="tile-info-panel">
+          <p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Editor -->
+  <div class="tab-content" id="tab-level-editor">
+    <div class="le-layout">
+      <div class="le-sidebar">
+        <h3>Level Editor</h3>
+        <label>Tileset:</label>
+        <select id="le-tileset-select"></select>
+        <button id="le-load-btn">Load Tileset</button>
+        <label>Filter by label:</label>
+        <select id="le-label-filter"><option value="">All tiles</option></select>
+        <hr style="border-color:#0f3460;margin:8px 0;">
+        <label>Grid W:</label>
+        <input type="number" id="le-width" value="16" min="1" max="256">
+        <label>Grid H:</label>
+        <input type="number" id="le-height" value="16" min="1" max="256">
+        <button id="le-new-grid-btn">New Grid</button>
+        <button id="le-export-btn">Export JSON</button>
+        <hr style="border-color:#0f3460;margin:8px 0;">
+        <h3>Palette</h3>
+        <div id="le-palette" class="palette-wrap"></div>
+      </div>
+      <div class="le-canvas-area">
+        <canvas id="level-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="status-bar">Ready</div>
+
+  <script src="app.js"></script>
+</body>
+</html>

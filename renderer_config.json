@@ -1,0 +1,9 @@
+{
+  "tile_width": 32,
+  "tile_height": 32,
+  "viewport_x": 0,
+  "viewport_y": 0,
+  "viewport_width": 800,
+  "viewport_height": 600,
+  "scroll_speed": 200.0
+}
