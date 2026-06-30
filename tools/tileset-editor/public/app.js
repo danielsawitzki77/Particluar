@@ -70,6 +70,16 @@
   let selectedTileIndex = -1;
   let highlightedCell = null; // {x, y, w, h} for a grid cell with no existing tile
 
+  // --- Blocker state ---
+  let blockerRects = [];
+  let blockerDrawMode = false;
+  let blockerDisplay = 'outlines';
+  let selectedBlockerIndex = -1;
+  let blockerUndoStack = [];
+  let blockerRedoStack = [];
+  let blockerDragStart = null; // {x, y} in source px
+  let blockerDragCurrent = null; // {x, y} in source px
+
   // --- Tileset list ---
   async function loadTilesetList() {
     try {
@@ -155,6 +165,11 @@
       currentTilesetData = await res.json();
       if (!currentTilesetData.tiles) currentTilesetData.tiles = [];
       if (!currentTilesetData.labels) currentTilesetData.labels = [];
+      // Load blockers from JSON
+      blockerRects = Array.isArray(currentTilesetData.blockers) ? currentTilesetData.blockers.slice() : [];
+      selectedBlockerIndex = -1;
+      blockerUndoStack = [];
+      blockerRedoStack = [];
       if (currentTilesetData.tiles.length > 0 && currentTilesetData.tiles[0].source_rect) {
         cellWidthInput.value = currentTilesetData.tiles[0].source_rect.w || 32;
         cellHeightInput.value = currentTilesetData.tiles[0].source_rect.h || 32;
@@ -163,7 +178,8 @@
       renderTileInfo();
       renderLabelsPanel();
       renderCreatedTilesList();
-      setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles)`);
+      renderBlockersList();
+      setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles, ${blockerRects.length} blockers)`);
     } catch (err) { setStatus(`Error loading sheet: ${err.message}`); }
   }
 
@@ -211,10 +227,38 @@
         ctx.strokeRect(sr.x*zoom+0.5, sr.y*zoom+0.5, sr.w*zoom-1, sr.h*zoom-1);
       });
     }
+    // Draw blocker rectangles (respecting display mode)
+    if (blockerDisplay !== 'off' && blockerRects.length > 0) {
+      blockerRects.forEach((r, i) => {
+        const rx = r.x * zoom, ry = r.y * zoom, rw = r.w * zoom, rh = r.h * zoom;
+        if (blockerDisplay === 'filled') {
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+          ctx.fillRect(rx, ry, rw, rh);
+        }
+        if (i === selectedBlockerIndex) {
+          ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+        } else {
+          ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5;
+        }
+        ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+      });
+    }
+    // Draw in-progress blocker drag rect
+    if (blockerDragStart && blockerDragCurrent) {
+      const x = Math.min(blockerDragStart.x, blockerDragCurrent.x) * zoom;
+      const y = Math.min(blockerDragStart.y, blockerDragCurrent.y) * zoom;
+      const w = Math.abs(blockerDragCurrent.x - blockerDragStart.x) * zoom;
+      const h = Math.abs(blockerDragCurrent.y - blockerDragStart.y) * zoom;
+      ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.setLineDash([]);
+    }
   }
 
   // --- Canvas click: select existing tile OR highlight grid cell for creation ---
   tilesetCanvas.addEventListener('click', (e) => {
+    if (blockerDrawMode) return; // blocker mode handles its own mouse events
     if (!currentTilesetData || !currentTilesetImage) return;
     const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
     const rect = tilesetCanvas.getBoundingClientRect();
@@ -543,6 +587,174 @@
       target.dispatchEvent(new Event('input'));
     });
   });
+
+  // ============================================================
+  // BLOCKER DRAWING & MANAGEMENT
+  // ============================================================
+
+  const drawBlockerBtn = document.getElementById('draw-blocker-btn');
+  const blockerDisplaySelect = document.getElementById('blocker-display-mode');
+
+  // Toggle draw blocker mode
+  drawBlockerBtn.addEventListener('click', () => {
+    blockerDrawMode = !blockerDrawMode;
+    if (blockerDrawMode) {
+      drawBlockerBtn.style.background = '#ff6b6b';
+      drawBlockerBtn.style.color = '#1a1a2e';
+      drawBlockerBtn.textContent = '■ Blocker ON';
+      tilesetCanvas.style.cursor = 'crosshair';
+    } else {
+      drawBlockerBtn.style.background = '#1a1a2e';
+      drawBlockerBtn.style.color = '#ff6b6b';
+      drawBlockerBtn.textContent = 'Draw Blocker';
+      tilesetCanvas.style.cursor = 'crosshair';
+    }
+  });
+
+  // Blocker display mode
+  blockerDisplaySelect.addEventListener('change', () => {
+    blockerDisplay = blockerDisplaySelect.value;
+    renderTilesetCanvas();
+  });
+
+  // Blocker mouse events on tileset canvas
+  tilesetCanvas.addEventListener('mousedown', (e) => {
+    if (!blockerDrawMode || !currentTilesetImage) return;
+    e.preventDefault();
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+    blockerDragStart = { x: px, y: py };
+    blockerDragCurrent = { x: px, y: py };
+  });
+
+  tilesetCanvas.addEventListener('mousemove', (e) => {
+    if (!blockerDrawMode || !blockerDragStart) return;
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+    blockerDragCurrent = { x: px, y: py };
+    renderTilesetCanvas();
+  });
+
+  tilesetCanvas.addEventListener('mouseup', (e) => {
+    if (!blockerDrawMode || !blockerDragStart) return;
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+
+    const x = Math.min(blockerDragStart.x, px);
+    const y = Math.min(blockerDragStart.y, py);
+    const w = Math.abs(px - blockerDragStart.x);
+    const h = Math.abs(py - blockerDragStart.y);
+
+    blockerDragStart = null;
+    blockerDragCurrent = null;
+
+    if (w < 2 || h < 2) { renderTilesetCanvas(); return; } // too small, ignore
+
+    const newRect = { x: x, y: y, w: w, h: h };
+    blockerRects.push(newRect);
+    blockerUndoStack.push({ action: 'add', index: blockerRects.length - 1, rect: newRect });
+    blockerRedoStack = [];
+    selectedBlockerIndex = blockerRects.length - 1;
+    setStatus(`Blocker added: (${x},${y}) ${w}×${h}`);
+    renderTilesetCanvas();
+    renderBlockersList();
+  });
+
+  // Undo/Redo for blockers (Ctrl+Z / Ctrl+Y)
+  document.addEventListener('keydown', (e) => {
+    // Only handle when configurator tab is active
+    const confTab = document.getElementById('tab-configurator');
+    if (!confTab || !confTab.classList.contains('active')) return;
+
+    if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault();
+      if (blockerUndoStack.length === 0) return;
+      const op = blockerUndoStack.pop();
+      if (op.action === 'add') {
+        blockerRects.splice(op.index, 1);
+        blockerRedoStack.push(op);
+        if (selectedBlockerIndex >= blockerRects.length) selectedBlockerIndex = -1;
+      } else if (op.action === 'remove') {
+        blockerRects.splice(op.index, 0, op.rect);
+        blockerRedoStack.push(op);
+      }
+      renderTilesetCanvas();
+      renderBlockersList();
+      setStatus('Blocker undo');
+    } else if (e.ctrlKey && e.key === 'y') {
+      e.preventDefault();
+      if (blockerRedoStack.length === 0) return;
+      const op = blockerRedoStack.pop();
+      if (op.action === 'add') {
+        blockerRects.splice(op.index, 0, op.rect);
+        blockerUndoStack.push(op);
+        selectedBlockerIndex = op.index;
+      } else if (op.action === 'remove') {
+        blockerRects.splice(op.index, 1);
+        blockerUndoStack.push(op);
+        if (selectedBlockerIndex >= blockerRects.length) selectedBlockerIndex = -1;
+      }
+      renderTilesetCanvas();
+      renderBlockersList();
+      setStatus('Blocker redo');
+    }
+  });
+
+  // Render blockers sidebar list
+  function renderBlockersList() {
+    const panel = document.getElementById('blockers-list-panel');
+    if (!panel) return;
+    if (blockerRects.length === 0) {
+      panel.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">Use "Draw Blocker" mode to add blocking rectangles.</p>';
+      return;
+    }
+    let html = '';
+    blockerRects.forEach((r, i) => {
+      const active = (i === selectedBlockerIndex) ? ' active' : '';
+      html += `<div class="blocker-item${active}" data-idx="${i}">
+        <span>(${r.x},${r.y}) ${r.w}×${r.h}</span>
+        <span class="del-blocker" data-idx="${i}">&times;</span>
+      </div>`;
+    });
+    panel.innerHTML = html;
+
+    // Click to select
+    panel.querySelectorAll('.blocker-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('del-blocker')) return;
+        selectedBlockerIndex = parseInt(el.dataset.idx);
+        renderTilesetCanvas();
+        renderBlockersList();
+      });
+    });
+    // Delete button
+    panel.querySelectorAll('.del-blocker').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx);
+        const removed = blockerRects.splice(idx, 1)[0];
+        blockerUndoStack.push({ action: 'remove', index: idx, rect: removed });
+        blockerRedoStack = [];
+        if (selectedBlockerIndex === idx) selectedBlockerIndex = -1;
+        else if (selectedBlockerIndex > idx) selectedBlockerIndex--;
+        renderTilesetCanvas();
+        renderBlockersList();
+        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}×${removed.h}`);
+      });
+    });
+  }
 
   // ============================================================
   // LEVEL EDITOR (with label filter)

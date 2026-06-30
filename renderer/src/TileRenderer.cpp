@@ -55,12 +55,6 @@ void TileRenderer::RenderLayer(
             // Compute destination rect
             float dest_x = screen_origin_x + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x);
             float dest_y = screen_origin_y + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y);
-            SDL_FRect destRect = {
-                dest_x,
-                dest_y,
-                static_cast<float>(tile_width),
-                static_cast<float>(tile_height)
-            };
 
             // Look up tile ID in tileset
             auto it = tileset.id_index.find(tileId);
@@ -68,6 +62,14 @@ void TileRenderer::RenderLayer(
                 // Resolved tile — render texture with source rect
                 const TileDef& tileDef = tileset.tiles[it->second];
                 const SourceRect& src = tileDef.source_rect;
+
+                // Three-level scaling for single-layer overload:
+                // base_tile * sheet_scale * tile_scale (layer_scale is implicitly 1.0)
+                float finalScale = tileset.sheet_scale * tileDef.scale;
+                float destW = static_cast<float>(tile_width) * finalScale;
+                float destH = static_cast<float>(tile_height) * finalScale;
+
+                SDL_FRect destRect = { dest_x, dest_y, destW, destH };
 
                 SDL_FRect srcRect = {
                     static_cast<float>(src.x),
@@ -83,6 +85,11 @@ void TileRenderer::RenderLayer(
                 SDL_RenderTexture(renderer, tileset.texture, &srcRect, &destRect);
             } else {
                 // Unresolved tile ID — render magenta fallback rectangle
+                SDL_FRect destRect = {
+                    dest_x, dest_y,
+                    static_cast<float>(tile_width),
+                    static_cast<float>(tile_height)
+                };
                 SDL_SetRenderDrawColor(renderer, m_fallback_r, m_fallback_g, m_fallback_b, alpha);
                 SDL_RenderFillRect(renderer, &destRect);
             }
@@ -205,9 +212,10 @@ void TileRenderer::RenderLayers(
                     const SourceRect& src = tileDef.source_rect;
 
                     // Three-level scaling:
-                    // final_size = source_size * sheet_scale * tile_scale * layer_scale
-                    float finalW = static_cast<float>(src.w) * tileset->sheet_scale * tileDef.scale * layerScale;
-                    float finalH = static_cast<float>(src.h) * tileset->sheet_scale * tileDef.scale * layerScale;
+                    // final_size = base_tile_size * layer_scale * sheet_scale * tile_scale
+                    float finalScale = layerScale * tileset->sheet_scale * tileDef.scale;
+                    float finalW = static_cast<float>(base_tile_width) * finalScale;
+                    float finalH = static_cast<float>(base_tile_height) * finalScale;
 
                     SDL_FRect destRect = { dest_x, dest_y, finalW, finalH };
 
