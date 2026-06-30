@@ -1,5 +1,6 @@
 #include "MapLoader.h"
 #include <SDL3/SDL.h>
+#include <cmath>
 
 bool MapLoader::LoadMap(const std::string& filepath, MapData& out)
 {
@@ -183,6 +184,207 @@ std::vector<MapLoader::UnresolvedTile> MapLoader::ValidateAgainstTileset(
                 ut.col = col;
                 unresolved.push_back(ut);
             }
+        }
+    }
+
+    return unresolved;
+}
+
+
+// --- Jigsaw map serialization/deserialization ---
+
+std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
+{
+    picojson::object obj;
+
+    obj["format"] = picojson::value(std::string("jigsaw"));
+    obj["tileset_id"] = picojson::value(map.GetTilesetId());
+
+    // Optional boundary
+    if (map.HasBoundary()) {
+        const MapBoundary& b = map.GetBoundary();
+        picojson::object boundary;
+        boundary["width"] = picojson::value(static_cast<double>(b.width_pixels));
+        boundary["height"] = picojson::value(static_cast<double>(b.height_pixels));
+        obj["boundary"] = picojson::value(boundary);
+    }
+
+    // Tiles array
+    picojson::array tilesArr;
+    const auto& allTiles = map.GetAllTiles();
+    tilesArr.reserve(allTiles.size());
+
+    for (const PlacedTile& tile : allTiles) {
+        // Skip tiles with NaN/Inf positions or sizes during serialization
+        if (!std::isfinite(tile.x) || !std::isfinite(tile.y) ||
+            !std::isfinite(tile.w) || !std::isfinite(tile.h)) {
+            SDL_Log("[MapLoader] Skipping tile with non-finite values during serialization: %s",
+                    tile.tile_id.c_str());
+            continue;
+        }
+
+        picojson::object tileObj;
+        tileObj["tile_id"] = picojson::value(tile.tile_id);
+        tileObj["x"] = picojson::value(static_cast<double>(tile.x));
+        tileObj["y"] = picojson::value(static_cast<double>(tile.y));
+        tileObj["w"] = picojson::value(static_cast<double>(tile.w));
+        tileObj["h"] = picojson::value(static_cast<double>(tile.h));
+        tilesArr.push_back(picojson::value(tileObj));
+    }
+
+    obj["tiles"] = picojson::value(tilesArr);
+
+    picojson::value root(obj);
+    return JsonUtil::Serialize(root);
+}
+
+bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
+{
+    // Parse JSON file
+    picojson::value root;
+    if (!JsonUtil::ParseFile(filepath, root)) {
+        SDL_Log("[MapLoader] Failed to parse jigsaw map file: %s", filepath.c_str());
+        return false;
+    }
+
+    // Root must be an object
+    if (!root.is<picojson::object>()) {
+        SDL_Log("[MapLoader] Jigsaw map file root is not an object: %s", filepath.c_str());
+        return false;
+    }
+
+    const picojson::object& obj = root.get<picojson::object>();
+
+    // Validate format field
+    std::string format;
+    if (!JsonUtil::GetString(obj, "format", format) || format != "jigsaw") {
+        SDL_Log("[MapLoader] Jigsaw map file missing or invalid 'format' (expected \"jigsaw\"): %s",
+                filepath.c_str());
+        return false;
+    }
+
+    // Extract tileset_id
+    std::string tilesetId;
+    if (!JsonUtil::GetString(obj, "tileset_id", tilesetId)) {
+        SDL_Log("[MapLoader] Jigsaw map file missing or invalid 'tileset_id': %s",
+                filepath.c_str());
+        return false;
+    }
+
+    // Build output map
+    JigsawMap result;
+    result.SetTilesetId(tilesetId);
+
+    // Optional boundary
+    const picojson::object* boundaryObj = nullptr;
+    if (JsonUtil::GetObject(obj, "boundary", boundaryObj)) {
+        double bWidth = 0.0, bHeight = 0.0;
+        if (JsonUtil::GetDouble(*boundaryObj, "width", bWidth) &&
+            JsonUtil::GetDouble(*boundaryObj, "height", bHeight)) {
+            if (std::isfinite(static_cast<float>(bWidth)) &&
+                std::isfinite(static_cast<float>(bHeight)) &&
+                bWidth > 0.0 && bHeight > 0.0) {
+                MapBoundary boundary;
+                boundary.width_pixels = static_cast<float>(bWidth);
+                boundary.height_pixels = static_cast<float>(bHeight);
+                result.SetBoundary(boundary);
+            } else {
+                SDL_Log("[MapLoader] Jigsaw map boundary has invalid dimensions, ignoring: %s",
+                        filepath.c_str());
+            }
+        }
+    }
+
+    // Parse tiles array
+    const picojson::array* tilesArr = nullptr;
+    if (!JsonUtil::GetArray(obj, "tiles", tilesArr)) {
+        SDL_Log("[MapLoader] Jigsaw map file missing or invalid 'tiles' array: %s",
+                filepath.c_str());
+        return false;
+    }
+
+    for (size_t i = 0; i < tilesArr->size(); ++i) {
+        const picojson::value& tileVal = (*tilesArr)[i];
+
+        // Each tile must be an object
+        if (!tileVal.is<picojson::object>()) {
+            SDL_Log("[MapLoader] Jigsaw map tile[%zu] is not an object, skipping: %s",
+                    i, filepath.c_str());
+            continue;
+        }
+
+        const picojson::object& tileObj = tileVal.get<picojson::object>();
+
+        // Validate tile_id (must be a non-empty string)
+        std::string tileId;
+        if (!JsonUtil::GetString(tileObj, "tile_id", tileId) || tileId.empty()) {
+            SDL_Log("[MapLoader] Jigsaw map tile[%zu] missing or empty 'tile_id', skipping: %s",
+                    i, filepath.c_str());
+            continue;
+        }
+
+        // Validate numeric fields
+        double x = 0.0, y = 0.0, w = 0.0, h = 0.0;
+        if (!JsonUtil::GetDouble(tileObj, "x", x) ||
+            !JsonUtil::GetDouble(tileObj, "y", y) ||
+            !JsonUtil::GetDouble(tileObj, "w", w) ||
+            !JsonUtil::GetDouble(tileObj, "h", h)) {
+            SDL_Log("[MapLoader] Jigsaw map tile[%zu] ('%s') missing numeric fields, skipping: %s",
+                    i, tileId.c_str(), filepath.c_str());
+            continue;
+        }
+
+        // Check for NaN/Inf
+        float fx = static_cast<float>(x);
+        float fy = static_cast<float>(y);
+        float fw = static_cast<float>(w);
+        float fh = static_cast<float>(h);
+
+        if (!std::isfinite(fx) || !std::isfinite(fy) ||
+            !std::isfinite(fw) || !std::isfinite(fh)) {
+            SDL_Log("[MapLoader] Jigsaw map tile[%zu] ('%s') has NaN/Inf position or size, skipping: %s",
+                    i, tileId.c_str(), filepath.c_str());
+            continue;
+        }
+
+        PlacedTile tile;
+        tile.tile_id = tileId;
+        tile.x = fx;
+        tile.y = fy;
+        tile.w = fw;
+        tile.h = fh;
+
+        // AddTile handles overlap rejection — for deserialization we add directly
+        // since the data is expected to be valid (non-overlapping from a previous save).
+        result.AddTile(tile);
+    }
+
+    out = std::move(result);
+    return true;
+}
+
+bool MapLoader::SaveJigsawMap(const std::string& filepath, const JigsawMap& map)
+{
+    std::string json = SerializeJigsawMap(map);
+    if (!JsonUtil::WriteFile(filepath, json)) {
+        SDL_Log("[MapLoader] Failed to save jigsaw map file: %s", filepath.c_str());
+        return false;
+    }
+    return true;
+}
+
+std::vector<MapLoader::UnresolvedJigsawTile> MapLoader::ValidateAgainstTileset(
+    const JigsawMap& map, const TilesetDef& tileset) const
+{
+    std::vector<UnresolvedJigsawTile> unresolved;
+
+    for (const PlacedTile& tile : map.GetAllTiles()) {
+        if (tileset.id_index.find(tile.tile_id) == tileset.id_index.end()) {
+            UnresolvedJigsawTile ut;
+            ut.id = tile.tile_id;
+            ut.x = tile.x;
+            ut.y = tile.y;
+            unresolved.push_back(ut);
         }
     }
 
