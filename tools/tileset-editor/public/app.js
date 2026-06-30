@@ -623,6 +623,7 @@
   if (importTmxBtn) {
     importTmxBtn.addEventListener('click', async () => {
       if (!currentTilesetName) { setStatus('Select a tileset folder first'); return; }
+      if (!currentSheetFilename) { setStatus('Load a spritesheet first, then import TMX'); return; }
       try {
         // List TMX files in this tileset folder
         const res = await fetch(`/api/tilesets/${currentTilesetName}/tmx-files`);
@@ -631,14 +632,11 @@
           alert('No .tmx files found in this tileset folder.');
           return;
         }
-        // Let user pick which TMX to import
+        // Show a picker dropdown for the TMX file
         let tmxFile = tmxFiles[0];
         if (tmxFiles.length > 1) {
-          tmxFile = prompt(`Multiple TMX files found. Pick one:\n${tmxFiles.map((f,i) => `${i+1}. ${f}`).join('\n')}\n\nEnter number:`, '1');
+          tmxFile = await showTmxPicker(tmxFiles);
           if (!tmxFile) return;
-          const idx = parseInt(tmxFile) - 1;
-          if (idx >= 0 && idx < tmxFiles.length) tmxFile = tmxFiles[idx];
-          else { alert('Invalid selection'); return; }
         }
         // Parse the TMX
         const parseRes = await fetch(`/api/tilesets/${currentTilesetName}/parse-tmx/${tmxFile}`);
@@ -647,19 +645,11 @@
           alert('TMX file contains no tileset definitions.');
           return;
         }
-        // Find the tileset entry matching the current sheet PNG
-        let targetTs = null;
-        if (currentSheetFilename) {
-          targetTs = parsed.tilesets.find(ts => ts.image === currentSheetFilename);
-        }
+        // Auto-match: find the tileset entry whose image matches the currently loaded PNG
+        let targetTs = parsed.tilesets.find(ts => ts.image === currentSheetFilename);
         if (!targetTs) {
-          // Let user pick which tileset from the TMX
-          const choices = parsed.tilesets.map((ts, i) => `${i+1}. ${ts.name} (${ts.image}, ${ts.tilewidth}x${ts.tileheight}, ${ts.tilecount} tiles)`).join('\n');
-          const pick = prompt(`Which tileset to import for current sheet?\n${choices}\n\nEnter number:`, '1');
-          if (!pick) return;
-          const idx = parseInt(pick) - 1;
-          if (idx >= 0 && idx < parsed.tilesets.length) targetTs = parsed.tilesets[idx];
-          else { alert('Invalid selection'); return; }
+          alert(`No tileset in "${tmxFile}" references "${currentSheetFilename}".\n\nAvailable: ${parsed.tilesets.map(ts => ts.image).join(', ')}`);
+          return;
         }
         // Generate tile definitions from the TMX tileset partition
         const tw = targetTs.tilewidth;
@@ -670,35 +660,58 @@
         for (let i = 0; i < count; i++) {
           const col = i % cols;
           const row = Math.floor(i / cols);
-          const x = col * tw;
-          const y = row * th;
           newTiles.push({
             id: `${targetTs.name}_${i}`,
-            source_rect: { x, y, w: tw, h: th },
+            source_rect: { x: col * tw, y: row * th, w: tw, h: th },
             adjacency: { up: [], down: [], left: [], right: [] },
             labels: []
           });
         }
-        // Confirm import
-        if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th} grid, ${cols} columns)?\n\nThis will REPLACE all current tiles for this sheet.`)) {
+        if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th}, ${cols} cols) for "${currentSheetFilename}"?\n\nThis replaces current tiles.`)) {
           return;
         }
-        // Apply to current tileset data
         if (!currentTilesetData) currentTilesetData = { tiles: [], labels: [] };
         currentTilesetData.tiles = newTiles;
         selectedTileIndex = -1;
         highlightedCell = null;
-        // Update grid controls to match
         cellWidthInput.value = tw;
         cellHeightInput.value = th;
         renderTilesetCanvas();
         renderTileInfo();
         renderCreatedTilesList();
+        if (typeof renderBlockersList === 'function') renderBlockersList();
         setStatus(`Imported ${newTiles.length} tiles from TMX "${targetTs.name}" — Save to persist.`);
       } catch (err) {
         setStatus(`TMX import error: ${err.message}`);
         alert(`TMX import failed: ${err.message}`);
       }
+    });
+  }
+
+  // TMX file picker helper (shows a mini modal)
+  function showTmxPicker(files) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999';
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#16213e;border:2px solid #4fc3f7;border-radius:8px;padding:20px;min-width:300px;max-width:500px';
+      box.innerHTML = '<h3 style="color:#4fc3f7;margin-bottom:12px">Select TMX File</h3>';
+      files.forEach(f => {
+        const btn = document.createElement('button');
+        btn.textContent = f;
+        btn.style.cssText = 'display:block;width:100%;padding:10px;margin-bottom:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:4px;cursor:pointer;font-size:13px;text-align:left';
+        btn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(f); });
+        btn.addEventListener('mouseenter', () => { btn.style.background = '#4fc3f7'; btn.style.color = '#1a1a2e'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = '#0f3460'; btn.style.color = '#e0e0e0'; });
+        box.appendChild(btn);
+      });
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = 'display:block;width:100%;padding:8px;margin-top:8px;background:#1a1a2e;color:#a0a0a0;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px';
+      cancelBtn.addEventListener('click', () => { document.body.removeChild(overlay); resolve(null); });
+      box.appendChild(cancelBtn);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
     });
   }
 
