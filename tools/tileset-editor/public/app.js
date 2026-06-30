@@ -618,6 +618,90 @@
     });
   }
 
+  // Import TMX button
+  const importTmxBtn = document.getElementById('import-tmx-btn');
+  if (importTmxBtn) {
+    importTmxBtn.addEventListener('click', async () => {
+      if (!currentTilesetName) { setStatus('Select a tileset folder first'); return; }
+      try {
+        // List TMX files in this tileset folder
+        const res = await fetch(`/api/tilesets/${currentTilesetName}/tmx-files`);
+        const tmxFiles = await res.json();
+        if (!tmxFiles || tmxFiles.length === 0) {
+          alert('No .tmx files found in this tileset folder.');
+          return;
+        }
+        // Let user pick which TMX to import
+        let tmxFile = tmxFiles[0];
+        if (tmxFiles.length > 1) {
+          tmxFile = prompt(`Multiple TMX files found. Pick one:\n${tmxFiles.map((f,i) => `${i+1}. ${f}`).join('\n')}\n\nEnter number:`, '1');
+          if (!tmxFile) return;
+          const idx = parseInt(tmxFile) - 1;
+          if (idx >= 0 && idx < tmxFiles.length) tmxFile = tmxFiles[idx];
+          else { alert('Invalid selection'); return; }
+        }
+        // Parse the TMX
+        const parseRes = await fetch(`/api/tilesets/${currentTilesetName}/parse-tmx/${tmxFile}`);
+        const parsed = await parseRes.json();
+        if (!parsed.tilesets || parsed.tilesets.length === 0) {
+          alert('TMX file contains no tileset definitions.');
+          return;
+        }
+        // Find the tileset entry matching the current sheet PNG
+        let targetTs = null;
+        if (currentSheetFilename) {
+          targetTs = parsed.tilesets.find(ts => ts.image === currentSheetFilename);
+        }
+        if (!targetTs) {
+          // Let user pick which tileset from the TMX
+          const choices = parsed.tilesets.map((ts, i) => `${i+1}. ${ts.name} (${ts.image}, ${ts.tilewidth}x${ts.tileheight}, ${ts.tilecount} tiles)`).join('\n');
+          const pick = prompt(`Which tileset to import for current sheet?\n${choices}\n\nEnter number:`, '1');
+          if (!pick) return;
+          const idx = parseInt(pick) - 1;
+          if (idx >= 0 && idx < parsed.tilesets.length) targetTs = parsed.tilesets[idx];
+          else { alert('Invalid selection'); return; }
+        }
+        // Generate tile definitions from the TMX tileset partition
+        const tw = targetTs.tilewidth;
+        const th = targetTs.tileheight;
+        const cols = targetTs.columns;
+        const count = targetTs.tilecount;
+        const newTiles = [];
+        for (let i = 0; i < count; i++) {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = col * tw;
+          const y = row * th;
+          newTiles.push({
+            id: `${targetTs.name}_${i}`,
+            source_rect: { x, y, w: tw, h: th },
+            adjacency: { up: [], down: [], left: [], right: [] },
+            labels: []
+          });
+        }
+        // Confirm import
+        if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th} grid, ${cols} columns)?\n\nThis will REPLACE all current tiles for this sheet.`)) {
+          return;
+        }
+        // Apply to current tileset data
+        if (!currentTilesetData) currentTilesetData = { tiles: [], labels: [] };
+        currentTilesetData.tiles = newTiles;
+        selectedTileIndex = -1;
+        highlightedCell = null;
+        // Update grid controls to match
+        cellWidthInput.value = tw;
+        cellHeightInput.value = th;
+        renderTilesetCanvas();
+        renderTileInfo();
+        renderCreatedTilesList();
+        setStatus(`Imported ${newTiles.length} tiles from TMX "${targetTs.name}" — Save to persist.`);
+      } catch (err) {
+        setStatus(`TMX import error: ${err.message}`);
+        alert(`TMX import failed: ${err.message}`);
+      }
+    });
+  }
+
   // Re-render on control changes
   [cellWidthInput, cellHeightInput, offsetXInput, offsetYInput, zoomInput].forEach(input => {
     if (input) input.addEventListener('input', renderTilesetCanvas);

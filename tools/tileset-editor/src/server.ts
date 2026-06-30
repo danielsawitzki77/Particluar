@@ -242,6 +242,95 @@ app.post('/api/tilesets/:name/open-explorer', (req, res) => {
   res.json({ success: true });
 });
 
+// --- API: List TMX files in a tileset folder ---
+app.get('/api/tilesets/:name/tmx-files', (req, res) => {
+  const name = req.params.name;
+  const tilesetDir = path.join(ASSETS_DIR, name);
+  if (!fs.existsSync(tilesetDir)) {
+    return res.status(404).json({ error: `Tileset '${name}' not found` });
+  }
+  const files = fs.readdirSync(tilesetDir);
+  const tmxFiles = files.filter(f => f.toLowerCase().endsWith('.tmx'));
+  res.json(tmxFiles);
+});
+
+// --- API: Parse a TMX file and extract tileset partition info ---
+app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
+  const { name, filename } = req.params;
+  const tmxPath = path.join(ASSETS_DIR, name, filename);
+  if (!fs.existsSync(tmxPath)) {
+    return res.status(404).json({ error: `TMX file not found: ${filename}` });
+  }
+  try {
+    const xml = fs.readFileSync(tmxPath, 'utf-8');
+    // Simple XML parsing for tileset elements (no dependency needed)
+    const tilesets: Array<{
+      name: string;
+      tilewidth: number;
+      tileheight: number;
+      tilecount: number;
+      columns: number;
+      image: string;
+      imagewidth: number;
+      imageheight: number;
+      firstgid: number;
+    }> = [];
+
+    // Match all <tileset ...> elements
+    const tilesetRegex = /<tileset\s+([^>]+)>/g;
+    const imageRegex = /<image\s+([^>]+)\/>/g;
+    let match;
+    let allTilesetBlocks = xml.split(/<tileset\s+/);
+    allTilesetBlocks.shift(); // remove content before first tileset
+
+    for (const block of allTilesetBlocks) {
+      const attrStr = block.substring(0, block.indexOf('>'));
+      const getAttr = (name: string) => {
+        const m = attrStr.match(new RegExp(`${name}="([^"]+)"`));
+        return m ? m[1] : '';
+      };
+
+      const tsName = getAttr('name');
+      const tilewidth = parseInt(getAttr('tilewidth')) || 16;
+      const tileheight = parseInt(getAttr('tileheight')) || 16;
+      const tilecount = parseInt(getAttr('tilecount')) || 0;
+      const columns = parseInt(getAttr('columns')) || 1;
+      const firstgid = parseInt(getAttr('firstgid')) || 1;
+
+      // Find <image> within this tileset block
+      const imgMatch = block.match(/<image\s+([^>]+)\/>/);
+      let imgSource = '', imgW = 0, imgH = 0;
+      if (imgMatch) {
+        const imgAttrs = imgMatch[1];
+        const getSrc = (n: string) => {
+          const m2 = imgAttrs.match(new RegExp(`${n}="([^"]+)"`));
+          return m2 ? m2[1] : '';
+        };
+        imgSource = getSrc('source');
+        imgW = parseInt(getSrc('width')) || 0;
+        imgH = parseInt(getSrc('height')) || 0;
+      }
+
+      tilesets.push({
+        name: tsName,
+        tilewidth,
+        tileheight,
+        tilecount,
+        columns,
+        image: imgSource,
+        imagewidth: imgW,
+        imageheight: imgH,
+        firstgid
+      });
+    }
+
+    res.json({ tilesets });
+  } catch (err) {
+    console.error(`Error parsing TMX '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to parse TMX file' });
+  }
+});
+
 // --- Shutdown endpoint (called by the Close button in the UI) ---
 app.post('/api/shutdown', (req, res) => {
   res.json({ message: 'Server shutting down...' });
