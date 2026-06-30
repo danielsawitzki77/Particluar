@@ -61,9 +61,11 @@ public:
     // Full load with texture (requires SDL_Renderer). For runtime rendering.
     bool LoadTileset(SDL_Renderer* renderer, const std::string& folderPath, Tileset& out);
 
+    // Load tileset from a specific JSON sidecar path.
+    // Derives the PNG path from the JSON's base name in the same directory.
+    bool LoadTilesetFromJson(SDL_Renderer* renderer, const std::string& jsonPath, Tileset& out);
+
     // Data-only load (no texture). For CLI tools and WFC.
-    // Note: source_rect validation against PNG dimensions is skipped.
-    // texture_width/height will be set to 0.
     bool LoadTilesetDef(const std::string& folderPath, TilesetDef& out);
 
 private:
