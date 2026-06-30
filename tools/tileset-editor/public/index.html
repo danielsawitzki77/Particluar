@@ -77,6 +77,12 @@
     .create-tile-btn { display: block; width: 100%; padding: 10px; margin-top: 8px; background: #ff9800; color: #1a1a2e; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 700; text-align: center; }
     .create-tile-btn:hover { background: #ffb74d; }
 
+    /* Blocker list items */
+    .blocker-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; margin-bottom: 2px; border-radius: 3px; font-size: 11px; cursor: pointer; }
+    .blocker-item:hover { background: #1a1a2e; }
+    .blocker-item.active { background: #0f3460; color: #ffeb3b; }
+    .blocker-item .del-blocker { color: #ff6b6b; cursor: pointer; font-weight: bold; padding: 0 4px; }
+
     /* Level Editor */
     .le-layout { display: flex; height: 100%; min-height: 0; }
     .le-sidebar { width: 220px; min-width: 220px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
@@ -116,6 +122,7 @@
         <select id="sheet-select" class="sheet-select" disabled>
           <option value="">Select tileset first</option>
         </select>
+        <button id="open-explorer-btn" style="width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:3px;cursor:pointer;font-size:11px;">📂 Open in Explorer</button>
       </div>
 
       <!-- Middle: Controls + Canvas (scrollable) -->
@@ -154,6 +161,17 @@
             <input type="number" id="zoom-level" value="2" min="1" max="8">
             <div class="step-btns"><button class="step-btn" data-target="zoom-level" data-step="1">▲</button><button class="step-btn" data-target="zoom-level" data-step="-1">▼</button></div>
           </div>
+          <div class="control-group">
+            <button id="draw-blocker-btn" style="padding:6px 12px;background:#1a1a2e;color:#ff6b6b;border:2px solid #ff6b6b;border-radius:4px;cursor:pointer;font-weight:600;font-size:11px;">Draw Blocker</button>
+          </div>
+          <div class="control-group">
+            <label>Blockers:</label>
+            <select id="blocker-display-mode" style="padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;">
+              <option value="off">Off</option>
+              <option value="outlines" selected>Outlines</option>
+              <option value="overlay">Overlay</option>
+            </select>
+          </div>
           <button id="save-tileset-btn" style="padding:6px 14px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Save</button>
         </div>
         <div class="canvas-wrapper">
@@ -172,6 +190,11 @@
         <h3>Selected Tile</h3>
         <div class="right-panel-section" id="tile-info-panel">
           <p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>
+        </div>
+
+        <h3>Blocking Rects</h3>
+        <div class="right-panel-section" id="blockers-list-panel">
+          <p style="color:#a0a0a0;font-size:11px;">Use "Draw Blocker" mode to add blocking rectangles.</p>
         </div>
       </div>
     </div>

@@ -70,6 +70,16 @@
   let selectedTileIndex = -1;
   let highlightedCell = null; // {x, y, w, h} for a grid cell with no existing tile
 
+  // --- Blocker state ---
+  let blockerRects = [];
+  let blockerDrawMode = false;
+  let blockerDisplay = 'outlines'; // 'off', 'outlines', 'overlay'
+  let selectedBlockerIndex = -1;
+  let blockerHistory = [[]]; // snapshot-based history: array of blocker rect arrays
+  let blockerHistoryIndex = 0;
+  let blockerDragStart = null; // {x, y} in source px
+  let blockerDragCurrent = null; // {x, y} in source px
+
   // --- Tileset list ---
   async function loadTilesetList() {
     try {
@@ -155,6 +165,11 @@
       currentTilesetData = await res.json();
       if (!currentTilesetData.tiles) currentTilesetData.tiles = [];
       if (!currentTilesetData.labels) currentTilesetData.labels = [];
+      // Load blockers from JSON
+      blockerRects = Array.isArray(currentTilesetData.blockers) ? currentTilesetData.blockers.slice() : [];
+      selectedBlockerIndex = -1;
+      blockerHistory = [blockerRects.map(r => ({...r}))];
+      blockerHistoryIndex = 0;
       if (currentTilesetData.tiles.length > 0 && currentTilesetData.tiles[0].source_rect) {
         cellWidthInput.value = currentTilesetData.tiles[0].source_rect.w || 32;
         cellHeightInput.value = currentTilesetData.tiles[0].source_rect.h || 32;
@@ -163,7 +178,8 @@
       renderTileInfo();
       renderLabelsPanel();
       renderCreatedTilesList();
-      setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles)`);
+      renderBlockersList();
+      setStatus(`Sheet '${filename}' loaded (${currentTilesetData.tiles.length} tiles, ${blockerRects.length} blockers)`);
     } catch (err) { setStatus(`Error loading sheet: ${err.message}`); }
   }
 
@@ -211,10 +227,45 @@
         ctx.strokeRect(sr.x*zoom+0.5, sr.y*zoom+0.5, sr.w*zoom-1, sr.h*zoom-1);
       });
     }
+    // Draw blocker rectangles (respecting display mode)
+    if (blockerDisplay !== 'off' && blockerRects.length > 0) {
+      blockerRects.forEach((r, i) => {
+        const rx = r.x * zoom, ry = r.y * zoom, rw = r.w * zoom, rh = r.h * zoom;
+        if (blockerDisplay === 'overlay') {
+          // Overlay mode: semi-transparent red fill, NO outlines (except selected)
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.18)';
+          ctx.fillRect(rx, ry, rw, rh);
+          if (i === selectedBlockerIndex) {
+            ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+            ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+          }
+        } else {
+          // Outlines mode: red outlines only
+          if (i === selectedBlockerIndex) {
+            ctx.strokeStyle = '#ffeb3b'; ctx.lineWidth = 3;
+          } else {
+            ctx.strokeStyle = '#ff0000'; ctx.lineWidth = 1.5;
+          }
+          ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+        }
+      });
+    }
+    // Draw in-progress blocker drag rect
+    if (blockerDragStart && blockerDragCurrent) {
+      const x = Math.min(blockerDragStart.x, blockerDragCurrent.x) * zoom;
+      const y = Math.min(blockerDragStart.y, blockerDragCurrent.y) * zoom;
+      const w = Math.abs(blockerDragCurrent.x - blockerDragStart.x) * zoom;
+      const h = Math.abs(blockerDragCurrent.y - blockerDragStart.y) * zoom;
+      ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.setLineDash([]);
+    }
   }
 
   // --- Canvas click: select existing tile OR highlight grid cell for creation ---
   tilesetCanvas.addEventListener('click', (e) => {
+    if (blockerDrawMode) return; // blocker mode handles its own mouse events
     if (!currentTilesetData || !currentTilesetImage) return;
     const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
     const rect = tilesetCanvas.getBoundingClientRect();
@@ -480,16 +531,92 @@
   }
 
   // Save
+  // Save with overwrite confirmation and feedback
   saveTilesetBtn.addEventListener('click', async () => {
     if (!currentTilesetName || !currentTilesetData || !currentSheetBase) { setStatus('No sheet loaded'); return; }
+    // Check if file exists — ask for overwrite confirmation
     try {
+      const existsRes = await fetch(`/api/tilesets/${currentTilesetName}/exists/${currentSheetBase}.json`);
+      if (existsRes.ok) {
+        const { exists } = await existsRes.json();
+        if (exists && !confirm(`Overwrite ${currentSheetBase}.json?`)) {
+          setStatus('Save cancelled'); return;
+        }
+      }
+    } catch (e) { /* proceed anyway */ }
+    try {
+      const saveData = Object.assign({}, currentTilesetData, { blockers: blockerRects });
       const res = await fetch(`/api/tilesets/${currentTilesetName}/json/${currentSheetBase}`, {
-        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(currentTilesetData)
+        method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(saveData)
       });
-      if (res.ok) setStatus(`Saved '${currentSheetBase}.json'`);
-      else setStatus('Error saving');
-    } catch (err) { setStatus(`Save error: ${err.message}`); }
+      if (res.ok) {
+        const blockerNote = blockerRects.length > 0 ? ` (includes ${blockerRects.length} blockers)` : '';
+        setStatus(`Saved '${currentSheetBase}.json'${blockerNote}`);
+        // Export blocker bitmap if there are any blockers
+        if (blockerRects.length > 0 && currentTilesetImage) {
+          await exportBlockerBitmap();
+        }
+        alert(`Saved successfully!${blockerNote}`);
+      } else {
+        const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+        setStatus(`Error: ${msg}`);
+        alert(`Save failed: ${msg}`);
+      }
+    } catch (err) { setStatus(`Save error: ${err.message}`); alert(`Save error: ${err.message}`); }
   });
+
+  // Generate and upload blocker bitmap (black=blocked, white=passable)
+  async function exportBlockerBitmap() {
+    if (!currentTilesetImage || !currentTilesetName || !currentSheetBase) return;
+    const w = currentTilesetImage.naturalWidth;
+    const h = currentTilesetImage.naturalHeight;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = w;
+    offscreen.height = h;
+    const octx = offscreen.getContext('2d');
+    // Fill white (passable)
+    octx.fillStyle = '#ffffff';
+    octx.fillRect(0, 0, w, h);
+    // Fill black (blocked) for each blocker rect
+    octx.fillStyle = '#000000';
+    blockerRects.forEach(r => {
+      octx.fillRect(r.x, r.y, r.w, r.h);
+    });
+    // Export as PNG data URL
+    const dataUrl = offscreen.toDataURL('image/png');
+    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+    try {
+      const res = await fetch(`/api/tilesets/${currentTilesetName}/blocker-bitmap/${currentSheetBase}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64 })
+      });
+      if (res.ok) {
+        setStatus(`Blocker bitmap saved: ${currentSheetBase}_blockers.png`);
+      } else {
+        const msg = (await res.json().catch(() => ({}))).error || `HTTP ${res.status}`;
+        console.error('Blocker bitmap save failed:', msg);
+      }
+    } catch (err) {
+      console.error('Blocker bitmap export error:', err.message);
+    }
+  }
+
+  // Open in Explorer button
+  const openExplorerBtn = document.getElementById('open-explorer-btn');
+  if (openExplorerBtn) {
+    openExplorerBtn.addEventListener('click', async () => {
+      if (!currentTilesetName) { setStatus('No tileset selected'); return; }
+      const file = currentSheetFilename || (currentSheetBase ? currentSheetBase + '.json' : '');
+      try {
+        await fetch(`/api/tilesets/${currentTilesetName}/open-explorer`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ file })
+        });
+        setStatus('Opened Explorer');
+      } catch (e) { setStatus('Failed to open Explorer'); }
+    });
+  }
 
   // Re-render on control changes
   [cellWidthInput, cellHeightInput, offsetXInput, offsetYInput, zoomInput].forEach(input => {
@@ -510,6 +637,167 @@
       target.dispatchEvent(new Event('input'));
     });
   });
+
+  // ============================================================
+  // BLOCKER DRAWING & MANAGEMENT
+  // ============================================================
+
+  const drawBlockerBtn = document.getElementById('draw-blocker-btn');
+  const blockerDisplaySelect = document.getElementById('blocker-display-mode');
+
+  // Toggle draw blocker mode
+  drawBlockerBtn.addEventListener('click', () => {
+    blockerDrawMode = !blockerDrawMode;
+    if (blockerDrawMode) {
+      drawBlockerBtn.style.background = '#ff6b6b';
+      drawBlockerBtn.style.color = '#1a1a2e';
+      drawBlockerBtn.textContent = '■ Blocker ON';
+      tilesetCanvas.style.cursor = 'crosshair';
+    } else {
+      drawBlockerBtn.style.background = '#1a1a2e';
+      drawBlockerBtn.style.color = '#ff6b6b';
+      drawBlockerBtn.textContent = 'Draw Blocker';
+      tilesetCanvas.style.cursor = 'crosshair';
+    }
+  });
+
+  // Blocker display mode
+  blockerDisplaySelect.addEventListener('change', () => {
+    blockerDisplay = blockerDisplaySelect.value;
+    renderTilesetCanvas();
+  });
+
+  // Blocker mouse events on tileset canvas
+  tilesetCanvas.addEventListener('mousedown', (e) => {
+    if (!blockerDrawMode || !currentTilesetImage) return;
+    e.preventDefault();
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+    blockerDragStart = { x: px, y: py };
+    blockerDragCurrent = { x: px, y: py };
+  });
+
+  tilesetCanvas.addEventListener('mousemove', (e) => {
+    if (!blockerDrawMode || !blockerDragStart) return;
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+    blockerDragCurrent = { x: px, y: py };
+    renderTilesetCanvas();
+  });
+
+  tilesetCanvas.addEventListener('mouseup', (e) => {
+    if (!blockerDrawMode || !blockerDragStart) return;
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const rect = tilesetCanvas.getBoundingClientRect();
+    const scaleX = tilesetCanvas.width / rect.width;
+    const scaleY = tilesetCanvas.height / rect.height;
+    const px = Math.round((e.clientX - rect.left) * scaleX / zoom);
+    const py = Math.round((e.clientY - rect.top) * scaleY / zoom);
+
+    const x = Math.min(blockerDragStart.x, px);
+    const y = Math.min(blockerDragStart.y, py);
+    const w = Math.abs(px - blockerDragStart.x);
+    const h = Math.abs(py - blockerDragStart.y);
+
+    blockerDragStart = null;
+    blockerDragCurrent = null;
+
+    if (w < 2 || h < 2) { renderTilesetCanvas(); return; } // too small, ignore
+
+    const newRect = { x: x, y: y, w: w, h: h };
+    blockerRects.push(newRect);
+    pushBlockerHistory();
+    selectedBlockerIndex = blockerRects.length - 1;
+    setStatus(`Blocker added: (${x},${y}) ${w}×${h}`);
+    renderTilesetCanvas();
+    renderBlockersList();
+  });
+
+  // Helper: push current blocker state to history (call after any modification)
+  function pushBlockerHistory() {
+    // Trim any redo states beyond current index
+    blockerHistory = blockerHistory.slice(0, blockerHistoryIndex + 1);
+    blockerHistory.push(blockerRects.map(r => ({...r})));
+    blockerHistoryIndex = blockerHistory.length - 1;
+  }
+
+  // Undo/Redo for blockers (Ctrl+Z / Ctrl+Y)
+  document.addEventListener('keydown', (e) => {
+    // Only handle when configurator tab is active
+    const confTab = document.getElementById('tab-configurator');
+    if (!confTab || !confTab.classList.contains('active')) return;
+
+    if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault();
+      if (blockerHistoryIndex <= 0) return;
+      blockerHistoryIndex--;
+      blockerRects = blockerHistory[blockerHistoryIndex].map(r => ({...r}));
+      selectedBlockerIndex = -1;
+      renderTilesetCanvas();
+      renderBlockersList();
+      setStatus('Blocker undo');
+    } else if (e.ctrlKey && e.key === 'y') {
+      e.preventDefault();
+      if (blockerHistoryIndex >= blockerHistory.length - 1) return;
+      blockerHistoryIndex++;
+      blockerRects = blockerHistory[blockerHistoryIndex].map(r => ({...r}));
+      selectedBlockerIndex = -1;
+      renderTilesetCanvas();
+      renderBlockersList();
+      setStatus('Blocker redo');
+    }
+  });
+
+  // Render blockers sidebar list
+  function renderBlockersList() {
+    const panel = document.getElementById('blockers-list-panel');
+    if (!panel) return;
+    if (blockerRects.length === 0) {
+      panel.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">Use "Draw Blocker" mode to add blocking rectangles.</p>';
+      return;
+    }
+    let html = '';
+    blockerRects.forEach((r, i) => {
+      const active = (i === selectedBlockerIndex) ? ' active' : '';
+      html += `<div class="blocker-item${active}" data-idx="${i}">
+        <span>(${r.x},${r.y}) ${r.w}×${r.h}</span>
+        <span class="del-blocker" data-idx="${i}">&times;</span>
+      </div>`;
+    });
+    panel.innerHTML = html;
+
+    // Click to select
+    panel.querySelectorAll('.blocker-item').forEach(el => {
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('del-blocker')) return;
+        selectedBlockerIndex = parseInt(el.dataset.idx);
+        renderTilesetCanvas();
+        renderBlockersList();
+      });
+    });
+    // Delete button
+    panel.querySelectorAll('.del-blocker').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(btn.dataset.idx);
+        const removed = blockerRects.splice(idx, 1)[0];
+        pushBlockerHistory();
+        if (selectedBlockerIndex === idx) selectedBlockerIndex = -1;
+        else if (selectedBlockerIndex > idx) selectedBlockerIndex--;
+        renderTilesetCanvas();
+        renderBlockersList();
+        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}×${removed.h}`);
+      });
+    });
+  }
 
   // ============================================================
   // LEVEL EDITOR (with label filter)

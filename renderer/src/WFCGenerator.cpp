@@ -155,10 +155,11 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
     int width = static_cast<int>(grid[0].size());
     int numTiles = static_cast<int>(tileset.tiles.size());
 
-    // Direction offsets: {dRow, dCol, direction index}
-    // 0=up(row-1), 1=down(row+1), 2=left(col-1), 3=right(col+1)
+    // Direction offsets: 0=up(row-1), 1=down(row+1), 2=left(col-1), 3=right(col+1)
     static const int DR[] = { -1, 1, 0, 0 };
     static const int DC[] = { 0, 0, -1, 1 };
+    // Opposite direction index: up<->down, left<->right
+    static const int OPPOSITE[] = { 1, 0, 3, 2 };
 
     // BFS queue of cells that were modified and need to propagate
     std::queue<std::pair<int, int>> queue;
@@ -174,7 +175,6 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
             int nr = cr + DR[dir];
             int nc = cc + DC[dir];
 
-            // Bounds check
             if (nr < 0 || nr >= height || nc < 0 || nc >= width) {
                 continue;
             }
@@ -184,45 +184,76 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
                 continue;
             }
 
-            // Compute the set of tile IDs valid for the neighbor in this direction.
-            // For direction "up" (neighbor is above current):
-            //   valid neighbor tiles = union of adjacency.up for all tiles possible in current cell
-            // For direction "down" (neighbor is below current):
-            //   valid neighbor tiles = union of adjacency.down for all tiles possible in current cell
-            // For direction "left" (neighbor is to the left of current):
-            //   valid neighbor tiles = union of adjacency.left for all tiles possible in current cell
-            // For direction "right" (neighbor is to the right of current):
-            //   valid neighbor tiles = union of adjacency.right for all tiles possible in current cell
+            // For each neighbor tile N still possible, check if it's compatible
+            // with at least one tile C still possible in the current cell.
+            //
+            // Compatibility (C in direction dir, N is the neighbor):
+            //   - C's adjacency[dir] is empty (unconstrained) OR C's adjacency[dir] contains N.id
+            //   - AND N's adjacency[opposite_dir] is empty (unconstrained) OR N's adjacency[opposite_dir] contains C.id
+            //
+            // N stays possible only if at least one such C exists.
 
-            // Build set of allowed tile IDs for the neighbor
-            std::set<std::string> allowedIds;
-            for (int t = 0; t < numTiles; ++t) {
-                if (!grid[cr][cc].possibilities[t]) {
+            int oppDir = OPPOSITE[dir];
+            bool changed = false;
+
+            for (int nt = 0; nt < numTiles; ++nt) {
+                if (!neighbor.possibilities[nt]) {
                     continue;
                 }
-                const AdjacencyRules& adj = tileset.tiles[t].adjacency;
-                const std::vector<std::string>* adjList = nullptr;
-                switch (dir) {
-                    case 0: adjList = &adj.up; break;
-                    case 1: adjList = &adj.down; break;
-                    case 2: adjList = &adj.left; break;
-                    case 3: adjList = &adj.right; break;
+
+                const TileDef& nTile = tileset.tiles[nt];
+                const std::vector<std::string>* nOppList = nullptr;
+                switch (oppDir) {
+                    case 0: nOppList = &nTile.adjacency.up; break;
+                    case 1: nOppList = &nTile.adjacency.down; break;
+                    case 2: nOppList = &nTile.adjacency.left; break;
+                    case 3: nOppList = &nTile.adjacency.right; break;
                 }
-                if (adjList) {
-                    for (const std::string& id : *adjList) {
-                        allowedIds.insert(id);
+
+                // Check if any current cell tile supports this neighbor tile
+                bool supported = false;
+                for (int ct = 0; ct < numTiles && !supported; ++ct) {
+                    if (!grid[cr][cc].possibilities[ct]) {
+                        continue;
+                    }
+
+                    const TileDef& cTile = tileset.tiles[ct];
+                    const std::vector<std::string>* cDirList = nullptr;
+                    switch (dir) {
+                        case 0: cDirList = &cTile.adjacency.up; break;
+                        case 1: cDirList = &cTile.adjacency.down; break;
+                        case 2: cDirList = &cTile.adjacency.left; break;
+                        case 3: cDirList = &cTile.adjacency.right; break;
+                    }
+
+                    // Check C allows N in this direction
+                    bool cAllowsN = false;
+                    if (cDirList->empty()) {
+                        cAllowsN = true; // unconstrained
+                    } else {
+                        for (const std::string& id : *cDirList) {
+                            if (id == nTile.id) { cAllowsN = true; break; }
+                        }
+                    }
+                    if (!cAllowsN) continue;
+
+                    // Check N allows C in the opposite direction (reciprocity)
+                    bool nAllowsC = false;
+                    if (nOppList->empty()) {
+                        nAllowsC = true; // unconstrained
+                    } else {
+                        for (const std::string& id : *nOppList) {
+                            if (id == cTile.id) { nAllowsC = true; break; }
+                        }
+                    }
+
+                    if (nAllowsC) {
+                        supported = true;
                     }
                 }
-            }
 
-            // Remove possibilities from neighbor that are not in the allowed set
-            bool changed = false;
-            for (int t = 0; t < numTiles; ++t) {
-                if (!neighbor.possibilities[t]) {
-                    continue;
-                }
-                if (allowedIds.find(tileset.tiles[t].id) == allowedIds.end()) {
-                    neighbor.possibilities[t] = false;
+                if (!supported) {
+                    neighbor.possibilities[nt] = false;
                     neighbor.entropy--;
                     changed = true;
                 }
@@ -233,7 +264,6 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
                 return false;
             }
 
-            // If neighbor changed, add to queue for further propagation
             if (changed) {
                 queue.push({ nr, nc });
             }
