@@ -246,6 +246,14 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
         out.id_index[out.tiles[i].id] = i;
     }
 
+    // Parse TSX files in the folder for animation data
+    // columns = texW / tileWidth (approximate from first tile if available)
+    int columns = 0;
+    if (!out.tiles.empty() && out.tiles[0].source_rect.w > 0) {
+        columns = texW / out.tiles[0].source_rect.w;
+    }
+    ParseTsxAnimations(folderPath, out.tiles, texW, columns);
+
     return true;
 }
 
@@ -354,4 +362,139 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     }
 
     return true;
+}
+
+// ============================================================================
+// TSX Animation Parsing
+// ============================================================================
+
+#include <fstream>
+#include <sstream>
+
+// Simple XML tag parser — extracts attribute values from TSX files.
+// This is not a full XML parser but handles the TSX animation format.
+static std::string GetXmlAttribute(const std::string& line, const std::string& attr_name)
+{
+    std::string search = attr_name + "=\"";
+    size_t pos = line.find(search);
+    if (pos == std::string::npos) return "";
+    pos += search.length();
+    size_t end = line.find('"', pos);
+    if (end == std::string::npos) return "";
+    return line.substr(pos, end - pos);
+}
+
+void TilesetLoader::ParseTsxAnimations(const std::string& folderPath,
+                                        std::vector<TileDef>& tiles,
+                                        int /*texW*/, int columns)
+{
+    // Scan the folder for .tsx files
+    int count = 0;
+    char** files = SDL_GlobDirectory(folderPath.c_str(), "*.tsx", 0, &count);
+    if (!files || count == 0) {
+        if (files) SDL_free(files);
+        return;
+    }
+
+    for (int fi = 0; fi < count; ++fi) {
+        std::string tsxPath = folderPath;
+        if (!tsxPath.empty() && tsxPath.back() != '/' && tsxPath.back() != '\\') {
+            tsxPath += '/';
+        }
+        tsxPath += files[fi];
+
+        std::ifstream file(tsxPath);
+        if (!file.is_open()) continue;
+
+        // Parse the TSX file for tile width/height and animation data
+        int tileWidth = 16, tileHeight = 16;
+        int tsxColumns = columns;
+        int currentTileId = -1;
+        bool inAnimation = false;
+        std::vector<AnimationFrame> currentFrames;
+
+        std::string line;
+        while (std::getline(file, line)) {
+            // Parse tileset element for tile dimensions
+            if (line.find("<tileset") != std::string::npos) {
+                std::string tw = GetXmlAttribute(line, "tilewidth");
+                std::string th = GetXmlAttribute(line, "tileheight");
+                std::string cols = GetXmlAttribute(line, "columns");
+                if (!tw.empty()) tileWidth = std::stoi(tw);
+                if (!th.empty()) tileHeight = std::stoi(th);
+                if (!cols.empty()) tsxColumns = std::stoi(cols);
+            }
+
+            // Parse <tile id="N">
+            if (line.find("<tile ") != std::string::npos && line.find("<tileset") == std::string::npos) {
+                std::string idStr = GetXmlAttribute(line, "id");
+                if (!idStr.empty()) {
+                    currentTileId = std::stoi(idStr);
+                    currentFrames.clear();
+                }
+            }
+
+            // Parse <animation>
+            if (line.find("<animation>") != std::string::npos) {
+                inAnimation = true;
+                currentFrames.clear();
+            }
+
+            // Parse <frame tileid="N" duration="M"/>
+            if (inAnimation && line.find("<frame ") != std::string::npos) {
+                std::string frameIdStr = GetXmlAttribute(line, "tileid");
+                std::string durationStr = GetXmlAttribute(line, "duration");
+                if (!frameIdStr.empty() && !durationStr.empty()) {
+                    AnimationFrame frame;
+                    frame.tileid = std::stoi(frameIdStr);
+                    frame.duration_ms = std::stoi(durationStr);
+
+                    // Compute source rect from tileid + columns + tileWidth/tileHeight
+                    if (tsxColumns > 0) {
+                        int col = frame.tileid % tsxColumns;
+                        int row = frame.tileid / tsxColumns;
+                        frame.rect.x = col * tileWidth;
+                        frame.rect.y = row * tileHeight;
+                        frame.rect.w = tileWidth;
+                        frame.rect.h = tileHeight;
+                    } else {
+                        frame.rect = {0, 0, tileWidth, tileHeight};
+                    }
+
+                    currentFrames.push_back(frame);
+                }
+            }
+
+            // Parse </animation>
+            if (line.find("</animation>") != std::string::npos) {
+                inAnimation = false;
+                // Apply animation frames to matching tile
+                if (currentTileId >= 0 && !currentFrames.empty()) {
+                    // Find the tile with a source_rect that matches this TSX tile id
+                    int col = currentTileId % tsxColumns;
+                    int row = currentTileId / tsxColumns;
+                    int expectedX = col * tileWidth;
+                    int expectedY = row * tileHeight;
+
+                    for (auto& tile : tiles) {
+                        if (tile.source_rect.x == expectedX &&
+                            tile.source_rect.y == expectedY &&
+                            tile.source_rect.w == tileWidth &&
+                            tile.source_rect.h == tileHeight) {
+                            tile.animation = currentFrames;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Parse </tile>
+            if (line.find("</tile>") != std::string::npos) {
+                currentTileId = -1;
+            }
+        }
+    }
+
+    SDL_free(files);
+    SDL_Log("[TilesetLoader] Parsed TSX animations from '%s'", folderPath.c_str());
 }

@@ -2,6 +2,7 @@
 // Tasks 9 & 11: WASD Camera Scrolling + Real-Time WFC Generation (G key)
 // Issue #91: Multi-Layer Rendering with Three-Level Scaling
 // Task 10: Jigsaw PoC integration (J key)
+// Issue #94: Animated tile support (water tiles animate at runtime)
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -398,6 +399,9 @@ int main(int argc, char* argv[])
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
 
+        // Elapsed time for tile animation (absolute ms since SDL init)
+        Uint32 elapsed_ms = static_cast<Uint32>(currentTicks);
+
         if (useJigsawRendering) {
             // Task 10: Render jigsaw map using RenderJigsawLayer
             MapLayerConfig jigsawCfg;
@@ -411,7 +415,7 @@ int main(int argc, char* argv[])
             jigsawCfg.sampling = SamplingMode::Nearest;
 
             tileRenderer.RenderJigsawLayer(
-                renderer, tileset, jigsawMap, viewport, camera, jigsawCfg);
+                renderer, tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
         } else {
             // Legacy grid-based rendering (G-key / initial map)
             // Issue #91: Multi-layer rendering demonstration
@@ -458,7 +462,8 @@ int main(int argc, char* argv[])
                 layers,
                 viewport,
                 camera,
-                cfg.tile_width, cfg.tile_height
+                cfg.tile_width, cfg.tile_height,
+                elapsed_ms
             );
         }
 
