@@ -667,6 +667,9 @@
     <ClInclude Include="src\timer\SDL_timer_c.h" />
     <ClInclude Include="src\time\SDL_time_c.h" />
     <ClInclude Include="src\tray\SDL_tray_utils.h" />
+    <ClInclude Include="src\notification\SDL_notification_c.h" />
+    <ClInclude Include="src\events\SDL_notificationevents_c.h" />
+    <ClInclude Include="include\SDL3\SDL_notification.h" />
     <ClInclude Include="src\video\dummy\SDL_nullevents_c.h" />
     <ClInclude Include="src\video\dummy\SDL_nullframebuffer_c.h" />
     <ClInclude Include="src\video\dummy\SDL_nullvideo.h" />
@@ -935,6 +938,10 @@
     <ClCompile Include="src\time\windows\SDL_systime.c" />
     <ClCompile Include="src\tray\windows\SDL_tray.c" />
     <ClCompile Include="src\tray\SDL_tray_utils.c" />
+    <ClCompile Include="src\notification\SDL_notification.c" />
+    <ClCompile Include="src\notification\windows\SDL_windowsnotification.c" />
+    <ClCompile Include="src\notification\dummy\SDL_dummynotification.c" />
+    <ClCompile Include="src\events\SDL_notificationevents.c" />
     <ClCompile Include="src\video\dummy\SDL_nullevents.c" />
     <ClCompile Include="src\video\dummy\SDL_nullframebuffer.c" />
     <ClCompile Include="src\video\dummy\SDL_nullvideo.c" />
