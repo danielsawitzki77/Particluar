@@ -12,7 +12,8 @@ void TileRenderer::RenderLayer(
     const Camera& camera,
     int tile_width, int tile_height,
     int layer,
-    Uint8 alpha)
+    Uint8 alpha,
+    Uint32 elapsed_ms)
 {
     (void)layer; // reserved for future multi-layer support
 
@@ -62,7 +63,7 @@ void TileRenderer::RenderLayer(
             if (it != tileset.id_index.end()) {
                 // Resolved tile — render texture with source rect
                 const TileDef& tileDef = tileset.tiles[it->second];
-                const SourceRect& src = tileDef.source_rect;
+                const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);
 
                 // Three-level scaling for single-layer overload:
                 // base_tile * sheet_scale * tile_scale (layer_scale is implicitly 1.0)
@@ -113,7 +114,8 @@ void TileRenderer::RenderLayers(
     const std::vector<MapLayer>& layers,
     const Viewport& viewport,
     const Camera& camera,
-    int base_tile_width, int base_tile_height)
+    int base_tile_width, int base_tile_height,
+    Uint32 elapsed_ms)
 {
     if (!viewport.IsValid()) {
         return;
@@ -210,7 +212,7 @@ void TileRenderer::RenderLayers(
                 auto it = tileset->id_index.find(tileId);
                 if (it != tileset->id_index.end()) {
                     const TileDef& tileDef = tileset->tiles[it->second];
-                    const SourceRect& src = tileDef.source_rect;
+                    const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);
 
                     // Three-level scaling:
                     // final_size = base_tile_size * layer_scale * sheet_scale * tile_scale
@@ -252,7 +254,8 @@ void TileRenderer::RenderJigsawLayer(
     const JigsawMap& map,
     const Viewport& viewport,
     const Camera& camera,
-    const MapLayerConfig& config)
+    const MapLayerConfig& config,
+    Uint32 elapsed_ms)
 {
     // Skip rendering when viewport is invalid
     if (!viewport.IsValid()) {
@@ -332,7 +335,7 @@ void TileRenderer::RenderJigsawLayer(
         if (it != tileset.id_index.end()) {
             // Resolved tile — render texture with source rect
             const TileDef& tileDef = tileset.tiles[it->second];
-            const SourceRect& src = tileDef.source_rect;
+            const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);
 
             SDL_FRect srcRect = {
                 static_cast<float>(src.x),

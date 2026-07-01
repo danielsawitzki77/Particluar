@@ -21,7 +21,8 @@ public:
         const Camera& camera,
         int tile_width, int tile_height,  // grid cell size in pixels
         int layer,                        // Z-depth layer index
-        Uint8 alpha                       // 0-255 transparency
+        Uint8 alpha,                      // 0-255 transparency
+        Uint32 elapsed_ms = 0            // elapsed time for animation (0 = static)
     );
 
     // Render multiple independent layers sorted by z_depth.
@@ -32,7 +33,8 @@ public:
         const std::vector<MapLayer>& layers,
         const Viewport& viewport,
         const Camera& camera,
-        int base_tile_width, int base_tile_height
+        int base_tile_width, int base_tile_height,
+        Uint32 elapsed_ms = 0            // elapsed time for animation (0 = static)
     );
 
     // Render visible jigsaw tiles for a single layer.
@@ -44,7 +46,8 @@ public:
         const JigsawMap& map,
         const Viewport& viewport,
         const Camera& camera,
-        const MapLayerConfig& config
+        const MapLayerConfig& config,
+        Uint32 elapsed_ms = 0            // elapsed time for animation (0 = static)
     );
 
     // Set the fallback tile color for unresolved tile IDs.
