@@ -2,7 +2,7 @@
 
 ## Introduction
 
-An independent OpenGL-based 3D body renderer module for the Particluar project. The module renders flat-shaded, topologically closed 3D bodies composed of connected geometric primitives (boxes, cones, cylinders), defined via a JSON-based model format. The renderer uses legacy OpenGL 2 with Phong lighting, routed through SDL3 for window and OpenGL context management. A proof-of-concept viewer application demonstrates the renderer by loading and displaying models from a directory with keyboard-driven navigation and rotation.
+An independent OpenGL-based 3D body renderer module for the Particluar project. The module renders flat-shaded, topologically closed 3D bodies composed of connected geometric primitives (boxes, cones, cylinders, spheres, tori, frustums), defined via a JSON-based model format. The renderer uses legacy OpenGL 2 with Phong lighting, routed through SDL3 for window and OpenGL context management. A proof-of-concept viewer application demonstrates the renderer by loading and displaying models from a directory with keyboard-driven navigation and rotation.
 
 ## Glossary
 
@@ -10,12 +10,19 @@ An independent OpenGL-based 3D body renderer module for the Particluar project. 
 - **Body**: A complete 3D model defined as an acyclic tree of connected geometric primitives, loaded from a Body_JSON file.
 - **Body_JSON**: A JSON file describing a Body as a shape tree of primitives with connection parameters.
 - **Shape_Tree**: An acyclic tree data structure where each node is a geometric primitive connected to its parent at a specified attachment point.
-- **Primitive**: A basic geometric solid used as a building block in a Body. Supported types: Box, Cone, Cylinder.
-- **Box**: A rectangular parallelepiped primitive with configurable width, height, and depth dimensions.
-- **Cone**: A conical primitive with configurable base radius, height, and lateral resolution (number of sides for tessellation).
-- **Cylinder**: A cylindrical primitive with configurable radius, height, and lateral resolution (number of sides for tessellation).
-- **Connection**: The attachment relationship between a child primitive and its parent in the Shape_Tree, defined by the parent's face, the child's face, and a rotation_position parameter.
-- **Rotation_Position**: A floating-point parameter in the range 0.0 to 1.0 that defines the rotational orientation of a child primitive relative to its parent's connection face. 0.0 and 1.0 represent the same orientation (full rotation wraps).
+- **Primitive**: A basic geometric solid used as a building block in a Body. Supported types: Box, Cone, Cylinder, Sphere, Torus, Frustum.
+- **Box**: A rectangular parallelepiped primitive with configurable width, height, and depth dimensions. Has 6 named flat faces.
+- **Cone**: A conical primitive with configurable base radius, height, and lateral resolution. Has a flat circular base face, a point tip, and a lateral (side) surface.
+- **Cylinder**: A cylindrical primitive with configurable radius, height, and lateral resolution. Has flat circular top and bottom cap faces and a lateral (side) surface.
+- **Sphere**: A spherical primitive with configurable radius, latitudinal resolution, and longitudinal resolution. Has no flat faces; connections occur at pole points or along ring edges.
+- **Torus**: A toroidal primitive with configurable major radius, minor radius, and ring/tube resolution. Has no flat faces; connections occur along ring edges on the outer or inner equator.
+- **Frustum**: A truncated cone primitive with configurable top radius, bottom radius, height, and lateral resolution. Has flat circular top and bottom cap faces and a lateral (side) surface.
+- **Connection**: The attachment relationship between a child primitive and its parent in the Shape_Tree, defined by the parent's attachment point, the child's attachment point, and a rotation_position parameter.
+- **Attachment_Point**: A named location on a primitive where another primitive may connect. Can be a flat face (planar polygon), a point (zero-area tip), or a ring edge (circle where two surfaces meet).
+- **Edge_Connection**: A connection where two primitives share a ring edge (a circle/polygon approximation). The shared edge becomes a line of coincident vertices in both meshes.
+- **Face_Connection**: A connection where a child primitive's flat face is placed coincident with and flush against a parent primitive's flat face. The two faces merge into the interior of the composite body and are not rendered.
+- **Point_Connection**: A connection where a child primitive attaches at a point (e.g., the tip of a cone or a pole of a sphere). The child's attachment point is coincident with the parent's point.
+- **Rotation_Position**: A floating-point parameter in the range 0.0 to 1.0 that defines the rotational orientation of a child primitive relative to its parent's connection normal/axis. 0.0 and 1.0 represent the same orientation (full rotation wraps).
 - **Face**: A flat polygon resulting from decomposing a primitive's surface. Faces can be triangles, quads, or N-gons depending on the primitive type.
 - **Face_Decomposition**: The process of converting a Body's primitives into a list of planar polygon faces with computed normals.
 - **Triangle_Decomposition**: The process of subdividing polygon faces into triangles suitable for OpenGL rendering.
@@ -23,8 +30,8 @@ An independent OpenGL-based 3D body renderer module for the Particluar project. 
 - **Point_Light**: A light source defined by a 3D position and color (RGB), contributing to the Phong_Lighting calculation.
 - **Flat_Shading**: A rendering technique where each triangle face receives a single uniform color computed from the face normal, with no interpolation across vertices.
 - **Body_Viewer**: The proof-of-concept executable that loads Body_JSON files from a directory and renders them with interactive rotation and model switching.
-- **Lateral_Resolution**: The integer number of sides used to approximate curved surfaces (Cone, Cylinder) as polygon meshes. Higher values produce smoother approximations.
-
+- **Lateral_Resolution**: The integer number of sides used to approximate curved surfaces as polygon meshes. Higher values produce smoother approximations.
+- **Non-Intersecting Constraint**: The fundamental rule that connected primitives in a Body SHALL NOT have their solid volumes overlap. Connections are surface-to-surface, edge-to-edge, or point-to-point only.
 ## Requirements
 
 ### Requirement 1: Body Renderer Static Library Integration
@@ -68,53 +75,63 @@ An independent OpenGL-based 3D body renderer module for the Particluar project. 
 7. IF no lights are enabled, THEN THE Body_Renderer SHALL render all geometry using only the ambient color component.
 8. THE Body_Renderer SHALL clamp the final per-face color (sum of ambient, diffuse, and specular contributions across all enabled lights) to the range 0.0 to 1.0 per RGB component before rendering.
 9. IF a shininess exponent is set to a value outside the range 1.0 to 128.0, THEN THE Body_Renderer SHALL clamp the value to the nearest bound (1.0 or 128.0) and use the clamped value for specular computation.
+### Requirement 4: Supported Primitive Types
 
-### Requirement 4: Body JSON Data Format
+**User Story:** As a content creator, I want a rich set of geometric primitives to compose bodies from, so that I can model a wide variety of shapes without resorting to manual mesh editing.
+
+#### Acceptance Criteria
+
+1. THE Body_Renderer SHALL support the following primitive types: Box, Cone, Cylinder, Sphere, Torus, and Frustum.
+2. THE Body_JSON SHALL define Box dimensions as: "width" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "depth" (float, 0.001 to 1000.0).
+3. THE Body_JSON SHALL define Cone dimensions as: "radius" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "sides" (integer, 3 to 128).
+4. THE Body_JSON SHALL define Cylinder dimensions as: "radius" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "sides" (integer, 3 to 128).
+5. THE Body_JSON SHALL define Sphere dimensions as: "radius" (float, 0.001 to 1000.0), "slices" (integer, 4 to 128, longitudinal divisions), "stacks" (integer, 3 to 64, latitudinal divisions).
+6. THE Body_JSON SHALL define Torus dimensions as: "major_radius" (float, 0.001 to 1000.0), "minor_radius" (float, 0.001 to 1000.0, must be less than major_radius), "ring_segments" (integer, 3 to 128), "tube_segments" (integer, 3 to 64).
+7. THE Body_JSON SHALL define Frustum dimensions as: "top_radius" (float, 0.0 to 1000.0), "bottom_radius" (float, 0.001 to 1000.0, must be greater than top_radius), "height" (float, 0.001 to 1000.0), "sides" (integer, 3 to 128). WHEN top_radius is 0.0, THE Frustum degenerates to a Cone.
+8. EACH primitive type SHALL expose named attachment points as defined in Requirement 8 (Connection System).
+
+### Requirement 5: Body JSON Data Format
 
 **User Story:** As a content creator, I want a JSON-based format to define 3D bodies as trees of connected primitives, so that models are human-readable, easy to author, and tooling-friendly.
 
 #### Acceptance Criteria
 
 1. THE Body_JSON SHALL be a JSON object with a root-level "name" field (string, 1 to 128 characters) and a "root" field containing the root primitive node of the Shape_Tree.
-2. THE Body_JSON SHALL define each primitive node as a JSON object containing: "type" (string: "box", "cone", or "cylinder"), "dimensions" (object with type-specific size parameters), "color" (object with "r", "g", "b" fields, each 0.0 to 1.0), and an optional "children" array of child connection objects. IF the "children" field is absent or is an empty array, THEN THE Body_JSON Parser SHALL treat the node as a leaf node with zero children.
-3. THE Body_JSON SHALL define Box dimensions as: "width" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "depth" (float, 0.001 to 1000.0).
-4. THE Body_JSON SHALL define Cone dimensions as: "radius" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "sides" (integer, 3 to 128).
-5. THE Body_JSON SHALL define Cylinder dimensions as: "radius" (float, 0.001 to 1000.0), "height" (float, 0.001 to 1000.0), "sides" (integer, 3 to 128).
-6. THE Body_JSON SHALL define each child connection object as containing: "parent_face" (string identifying the attachment face on the parent), "child_face" (string identifying the attachment face on the child), "rotation_position" (float, 0.0 to 1.0), and "node" (the child primitive node object).
-7. THE Shape_Tree encoded in Body_JSON SHALL be acyclic and SHALL have a maximum nesting depth of 32 levels; IF a node references itself, creates a cycle through its children, or exceeds the maximum depth, THEN THE Body_JSON Parser SHALL reject the file and report an error indicating the structural violation.
-8. IF a primitive node is missing any required field ("type", "dimensions", or "color"), THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the missing field and its location in the tree.
+2. THE Body_JSON SHALL define each primitive node as a JSON object containing: "type" (string: "box", "cone", "cylinder", "sphere", "torus", or "frustum"), "dimensions" (object with type-specific size parameters), "color" (object with "r", "g", "b" fields, each 0.0 to 1.0), and an optional "children" array of child connection objects. IF the "children" field is absent or is an empty array, THEN THE Body_JSON Parser SHALL treat the node as a leaf node with zero children.
+3. THE Body_JSON SHALL define each child connection object as containing: "parent_attachment" (string identifying the attachment point on the parent), "child_attachment" (string identifying the attachment point on the child), "rotation_position" (float, 0.0 to 1.0), and "node" (the child primitive node object).
+4. THE Shape_Tree encoded in Body_JSON SHALL be acyclic and SHALL have a maximum nesting depth of 32 levels; IF a node references itself, creates a cycle through its children, or exceeds the maximum depth, THEN THE Body_JSON Parser SHALL reject the file and report an error indicating the structural violation.
+5. IF a primitive node is missing any required field ("type", "dimensions", or "color"), THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the missing field and its location in the tree.
+6. THE Body_JSON SHALL support an optional root-level "material" object with "shininess" (float, 1.0 to 128.0, default 32.0) and "ambient" (object with "r", "g", "b", default 0.1 each) to configure the global material properties of the body.
 
-### Requirement 5: Body JSON Parsing and Pretty-Printing
-
-**User Story:** As a developer, I want robust parsing and serialization of Body_JSON files, so that model data survives read-write cycles without corruption.
+### Requirement 6: Body JSON Parsing and Validation
 
 #### Acceptance Criteria
 
 1. WHEN a valid Body_JSON file is provided, THE Body_JSON Parser SHALL produce an in-memory Shape_Tree representation containing all primitive nodes with their types, dimensions, colors, and connection parameters.
 2. THE Body_JSON Pretty_Printer SHALL format a Shape_Tree back into a valid Body_JSON file with 2-space indentation as produced by picojson's serialize(true), terminated by a single newline character.
-3. FOR ALL valid Body objects, parsing the Body_JSON, pretty-printing the result, and parsing again SHALL produce a Shape_Tree where primitive types, connection face identifiers, rotation_position values, and tree structure are identical, and where all floating-point values (dimensions, color components) are equal within a tolerance of 1e-9 (round-trip property).
-4. IF a Body_JSON file contains malformed JSON, THEN THE Body_JSON Parser SHALL reject the input and report an error message indicating the line number and the surrounding text where parsing failed, as provided by picojson's error string.
-5. IF a Body_JSON file contains a primitive with an unrecognized "type" value, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid type string and the node's path from the root (e.g., "root.children[0].node.children[1].node").
-6. IF a Body_JSON file contains a dimension value that is not a positive finite number, or a "sides" value outside the range 3 to 128, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid field.
+3. FOR ALL valid Body objects, parsing the Body_JSON, pretty-printing the result, and parsing again SHALL produce a Shape_Tree where primitive types, connection identifiers, rotation_position values, and tree structure are identical, and where all floating-point values are equal within a tolerance of 1e-9 (round-trip property).
+4. IF a Body_JSON file contains malformed JSON, THEN THE Body_JSON Parser SHALL reject the input and report an error message indicating the line number and surrounding text where parsing failed.
+5. IF a Body_JSON file contains a primitive with an unrecognized "type" value, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid type string and the node's path from the root.
+6. IF a Body_JSON file contains a dimension value that is not a positive finite number (or zero where explicitly allowed for Frustum top_radius), or a resolution value outside its allowed range, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid field.
 7. IF a Body_JSON file contains a color component outside the range 0.0 to 1.0, THEN THE Body_JSON Parser SHALL clamp the value to the nearest bound (0.0 or 1.0) and log a warning identifying the field name and the original value.
-8. IF a Body_JSON file is missing a required field ("name", "root", "type", "dimensions", "color", or any type-specific dimension key), THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the missing field name and the node path where it was expected.
-9. IF a Body_JSON file exceeds a nesting depth of 50 levels, THEN THE Body_JSON Parser SHALL reject the file and report an error indicating the maximum depth was exceeded.
+8. IF a Body_JSON specifies a connection between two attachment points whose types are incompatible according to the Connection Compatibility Matrix (Requirement 8), THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the incompatible connection.
 
-### Requirement 6: Primitive Face Decomposition
+### Requirement 7: Primitive Face Decomposition
 
 **User Story:** As a developer, I want each primitive type to decompose into polygon faces with computed normals, so that the geometry pipeline can convert any Body into renderable triangles.
 
 #### Acceptance Criteria
 
 1. WHEN a Box primitive is decomposed, THE Face_Decomposition SHALL produce exactly 6 quadrilateral faces (one per face of the rectangular parallelepiped), each with an outward-pointing normal and vertices in counter-clockwise winding order as seen from outside the solid.
-2. WHEN a Cone primitive with N sides is decomposed where N is at least 3, THE Face_Decomposition SHALL produce N triangular lateral faces, 1 N-gon base face, and each face SHALL have an outward-pointing normal with vertices in counter-clockwise winding order as seen from outside the solid.
-3. WHEN a Cylinder primitive with N sides is decomposed where N is at least 3, THE Face_Decomposition SHALL produce N quadrilateral lateral faces, 1 N-gon top cap face, and 1 N-gon bottom cap face, each with an outward-pointing normal and vertices in counter-clockwise winding order as seen from outside the solid.
-4. THE Face_Decomposition SHALL compute each face normal as the cross product of two consecutive edge vectors of that face, oriented so that the normal points away from the primitive's solid interior (consistent with the counter-clockwise vertex winding).
-5. WHEN a child primitive is decomposed, THE Face_Decomposition SHALL first apply the Connection's translation (derived from parent_face and child_face center positions) and then apply the rotation (derived from rotation_position) to position the child relative to its parent, before computing the child's face vertices and normals.
-6. THE Face_Decomposition SHALL produce a topologically closed mesh for each primitive, meaning every edge is shared by exactly 2 faces and the union of all face edges forms a closed surface with no gaps or dangling edges.
-7. IF a Cone or Cylinder primitive is specified with N less than 3, THEN THE Face_Decomposition SHALL reject the primitive and produce no faces.
-
-### Requirement 7: Triangle Decomposition
+2. WHEN a Cone primitive with N sides is decomposed, THE Face_Decomposition SHALL produce N triangular lateral faces and 1 N-gon base face, each with an outward-pointing normal and counter-clockwise winding.
+3. WHEN a Cylinder primitive with N sides is decomposed, THE Face_Decomposition SHALL produce N quadrilateral lateral faces, 1 N-gon top cap face, and 1 N-gon bottom cap face, each with an outward-pointing normal and counter-clockwise winding.
+4. WHEN a Sphere primitive with S slices and T stacks is decomposed, THE Face_Decomposition SHALL produce S triangular faces at each pole and S*(T-2) quadrilateral faces for intermediate latitude bands, each with an outward-pointing normal.
+5. WHEN a Frustum primitive with N sides is decomposed, THE Face_Decomposition SHALL produce N quadrilateral lateral faces (or N triangular faces if top_radius is 0.0), plus 1 N-gon top cap face (if top_radius > 0) and 1 N-gon bottom cap face, each with an outward-pointing normal.
+6. THE Face_Decomposition SHALL compute each face normal as the cross product of two consecutive edge vectors of that face, oriented outward from the primitive's solid interior.
+7. WHEN a child primitive is decomposed, THE Face_Decomposition SHALL first apply the Connection's translation (derived from parent_attachment and child_attachment center positions) and then apply the rotation (derived from rotation_position) to position the child relative to its parent, before computing the child's face vertices and normals.
+8. WHEN a Face_Connection joins two primitives, THE Face_Decomposition SHALL suppress (not emit) the two coincident faces at the connection boundary, since they become interior to the composite solid.
+9. WHEN an Edge_Connection joins two primitives, THE Face_Decomposition SHALL merge the shared ring of vertices so that adjacent faces from both primitives reference the same vertex positions at the shared boundary, ensuring a watertight mesh without duplicate edges.
+10. THE Face_Decomposition SHALL produce a topologically closed mesh for the entire composite Body, meaning every edge in the final mesh is shared by exactly 2 faces.
 
 **User Story:** As a developer, I want polygon faces to be subdivided into triangles for OpenGL rendering, so that all geometry is expressed as triangles regardless of the original face shape.
 
@@ -127,22 +144,7 @@ An independent OpenGL-based 3D body renderer module for the Particluar project. 
 5. THE Triangle_Decomposition SHALL produce triangles whose combined area equals the area of the original convex polygon face (no gaps, no overlaps).
 6. IF a face with fewer than 3 vertices is provided, THEN THE Triangle_Decomposition SHALL produce zero triangles and discard the degenerate face.
 
-### Requirement 8: Connection System
-
-**User Story:** As a content creator, I want primitives to connect to each other at specified faces with a rotation parameter, so that complex articulated bodies can be assembled from simple shapes.
-
-#### Acceptance Criteria
-
-1. THE Connection System SHALL support attaching a child primitive to any named face of its parent primitive, where Box faces are named "top", "bottom", "front", "back", "left", "right"; Cone faces are named "base" and "side"; and Cylinder faces are named "top", "bottom", and "side".
-2. WHEN a child is connected to a parent face, THE Connection System SHALL position the child such that the child's specified attachment face center is coincident with the parent's specified attachment face center, and the outward-facing normal of the child's attachment face is anti-parallel (pointing in the opposite direction) to the outward-facing normal of the parent's attachment face.
-3. WHEN a rotation_position value is applied, THE Connection System SHALL rotate the child around the outward-facing normal axis of the parent's attachment face by (rotation_position * 360) degrees before positioning, where rotation_position is a floating-point value in the range 0.0 to 1.0 inclusive and values outside this range SHALL be wrapped into the valid range using modulo-1.0 arithmetic (e.g., 1.5 becomes 0.5, -0.25 becomes 0.75).
-4. THE Connection System SHALL support connecting any primitive type to any face of any other primitive type without restriction (Box-to-Cone, Cylinder-to-Box, Cone-to-Cone, etc.).
-5. IF a Body_JSON specifies a parent_face name that does not exist on the parent primitive type, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid face name.
-6. IF a Body_JSON specifies a child_face name that does not exist on the child primitive type, THEN THE Body_JSON Parser SHALL reject the file and report an error identifying the invalid face name.
-7. WHEN rotation_position is exactly 0.0 or exactly 1.0, THE Connection System SHALL produce identical child orientations (full rotation wraps to start).
-8. WHEN a "side" face is specified as an attachment face on a Cone or Cylinder, THE Connection System SHALL treat the attachment point as the center of the curved surface's bounding extent along the height axis, with the outward-facing normal pointing radially outward perpendicular to the primitive's height axis.
-
-### Requirement 9: Body Viewer Application
+### Requirement 10: Body Viewer Application
 
 **User Story:** As a developer, I want a proof-of-concept viewer application that loads and displays Body_JSON models from a directory with keyboard controls, so that the rendering pipeline can be validated visually.
 
@@ -161,8 +163,6 @@ An independent OpenGL-based 3D body renderer module for the Particluar project. 
 11. IF the scanned directory contains no valid Body_JSON files, THEN THE Body_Viewer SHALL display an empty viewport with a black background (RGB 0.0, 0.0, 0.0) and log a message via SDL_Log indicating that no models were found.
 12. IF a Body_JSON file in the directory fails to parse, THEN THE Body_Viewer SHALL skip that file, log a warning via SDL_Log including the filename and the parse error reason, and continue loading remaining files.
 13. IF the specified directory path does not exist or cannot be read, THEN THE Body_Viewer SHALL log an error via SDL_Log indicating the inaccessible path and exit with a non-zero code.
-
-### Requirement 10: SDL3 Window and Context Management
 
 **User Story:** As a developer, I want the Body_Viewer to use SDL3 for window creation and OpenGL context management, so that the application integrates with the project's existing SDL3 dependency.
 
