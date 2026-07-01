@@ -1,0 +1,39 @@
+{
+  "name": "Robot Arm",
+  "material": {
+    "shininess": 64.0,
+    "ambient": { "r": 0.1, "g": 0.1, "b": 0.15 }
+  },
+  "root": {
+    "name": "upper_arm",
+    "shape": {
+      "type": "cylinder",
+      "radius": 0.3,
+      "height": 2.0,
+      "sides": 16
+    },
+    "color": { "r": 0.4, "g": 0.4, "b": 0.6 },
+    "children": [
+      {
+        "connection": {
+          "type": "Face_Connection",
+          "parent_face": 16,
+          "child_face": 0,
+          "offset_u": 0.5,
+          "offset_v": 0.5,
+          "rotation": 0.0
+        },
+        "node": {
+          "name": "shoulder_joint",
+          "shape": {
+            "type": "sphere",
+            "radius": 0.4,
+            "slices": 12,
+            "stacks": 8
+          },
+          "color": { "r": 0.6, "g": 0.3, "b": 0.3 }
+        }
+      }
+    ]
+  }
+}

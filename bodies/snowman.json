@@ -1,0 +1,61 @@
+{
+  "name": "Snowman",
+  "material": {
+    "shininess": 16.0,
+    "ambient": { "r": 0.15, "g": 0.15, "b": 0.15 }
+  },
+  "root": {
+    "name": "body",
+    "shape": {
+      "type": "sphere",
+      "radius": 1.0,
+      "slices": 16,
+      "stacks": 12
+    },
+    "color": { "r": 0.9, "g": 0.9, "b": 0.95 },
+    "children": [
+      {
+        "connection": {
+          "type": "Face_Connection",
+          "parent_face": 0,
+          "child_face": 0,
+          "offset_u": 0.5,
+          "offset_v": 0.5,
+          "rotation": 0.0
+        },
+        "node": {
+          "name": "torso",
+          "shape": {
+            "type": "sphere",
+            "radius": 0.7,
+            "slices": 14,
+            "stacks": 10
+          },
+          "color": { "r": 0.9, "g": 0.9, "b": 0.95 },
+          "children": [
+            {
+              "connection": {
+                "type": "Face_Connection",
+                "parent_face": 0,
+                "child_face": 0,
+                "offset_u": 0.5,
+                "offset_v": 0.5,
+                "rotation": 0.0
+              },
+              "node": {
+                "name": "head",
+                "shape": {
+                  "type": "sphere",
+                  "radius": 0.5,
+                  "slices": 12,
+                  "stacks": 8
+                },
+                "color": { "r": 0.95, "g": 0.95, "b": 1.0 }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
