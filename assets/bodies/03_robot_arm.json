@@ -1,0 +1,48 @@
+{
+  "name": "Robot Arm",
+  "material": {
+    "shininess": 64.0,
+    "ambient": { "r": 0.05, "g": 0.05, "b": 0.08 }
+  },
+  "root": {
+    "type": "cylinder",
+    "dimensions": { "radius": 0.4, "height": 2.0, "sides": 16 },
+    "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
+    "children": [
+      {
+        "parent_attachment": "top",
+        "child_attachment": "bottom",
+        "rotation_position": 0.0,
+        "node": {
+          "type": "sphere",
+          "dimensions": { "radius": 0.5, "slices": 12, "stacks": 8 },
+          "color": { "r": 0.7, "g": 0.3, "b": 0.2 },
+          "children": [
+            {
+              "parent_attachment": "north_pole",
+              "child_attachment": "bottom",
+              "rotation_position": 0.25,
+              "node": {
+                "type": "cylinder",
+                "dimensions": { "radius": 0.3, "height": 1.5, "sides": 16 },
+                "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
+                "children": [
+                  {
+                    "parent_attachment": "top",
+                    "child_attachment": "base",
+                    "rotation_position": 0.0,
+                    "node": {
+                      "type": "cone",
+                      "dimensions": { "radius": 0.35, "height": 0.8, "sides": 16 },
+                      "color": { "r": 0.9, "g": 0.7, "b": 0.1 }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "Dumbbell",
+  "material": {
+    "shininess": 100.0,
+    "ambient": { "r": 0.05, "g": 0.05, "b": 0.05 }
+  },
+  "root": {
+    "type": "sphere",
+    "dimensions": { "radius": 0.6, "slices": 16, "stacks": 12 },
+    "color": { "r": 0.2, "g": 0.2, "b": 0.2 },
+    "children": [
+      {
+        "parent_attachment": "north_pole",
+        "child_attachment": "bottom",
+        "rotation_position": 0.0,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.15, "height": 2.0, "sides": 12 },
+          "color": { "r": 0.7, "g": 0.7, "b": 0.72 },
+          "children": [
+            {
+              "parent_attachment": "top",
+              "child_attachment": "south_pole",
+              "rotation_position": 0.0,
+              "node": {
+                "type": "sphere",
+                "dimensions": { "radius": 0.6, "slices": 16, "stacks": 12 },
+                "color": { "r": 0.2, "g": 0.2, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Rocket",
+  "material": {
+    "shininess": 80.0,
+    "ambient": { "r": 0.1, "g": 0.1, "b": 0.12 }
+  },
+  "root": {
+    "type": "cone",
+    "dimensions": { "radius": 0.4, "height": 1.0, "sides": 20 },
+    "color": { "r": 0.9, "g": 0.2, "b": 0.15 },
+    "children": [
+      {
+        "parent_attachment": "base",
+        "child_attachment": "top",
+        "rotation_position": 0.0,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.4, "height": 2.5, "sides": 20 },
+          "color": { "r": 0.9, "g": 0.9, "b": 0.92 },
+          "children": [
+            {
+              "parent_attachment": "bottom",
+              "child_attachment": "top",
+              "rotation_position": 0.0,
+              "node": {
+                "type": "frustum",
+                "dimensions": { "top_radius": 0.4, "bottom_radius": 0.6, "height": 0.5, "sides": 20 },
+                "color": { "r": 0.7, "g": 0.7, "b": 0.75 },
+                "children": [
+                  {
+                    "parent_attachment": "bottom",
+                    "child_attachment": "top",
+                    "rotation_position": 0.0,
+                    "node": {
+                      "type": "cylinder",
+                      "dimensions": { "radius": 0.6, "height": 0.3, "sides": 20 },
+                      "color": { "r": 0.3, "g": 0.3, "b": 0.35 }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "parent_attachment": "side",
+              "child_attachment": "base",
+              "rotation_position": 0.0,
+              "parameter": 0.8,
+              "node": {
+                "type": "cone",
+                "dimensions": { "radius": 0.15, "height": 0.6, "sides": 8 },
+                "color": { "r": 0.9, "g": 0.2, "b": 0.15 }
+              }
+            },
+            {
+              "parent_attachment": "side",
+              "child_attachment": "base",
+              "rotation_position": 0.5,
+              "parameter": 0.8,
+              "node": {
+                "type": "cone",
+                "dimensions": { "radius": 0.15, "height": 0.6, "sides": 8 },
+                "color": { "r": 0.9, "g": 0.2, "b": 0.15 }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

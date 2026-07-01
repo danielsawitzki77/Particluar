@@ -1,0 +1,54 @@
+{
+  "name": "Table",
+  "material": {
+    "shininess": 24.0,
+    "ambient": { "r": 0.1, "g": 0.08, "b": 0.05 }
+  },
+  "root": {
+    "type": "box",
+    "dimensions": { "width": 2.0, "height": 0.1, "depth": 1.2 },
+    "color": { "r": 0.55, "g": 0.35, "b": 0.15 },
+    "children": [
+      {
+        "parent_attachment": "bottom",
+        "child_attachment": "top",
+        "rotation_position": 0.0,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.08, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "parent_attachment": "bottom",
+        "child_attachment": "top",
+        "rotation_position": 0.25,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.08, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "parent_attachment": "bottom",
+        "child_attachment": "top",
+        "rotation_position": 0.5,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.08, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "parent_attachment": "bottom",
+        "child_attachment": "top",
+        "rotation_position": 0.75,
+        "node": {
+          "type": "cylinder",
+          "dimensions": { "radius": 0.08, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      }
+    ]
+  }
+}
