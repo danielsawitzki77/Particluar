@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <set>
+#include <cmath>
 
 WFCResult WFCGenerator::Generate(const WFCParams& params)
 {
@@ -271,4 +272,400 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
     }
 
     return true;
+}
+
+
+// =============================================================================
+// Jigsaw WFC Implementation — Gap-Queue Algorithm with Backtracking
+// =============================================================================
+
+static const float EPSILON = 0.001f;
+
+std::vector<size_t> WFCGenerator::GetCandidates(
+    const Gap& gap,
+    const TilesetDef& tileset,
+    const JigsawMap& placed,
+    float sheetScale, float layerScale) const
+{
+    std::vector<size_t> candidates;
+    const int numTiles = static_cast<int>(tileset.tiles.size());
+
+    for (int i = 0; i < numTiles; ++i) {
+        const TileDef& def = tileset.tiles[i];
+
+        // Compute effective size for this tile
+        auto eff = ComputeEffectiveSize(
+            static_cast<float>(def.source_rect.w),
+            static_cast<float>(def.source_rect.h),
+            def.scale, sheetScale, layerScale);
+        float ew = eff.first;
+        float eh = eff.second;
+
+        // Tile must fit within the gap (with tolerance)
+        if (ew > gap.w + EPSILON || eh > gap.h + EPSILON) {
+            continue;
+        }
+
+        // Construct a hypothetical placed tile at the gap's position
+        PlacedTile hypothetical;
+        hypothetical.tile_id = def.id;
+        hypothetical.x = gap.x;
+        hypothetical.y = gap.y;
+        hypothetical.w = ew;
+        hypothetical.h = eh;
+
+        // Validate adjacency with already-placed neighbors
+        if (!ValidateAdjacency(hypothetical, def, placed, tileset)) {
+            continue;
+        }
+
+        candidates.push_back(static_cast<size_t>(i));
+    }
+
+    return candidates;
+}
+
+bool WFCGenerator::ValidateAdjacency(
+    const PlacedTile& candidate,
+    const TileDef& candidateDef,
+    const JigsawMap& placed,
+    const TilesetDef& tileset) const
+{
+    // Get edge neighbors of the hypothetical placement
+    std::vector<const PlacedTile*> neighbors = placed.GetEdgeNeighbors(candidate);
+
+    for (const PlacedTile* neighbor : neighbors) {
+        // Find the neighbor's TileDef
+        auto it = tileset.id_index.find(neighbor->tile_id);
+        if (it == tileset.id_index.end()) {
+            continue;  // unknown tile, skip (shouldn't happen)
+        }
+        const TileDef& neighborDef = tileset.tiles[it->second];
+
+        // Determine the direction relationship between candidate and neighbor
+        // Check if neighbor is to the LEFT of candidate
+        if (std::fabs((neighbor->x + neighbor->w) - candidate.x) < EPSILON) {
+            // neighbor's right edge touches candidate's left edge
+            // Check overlap in Y
+            float overlapY = std::min(neighbor->y + neighbor->h, candidate.y + candidate.h)
+                           - std::max(neighbor->y, candidate.y);
+            if (overlapY > EPSILON) {
+                // neighbor.right must allow candidate
+                const std::vector<std::string>& nRight = neighborDef.adjacency.right;
+                if (!nRight.empty()) {
+                    bool found = false;
+                    for (const std::string& id : nRight) {
+                        if (id == candidateDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+                // candidate.left must allow neighbor
+                const std::vector<std::string>& cLeft = candidateDef.adjacency.left;
+                if (!cLeft.empty()) {
+                    bool found = false;
+                    for (const std::string& id : cLeft) {
+                        if (id == neighborDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+            }
+        }
+
+        // Check if neighbor is to the RIGHT of candidate
+        if (std::fabs((candidate.x + candidate.w) - neighbor->x) < EPSILON) {
+            float overlapY = std::min(neighbor->y + neighbor->h, candidate.y + candidate.h)
+                           - std::max(neighbor->y, candidate.y);
+            if (overlapY > EPSILON) {
+                // candidate.right must allow neighbor
+                const std::vector<std::string>& cRight = candidateDef.adjacency.right;
+                if (!cRight.empty()) {
+                    bool found = false;
+                    for (const std::string& id : cRight) {
+                        if (id == neighborDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+                // neighbor.left must allow candidate
+                const std::vector<std::string>& nLeft = neighborDef.adjacency.left;
+                if (!nLeft.empty()) {
+                    bool found = false;
+                    for (const std::string& id : nLeft) {
+                        if (id == candidateDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+            }
+        }
+
+        // Check if neighbor is ABOVE candidate
+        if (std::fabs((neighbor->y + neighbor->h) - candidate.y) < EPSILON) {
+            float overlapX = std::min(neighbor->x + neighbor->w, candidate.x + candidate.w)
+                           - std::max(neighbor->x, candidate.x);
+            if (overlapX > EPSILON) {
+                // neighbor.down must allow candidate
+                const std::vector<std::string>& nDown = neighborDef.adjacency.down;
+                if (!nDown.empty()) {
+                    bool found = false;
+                    for (const std::string& id : nDown) {
+                        if (id == candidateDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+                // candidate.up must allow neighbor
+                const std::vector<std::string>& cUp = candidateDef.adjacency.up;
+                if (!cUp.empty()) {
+                    bool found = false;
+                    for (const std::string& id : cUp) {
+                        if (id == neighborDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+            }
+        }
+
+        // Check if neighbor is BELOW candidate
+        if (std::fabs((candidate.y + candidate.h) - neighbor->y) < EPSILON) {
+            float overlapX = std::min(neighbor->x + neighbor->w, candidate.x + candidate.w)
+                           - std::max(neighbor->x, candidate.x);
+            if (overlapX > EPSILON) {
+                // candidate.down must allow neighbor
+                const std::vector<std::string>& cDown = candidateDef.adjacency.down;
+                if (!cDown.empty()) {
+                    bool found = false;
+                    for (const std::string& id : cDown) {
+                        if (id == neighborDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+                // neighbor.up must allow candidate
+                const std::vector<std::string>& nUp = neighborDef.adjacency.up;
+                if (!nUp.empty()) {
+                    bool found = false;
+                    for (const std::string& id : nUp) {
+                        if (id == candidateDef.id) { found = true; break; }
+                    }
+                    if (!found) return false;
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+std::vector<Gap> WFCGenerator::SplitGap(const Gap& original, const PlacedTile& placed) const
+{
+    std::vector<Gap> subGaps;
+
+    float rightW = original.w - placed.w;
+    float bottomH = original.h - placed.h;
+
+    // Right remainder: to the right of the placed tile, same height as placed tile
+    if (rightW > EPSILON) {
+        Gap right;
+        right.x = original.x + placed.w;
+        right.y = original.y;
+        right.w = rightW;
+        right.h = placed.h;
+        subGaps.push_back(right);
+    }
+
+    // Bottom remainder: below the placed tile, full width of original gap
+    if (bottomH > EPSILON) {
+        Gap bottom;
+        bottom.x = original.x;
+        bottom.y = original.y + placed.h;
+        bottom.w = original.w;
+        bottom.h = bottomH;
+        subGaps.push_back(bottom);
+    }
+
+    return subGaps;
+}
+
+JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
+{
+    JigsawWFCResult result;
+    result.status = WFCStatus::InvalidInput;
+
+    // --- Validate inputs ---
+    if (!params.tileset) {
+        SDL_Log("[JigsawWFC] Invalid input: tileset is null");
+        return result;
+    }
+    if (params.tileset->tiles.empty()) {
+        SDL_Log("[JigsawWFC] Invalid input: tileset has zero tiles");
+        return result;
+    }
+    if (params.target_width <= 0.0f || params.target_height <= 0.0f) {
+        SDL_Log("[JigsawWFC] Invalid input: target area must be > 0");
+        return result;
+    }
+
+    const TilesetDef& tileset = *params.tileset;
+    float sheetScale = tileset.sheet_scale;
+    float layerScale = params.layer_scale;
+
+    // --- Seed RNG ---
+    std::mt19937 rng;
+    if (params.seed == 0) {
+        std::random_device rd;
+        rng.seed(rd());
+    } else {
+        rng.seed(params.seed);
+    }
+
+    // --- Set up the map with boundary ---
+    result.map.SetTilesetId(tileset.name);
+    MapBoundary boundary;
+    boundary.width_pixels = params.target_width;
+    boundary.height_pixels = params.target_height;
+    result.map.SetBoundary(boundary);
+
+    // --- Initialize gap queue with one gap = entire target area ---
+    GapQueue gapQueue;
+    Gap initialGap;
+    initialGap.x = params.origin_x;
+    initialGap.y = params.origin_y;
+    initialGap.w = params.target_width;
+    initialGap.h = params.target_height;
+    gapQueue.push(initialGap);
+
+    // --- Backtracking state ---
+    // Simple approach: for each gap, try all candidates. If all fail, contradiction.
+    // A snapshot records the state before a placement so we can undo it.
+    struct Snapshot {
+        Gap gap;
+        std::vector<size_t> remainingCandidates;
+        GapQueue savedQueue;
+        size_t tileCountBefore;
+    };
+    std::vector<Snapshot> backtrackStack;
+
+    static const int MAX_BACKTRACKS = 100;
+    int backtrackCount = 0;
+
+    // --- Main loop ---
+    while (!gapQueue.empty()) {
+        Gap currentGap = gapQueue.top();
+        gapQueue.pop();
+
+        // Skip negligibly small gaps (floating point remnants)
+        if (currentGap.w < EPSILON || currentGap.h < EPSILON) {
+            continue;
+        }
+
+        // Get candidates for this gap
+        std::vector<size_t> candidates = GetCandidates(
+            currentGap, tileset, result.map, sheetScale, layerScale);
+
+        if (candidates.empty()) {
+            // Try backtracking
+            bool recovered = false;
+            while (!backtrackStack.empty() && backtrackCount < MAX_BACKTRACKS) {
+                Snapshot& snap = backtrackStack.back();
+
+                if (snap.remainingCandidates.empty()) {
+                    // No more alternatives at this level, pop further
+                    backtrackStack.pop_back();
+                    continue;
+                }
+
+                // Undo: remove tiles placed after this snapshot
+                while (result.map.GetTileCount() > snap.tileCountBefore) {
+                    const auto& allTiles = result.map.GetAllTiles();
+                    if (allTiles.empty()) break;
+                    const PlacedTile& last = allTiles.back();
+                    result.map.RemoveTile(last.x, last.y);
+                }
+
+                // Restore the gap queue
+                gapQueue = snap.savedQueue;
+
+                // Try next candidate
+                backtrackCount++;
+                size_t nextIdx = snap.remainingCandidates.back();
+                snap.remainingCandidates.pop_back();
+
+                const TileDef& def = tileset.tiles[nextIdx];
+                auto eff = ComputeEffectiveSize(
+                    static_cast<float>(def.source_rect.w),
+                    static_cast<float>(def.source_rect.h),
+                    def.scale, sheetScale, layerScale);
+
+                PlacedTile tile;
+                tile.tile_id = def.id;
+                tile.x = snap.gap.x;
+                tile.y = snap.gap.y;
+                tile.w = eff.first;
+                tile.h = eff.second;
+
+                if (result.map.AddTile(tile)) {
+                    // Split remaining gap
+                    std::vector<Gap> subGaps = SplitGap(snap.gap, tile);
+                    for (const Gap& sg : subGaps) {
+                        gapQueue.push(sg);
+                    }
+                    recovered = true;
+                    break;
+                }
+                // If AddTile failed (overlap), try next candidate
+            }
+
+            if (!recovered) {
+                result.status = WFCStatus::Contradiction;
+                SDL_Log("[JigsawWFC] Contradiction: no candidates for gap at (%.1f, %.1f) size %.1f x %.1f",
+                        currentGap.x, currentGap.y, currentGap.w, currentGap.h);
+                return result;
+            }
+            continue;
+        }
+
+        // Shuffle candidates for randomness
+        std::shuffle(candidates.begin(), candidates.end(), rng);
+
+        // Pick the first candidate
+        size_t chosenIdx = candidates[0];
+        const TileDef& chosenDef = tileset.tiles[chosenIdx];
+        auto eff = ComputeEffectiveSize(
+            static_cast<float>(chosenDef.source_rect.w),
+            static_cast<float>(chosenDef.source_rect.h),
+            chosenDef.scale, sheetScale, layerScale);
+
+        PlacedTile placedTile;
+        placedTile.tile_id = chosenDef.id;
+        placedTile.x = currentGap.x;
+        placedTile.y = currentGap.y;
+        placedTile.w = eff.first;
+        placedTile.h = eff.second;
+
+        // Save snapshot for backtracking (remaining candidates minus the chosen one)
+        Snapshot snap;
+        snap.gap = currentGap;
+        snap.remainingCandidates.assign(candidates.begin() + 1, candidates.end());
+        snap.savedQueue = gapQueue;
+        snap.tileCountBefore = result.map.GetTileCount();
+        backtrackStack.push_back(snap);
+
+        // Place the tile
+        if (!result.map.AddTile(placedTile)) {
+            // Overlap detected — shouldn't happen if gap tracking is correct, but handle gracefully
+            // Remove this snapshot and try next candidate via backtracking
+            backtrackStack.pop_back();
+            // Re-push this gap to try again
+            gapQueue.push(currentGap);
+            continue;
+        }
+
+        // Split remaining gap into sub-gaps
+        std::vector<Gap> subGaps = SplitGap(currentGap, placedTile);
+        for (const Gap& sg : subGaps) {
+            gapQueue.push(sg);
+        }
+    }
+
+    // --- Success: all gaps filled ---
+    result.status = WFCStatus::Success;
+    SDL_Log("[JigsawWFC] Success: placed %zu tiles", result.map.GetTileCount());
+    return result;
 }

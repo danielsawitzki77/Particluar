@@ -1,5 +1,6 @@
 #pragma once
 
+#include "JigsawMap.h"
 #include "JsonUtil.h"
 #include "TilesetLoader.h"
 #include <string>
@@ -28,4 +29,20 @@ public:
     struct UnresolvedTile { std::string id; int row; int col; };
     std::vector<UnresolvedTile> ValidateAgainstTileset(
         const MapData& mapData, const TilesetDef& tileset) const;
+
+    // --- Jigsaw map format ---
+
+    // Load a jigsaw map from a JSON file. Skips malformed tile records.
+    bool LoadJigsawMap(const std::string& filepath, JigsawMap& out);
+
+    // Serialize a JigsawMap to a JSON string (2-space pretty-print).
+    std::string SerializeJigsawMap(const JigsawMap& map) const;
+
+    // Write a jigsaw map to disk.
+    bool SaveJigsawMap(const std::string& filepath, const JigsawMap& map);
+
+    // Validate jigsaw tile IDs against tileset. Returns unresolved tiles.
+    struct UnresolvedJigsawTile { std::string id; float x; float y; };
+    std::vector<UnresolvedJigsawTile> ValidateAgainstTileset(
+        const JigsawMap& map, const TilesetDef& tileset) const;
 };

@@ -1038,7 +1038,8 @@
   if (leLabelFilter) {
     leLabelFilter.addEventListener('change', () => {
       leActiveLabelFilter = leLabelFilter.value;
-      renderLEPalette();
+      if (leJigsawMode) renderLEPaletteJigsaw();
+      else renderLEPalette();
     });
   }
 
@@ -1109,6 +1110,222 @@
     for (let y = 0; y <= levelCanvas.height; y += leCellH) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
   }
 
+  // ============================================================
+  // JIGSAW MODE — snap-to-edge variable-size tile placement
+  // ============================================================
+
+  let leJigsawMode = false;
+  let leJigsawTiles = []; // Array of {tile_id, x, y, w, h}
+
+  const leJigsawToggle = document.getElementById('le-jigsaw-toggle');
+
+  leJigsawToggle.addEventListener('click', () => {
+    leJigsawMode = !leJigsawMode;
+    leJigsawToggle.textContent = leJigsawMode ? 'Jigsaw Mode: On' : 'Jigsaw Mode: Off';
+    leJigsawToggle.style.background = leJigsawMode ? '#ff9800' : '';
+    leJigsawToggle.style.color = leJigsawMode ? '#1a1a2e' : '';
+    if (leJigsawMode) {
+      renderLEPaletteJigsaw();
+      renderLECanvasJigsaw();
+    } else {
+      renderLEPalette();
+      renderLECanvas();
+    }
+  });
+
+  function findSnapPosition(candidate, mouseX, mouseY, existingTiles, threshold) {
+    // candidate = {w, h}
+    // Returns {x, y, valid}
+    if (existingTiles.length === 0) {
+      return { x: 0, y: 0, valid: true };
+    }
+    let bestX = mouseX, bestY = mouseY;
+    let bestDist = Infinity;
+    let found = false;
+
+    for (const t of existingTiles) {
+      // Snap to right edge of existing tile
+      const snapRightX = t.x + t.w;
+      // Align top edges
+      const snapRightY = t.y;
+      const dRightTop = Math.hypot(snapRightX - mouseX, snapRightY - mouseY);
+      if (dRightTop < threshold && dRightTop < bestDist) {
+        bestX = snapRightX; bestY = snapRightY; bestDist = dRightTop; found = true;
+      }
+      // Align bottom of existing with top of new
+      const snapRightYB = t.y + t.h - candidate.h;
+      const dRightBot = Math.hypot(snapRightX - mouseX, snapRightYB - mouseY);
+      if (dRightBot < threshold && dRightBot < bestDist) {
+        bestX = snapRightX; bestY = snapRightYB; bestDist = dRightBot; found = true;
+      }
+
+      // Snap to left edge of existing tile
+      const snapLeftX = t.x - candidate.w;
+      const dLeftTop = Math.hypot(snapLeftX - mouseX, t.y - mouseY);
+      if (dLeftTop < threshold && dLeftTop < bestDist) {
+        bestX = snapLeftX; bestY = t.y; bestDist = dLeftTop; found = true;
+      }
+
+      // Snap to bottom edge of existing tile
+      const snapBotY = t.y + t.h;
+      const dBotLeft = Math.hypot(t.x - mouseX, snapBotY - mouseY);
+      if (dBotLeft < threshold && dBotLeft < bestDist) {
+        bestX = t.x; bestY = snapBotY; bestDist = dBotLeft; found = true;
+      }
+      // Align right of existing with right of new
+      const snapBotXR = t.x + t.w - candidate.w;
+      const dBotRight = Math.hypot(snapBotXR - mouseX, snapBotY - mouseY);
+      if (dBotRight < threshold && dBotRight < bestDist) {
+        bestX = snapBotXR; bestY = snapBotY; bestDist = dBotRight; found = true;
+      }
+
+      // Snap to top edge of existing tile
+      const snapTopY = t.y - candidate.h;
+      const dTopLeft = Math.hypot(t.x - mouseX, snapTopY - mouseY);
+      if (dTopLeft < threshold && dTopLeft < bestDist) {
+        bestX = t.x; bestY = snapTopY; bestDist = dTopLeft; found = true;
+      }
+    }
+
+    if (!found) {
+      // Fall back to mouse position (no snap)
+      return { x: mouseX, y: mouseY, valid: false };
+    }
+    return { x: bestX, y: bestY, valid: true };
+  }
+
+  function jigsawWouldOverlap(candidate, existingTiles) {
+    // candidate = {x, y, w, h}
+    for (const t of existingTiles) {
+      const overlapX = Math.max(0, Math.min(candidate.x + candidate.w, t.x + t.w) - Math.max(candidate.x, t.x));
+      const overlapY = Math.max(0, Math.min(candidate.y + candidate.h, t.y + t.h) - Math.max(candidate.y, t.y));
+      if (overlapX > 0 && overlapY > 0) return true;
+    }
+    return false;
+  }
+
+  function renderLEPaletteJigsaw() {
+    lePalette.innerHTML = '';
+    if (!leTilesetData || !leTilesetImage) return;
+    const tiles = leTilesetData.tiles.filter(t => {
+      if (!leActiveLabelFilter) return true;
+      return (t.labels || []).includes(leActiveLabelFilter);
+    });
+    tiles.forEach(tile => {
+      const div = document.createElement('div');
+      div.className = 'palette-tile';
+      div.title = tile.id;
+      const c = document.createElement('canvas');
+      // Show at proportional size (capped for display)
+      const maxDim = 64;
+      const scale = Math.min(1, maxDim / Math.max(tile.source_rect.w, tile.source_rect.h));
+      c.width = Math.round(tile.source_rect.w * scale);
+      c.height = Math.round(tile.source_rect.h * scale);
+      c.style.width = c.width + 'px';
+      c.style.height = c.height + 'px';
+      c.getContext('2d').drawImage(leTilesetImage,
+        tile.source_rect.x, tile.source_rect.y, tile.source_rect.w, tile.source_rect.h,
+        0, 0, c.width, c.height);
+      div.appendChild(c);
+      if (leSelectedTileId === tile.id) div.classList.add('selected');
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.palette-tile').forEach(el => el.classList.remove('selected'));
+        div.classList.add('selected');
+        leSelectedTileId = tile.id;
+        setStatus(`Selected: ${tile.id} (${tile.source_rect.w}x${tile.source_rect.h})`);
+      });
+      lePalette.appendChild(div);
+    });
+    if (tiles.length === 0) {
+      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px">No tiles match filter</p>';
+    }
+  }
+
+  function renderLECanvasJigsaw() {
+    // Compute canvas size from placed tiles bounding box
+    let maxX = 320, maxY = 240;
+    for (const t of leJigsawTiles) {
+      maxX = Math.max(maxX, t.x + t.w + 32);
+      maxY = Math.max(maxY, t.y + t.h + 32);
+    }
+    levelCanvas.width = maxX;
+    levelCanvas.height = maxY;
+    lCtx.imageSmoothingEnabled = false;
+    lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
+
+    // Draw background grid hint
+    lCtx.strokeStyle = 'rgba(79,195,247,0.15)'; lCtx.lineWidth = 1;
+    for (let x = 0; x <= levelCanvas.width; x += 32) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
+    for (let y = 0; y <= levelCanvas.height; y += 32) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
+
+    // Draw placed jigsaw tiles
+    for (const pt of leJigsawTiles) {
+      if (leTilesetData && leTilesetImage) {
+        const td = leTilesetData.tiles.find(t => t.id === pt.tile_id);
+        if (td) {
+          lCtx.drawImage(leTilesetImage,
+            td.source_rect.x, td.source_rect.y, td.source_rect.w, td.source_rect.h,
+            pt.x, pt.y, pt.w, pt.h);
+        } else {
+          lCtx.fillStyle = '#ff00ff';
+          lCtx.fillRect(pt.x, pt.y, pt.w, pt.h);
+        }
+      }
+      // Outline
+      lCtx.strokeStyle = 'rgba(79,195,247,0.6)'; lCtx.lineWidth = 1;
+      lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
+    }
+  }
+
+  // Jigsaw mode click handler
+  levelCanvas.addEventListener('click', (e) => {
+    if (!leJigsawMode) return;
+    if (e.button !== 0) return;
+    if (!leSelectedTileId || !leTilesetData) { setStatus('Select a tile first'); return; }
+
+    const td = leTilesetData.tiles.find(t => t.id === leSelectedTileId);
+    if (!td) return;
+    const candW = td.source_rect.w, candH = td.source_rect.h;
+
+    const rect = levelCanvas.getBoundingClientRect();
+    const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
+    const mouseX = (e.clientX - rect.left) * sx;
+    const mouseY = (e.clientY - rect.top) * sy;
+
+    const snap = findSnapPosition({ w: candW, h: candH }, mouseX, mouseY, leJigsawTiles, 16);
+    const placement = { tile_id: leSelectedTileId, x: snap.x, y: snap.y, w: candW, h: candH };
+
+    if (jigsawWouldOverlap(placement, leJigsawTiles)) {
+      setStatus('Cannot place: would overlap existing tile');
+      return;
+    }
+
+    leJigsawTiles.push(placement);
+    renderLECanvasJigsaw();
+    setStatus(`Placed ${leSelectedTileId} at (${snap.x},${snap.y})`);
+  });
+
+  // Jigsaw mode right-click to remove
+  levelCanvas.addEventListener('contextmenu', (e) => {
+    if (!leJigsawMode) return;
+    e.preventDefault();
+    const rect = levelCanvas.getBoundingClientRect();
+    const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * sx;
+    const my = (e.clientY - rect.top) * sy;
+
+    // Find tile at cursor (last placed on top)
+    for (let i = leJigsawTiles.length - 1; i >= 0; i--) {
+      const t = leJigsawTiles[i];
+      if (mx >= t.x && mx < t.x + t.w && my >= t.y && my < t.y + t.h) {
+        leJigsawTiles.splice(i, 1);
+        renderLECanvasJigsaw();
+        setStatus('Removed tile');
+        return;
+      }
+    }
+  });
+
   // Paint / Erase
   let isDrawing = false;
   function getLEGridPos(e) {
@@ -1127,16 +1344,35 @@
       if (leGrid[row][col] !== '') { leGrid[row][col] = ''; renderLECanvas(); }
     }
   }
-  levelCanvas.addEventListener('mousedown', (e) => { isDrawing = true; paintTile(e); });
-  levelCanvas.addEventListener('mousemove', (e) => { if (isDrawing) paintTile(e); });
-  levelCanvas.addEventListener('mouseup', () => { isDrawing = false; });
-  levelCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
+  levelCanvas.addEventListener('mousedown', (e) => { if (leJigsawMode) return; isDrawing = true; paintTile(e); });
+  levelCanvas.addEventListener('mousemove', (e) => { if (leJigsawMode) return; if (isDrawing) paintTile(e); });
+  levelCanvas.addEventListener('mouseup', () => { if (leJigsawMode) return; isDrawing = false; });
+  levelCanvas.addEventListener('mouseleave', () => { if (leJigsawMode) return; isDrawing = false; });
   levelCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // Export
   leExportBtn.addEventListener('click', () => {
-    if (leGrid.length === 0) { setStatus('No grid'); return; }
     if (!leTilesetName) { setStatus('No tileset loaded'); return; }
+
+    if (leJigsawMode) {
+      // Jigsaw export format
+      if (leJigsawTiles.length === 0) { setStatus('No jigsaw tiles placed'); return; }
+      const mapFile = {
+        format: 'jigsaw',
+        tileset_id: leTilesetName,
+        tiles: leJigsawTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
+      };
+      const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `jigsaw_map.json`;
+      a.click(); URL.revokeObjectURL(a.href);
+      setStatus(`Exported jigsaw map (${leJigsawTiles.length} tiles)`);
+      return;
+    }
+
+    // Grid export (original)
+    if (leGrid.length === 0) { setStatus('No grid'); return; }
     const mapFile = { width: leGridW, height: leGridH, tileset: leTilesetName, grid: leGrid };
     const blob = new Blob([JSON.stringify(mapFile, null, 2)], {type:'application/json'});
     const a = document.createElement('a');

@@ -1651,7 +1651,7 @@ SDL_Texture *SDL_CreateTextureWithProperties(SDL_Renderer *renderer, SDL_Propert
                 return NULL;
             }
         } else if (SDL_ISPIXELFORMAT_INDEXED(texture->format)) {
-            texture->palette_surface = SDL_CreateSurface(w, h, texture->format);
+            texture->palette_surface = SDL_CreateSurfaceZeroed(w, h, texture->format);
             if (!texture->palette_surface) {
                 SDL_DestroyTexture(texture);
                 return NULL;
@@ -2518,8 +2518,10 @@ bool SDL_UpdateYUVTexture(SDL_Texture *texture, const SDL_Rect *rect,
     }
 
     CHECK_PARAM(texture->format != SDL_PIXELFORMAT_YV12 &&
-                texture->format != SDL_PIXELFORMAT_IYUV) {
-        return SDL_SetError("Texture format must be YV12 or IYUV");
+                texture->format != SDL_PIXELFORMAT_IYUV &&
+                texture->format != SDL_PIXELFORMAT_P408 &&
+                texture->format != SDL_PIXELFORMAT_P416) {
+        return SDL_SetError("Texture format must be YV12, IYUV, P408, or P416");
     }
 
     real_rect.x = 0;
@@ -5956,7 +5958,7 @@ static bool CreateDebugTextAtlas(SDL_Renderer *renderer)
 
     // actually make each glyph two pixels taller/wider, to prevent scaling artifacts.
     const int rows = (SDL_DEBUG_FONT_NUM_GLYPHS / SDL_DEBUG_FONT_GLYPHS_PER_ROW) + 1;
-    SDL_Surface *atlas = SDL_CreateSurface((charWidth + 2) * SDL_DEBUG_FONT_GLYPHS_PER_ROW, rows * (charHeight + 2), SDL_PIXELFORMAT_INDEX8);
+    SDL_Surface *atlas = SDL_CreateSurfaceZeroed((charWidth + 2) * SDL_DEBUG_FONT_GLYPHS_PER_ROW, rows * (charHeight + 2), SDL_PIXELFORMAT_INDEX8);
     if (!atlas) {
         return false;
     }
