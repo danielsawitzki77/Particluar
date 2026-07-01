@@ -57,6 +57,7 @@
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
         $(ProjectDir)..\body_renderer\include;
+        $(ProjectDir)..\math_lib\include;
         $(ProjectDir)..\vendor\SDL\include;
         $(ProjectDir)..\vendor\picojson;
         $(ProjectDir)..\vendor\rapidcheck\include;
@@ -109,6 +110,7 @@
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
         $(ProjectDir)..\body_renderer\include;
+        $(ProjectDir)..\math_lib\include;
         $(ProjectDir)..\vendor\SDL\include;
         $(ProjectDir)..\vendor\picojson;
         $(ProjectDir)..\vendor\rapidcheck\include;

@@ -13,10 +13,10 @@
 
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{D4E5F6A7-B8C9-0123-4567-89ABCDEF0001}</ProjectGuid>
-    <RootNamespace>BodyRenderer</RootNamespace>
+    <ProjectGuid>{D4E5F6A7-B8C9-0123-4567-89ABCDEF0010}</ProjectGuid>
+    <RootNamespace>MathLib</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>BodyRenderer</ProjectName>
+    <ProjectName>MathLib</ProjectName>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -39,8 +39,8 @@
 
   <PropertyGroup>
     <OutDir>$(ProjectDir)..\bin\$(Configuration)\</OutDir>
-    <IntDir>$(ProjectDir)..\obj\BodyRenderer\$(Configuration)\</IntDir>
-    <TargetName>BodyRenderer</TargetName>
+    <IntDir>$(ProjectDir)..\obj\MathLib\$(Configuration)\</IntDir>
+    <TargetName>MathLib</TargetName>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -52,16 +52,12 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
       <PreprocessorDefinitions>
         _DEBUG;
-        BODY_RENDERER_LIB;
+        MATH_LIB;
         _LIB;
-        SDL_STATIC_LIB;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
         $(ProjectDir)include;
-        $(ProjectDir)..\math_lib\include;
-        $(ProjectDir)..\vendor\SDL\include;
-        $(ProjectDir)..\vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -82,16 +78,12 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
       <PreprocessorDefinitions>
         NDEBUG;
-        BODY_RENDERER_LIB;
+        MATH_LIB;
         _LIB;
-        SDL_STATIC_LIB;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
         $(ProjectDir)include;
-        $(ProjectDir)..\math_lib\include;
-        $(ProjectDir)..\vendor\SDL\include;
-        $(ProjectDir)..\vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -101,25 +93,16 @@
     </Lib>
   </ItemDefinitionGroup>
 
+  <!-- Header-only library: no .cpp files needed, but we need at least one
+       translation unit for MSVC to produce a .lib output. -->
   <ItemGroup>
-    <ClCompile Include="src\BodyLoader.cpp" />
-    <ClCompile Include="src\FaceGenerator.cpp" />
-    <ClCompile Include="src\Triangulator.cpp" />
-    <ClCompile Include="src\ConnectionSolver.cpp" />
-    <ClCompile Include="src\LightManager.cpp" />
-    <ClCompile Include="src\BodyRenderer.cpp" />
-    <ClCompile Include="src\ModelSwitcher.cpp" />
+    <ClCompile Include="src\MathLib.cpp" />
   </ItemGroup>
 
   <ItemGroup>
-    <ClInclude Include="include\BodyTypes.h" />
-    <ClInclude Include="include\BodyLoader.h" />
-    <ClInclude Include="include\FaceGenerator.h" />
-    <ClInclude Include="include\Triangulator.h" />
-    <ClInclude Include="include\ConnectionSolver.h" />
-    <ClInclude Include="include\LightManager.h" />
-    <ClInclude Include="include\BodyRenderer.h" />
-    <ClInclude Include="include\ModelSwitcher.h" />
+    <ClInclude Include="include\Vec3.h" />
+    <ClInclude Include="include\Mat4.h" />
+    <ClInclude Include="include\MathTypes.h" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
