@@ -175,12 +175,70 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
             }
         }
 
+        // Parse optional "animation" array (animated tile support)
+        std::vector<AnimationFrame> animFrames;
+        {
+            const picojson::array* animArr = nullptr;
+            if (JsonUtil::GetArray(tileObj, "animation", animArr)) {
+                for (size_t ai = 0; ai < animArr->size(); ++ai) {
+                    const picojson::value& frameVal = (*animArr)[ai];
+                    if (!frameVal.is<picojson::object>()) continue;
+                    const picojson::object& frameObj = frameVal.get<picojson::object>();
+
+                    AnimationFrame frame;
+                    frame.tileid = -1; // not used when parsed from JSON (source_rect is explicit)
+
+                    // Parse duration_ms
+                    int durationMs = 0;
+                    if (!JsonUtil::GetInt(frameObj, "duration_ms", durationMs) || durationMs <= 0) {
+                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: invalid duration_ms, skipping frame.",
+                                id.c_str(), ai);
+                        continue;
+                    }
+                    frame.duration_ms = durationMs;
+
+                    // Parse source_rect for this frame
+                    const picojson::object* frameSrcObj = nullptr;
+                    if (!JsonUtil::GetObject(frameObj, "source_rect", frameSrcObj)) {
+                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: missing source_rect, skipping frame.",
+                                id.c_str(), ai);
+                        continue;
+                    }
+
+                    SourceRect fsr;
+                    if (!JsonUtil::GetInt(*frameSrcObj, "x", fsr.x) ||
+                        !JsonUtil::GetInt(*frameSrcObj, "y", fsr.y) ||
+                        !JsonUtil::GetInt(*frameSrcObj, "w", fsr.w) ||
+                        !JsonUtil::GetInt(*frameSrcObj, "h", fsr.h)) {
+                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: source_rect missing fields, skipping.",
+                                id.c_str(), ai);
+                        continue;
+                    }
+
+                    if (fsr.w < 1 || fsr.h < 1) continue;
+
+                    // Validate against texture bounds if available
+                    if (texW > 0 && texH > 0) {
+                        if (fsr.x + fsr.w > texW || fsr.y + fsr.h > texH) {
+                            SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: source_rect exceeds texture, skipping.",
+                                    id.c_str(), ai);
+                            continue;
+                        }
+                    }
+
+                    frame.rect = fsr;
+                    animFrames.push_back(frame);
+                }
+            }
+        }
+
         // Tile is valid - add it
         TileDef tileDef;
         tileDef.id = id;
         tileDef.source_rect = sr;
         tileDef.adjacency = adj;
         tileDef.scale = tileScale;
+        tileDef.animation = std::move(animFrames);
 
         seenIds.insert(id);
         outTiles.push_back(tileDef);
