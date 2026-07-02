@@ -1,39 +1,29 @@
 {
   "name": "Chess Pawn",
-  "material": {
-    "shininess": 48.0,
-    "ambient": { "r": 0.1, "g": 0.08, "b": 0.05 }
-  },
   "root": {
-    "type": "cylinder",
-    "dimensions": { "radius": 0.6, "height": 0.15, "sides": 24 },
+    "name": "base_disc",
+    "shape": { "type": "cylinder", "radius": 0.6, "height": 0.15, "sides": 24 },
     "color": { "r": 0.85, "g": 0.75, "b": 0.55 },
     "children": [
       {
-        "parent_attachment": "top",
-        "child_attachment": "bottom",
-        "rotation_position": 0.0,
+        "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
         "node": {
-          "type": "frustum",
-          "dimensions": { "top_radius": 0.25, "bottom_radius": 0.5, "height": 1.0, "sides": 24 },
+          "name": "body_taper",
+          "shape": { "type": "frustum", "top_radius": 0.25, "bottom_radius": 0.5, "height": 1.0, "sides": 24 },
           "color": { "r": 0.82, "g": 0.72, "b": 0.52 },
           "children": [
             {
-              "parent_attachment": "top",
-              "child_attachment": "bottom",
-              "rotation_position": 0.0,
+              "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
               "node": {
-                "type": "cylinder",
-                "dimensions": { "radius": 0.3, "height": 0.1, "sides": 24 },
+                "name": "collar",
+                "shape": { "type": "cylinder", "radius": 0.3, "height": 0.1, "sides": 24 },
                 "color": { "r": 0.8, "g": 0.7, "b": 0.5 },
                 "children": [
                   {
-                    "parent_attachment": "top",
-                    "child_attachment": "south_pole",
-                    "rotation_position": 0.0,
+                    "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
                     "node": {
-                      "type": "sphere",
-                      "dimensions": { "radius": 0.3, "slices": 16, "stacks": 12 },
+                      "name": "head",
+                      "shape": { "type": "sphere", "radius": 0.28, "slices": 16, "stacks": 12 },
                       "color": { "r": 0.88, "g": 0.78, "b": 0.58 }
                     }
                   }

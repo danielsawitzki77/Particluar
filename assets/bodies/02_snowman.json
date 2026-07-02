@@ -1,30 +1,22 @@
 {
   "name": "Snowman",
-  "material": {
-    "shininess": 16.0,
-    "ambient": { "r": 0.15, "g": 0.15, "b": 0.15 }
-  },
   "root": {
-    "type": "sphere",
-    "dimensions": { "radius": 1.0, "slices": 16, "stacks": 12 },
+    "name": "body",
+    "shape": { "type": "sphere", "radius": 1.0, "slices": 16, "stacks": 12 },
     "color": { "r": 0.95, "g": 0.95, "b": 0.98 },
     "children": [
       {
-        "parent_attachment": "north_pole",
-        "child_attachment": "south_pole",
-        "rotation_position": 0.0,
+        "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
         "node": {
-          "type": "sphere",
-          "dimensions": { "radius": 0.7, "slices": 16, "stacks": 12 },
+          "name": "torso",
+          "shape": { "type": "sphere", "radius": 0.7, "slices": 16, "stacks": 12 },
           "color": { "r": 0.93, "g": 0.93, "b": 0.96 },
           "children": [
             {
-              "parent_attachment": "north_pole",
-              "child_attachment": "south_pole",
-              "rotation_position": 0.0,
+              "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
               "node": {
-                "type": "sphere",
-                "dimensions": { "radius": 0.5, "slices": 16, "stacks": 12 },
+                "name": "head",
+                "shape": { "type": "sphere", "radius": 0.5, "slices": 16, "stacks": 12 },
                 "color": { "r": 0.9, "g": 0.9, "b": 0.95 }
               }
             }

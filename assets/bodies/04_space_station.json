@@ -1,44 +1,26 @@
 {
-  "name": "Space Station Module",
-  "material": {
-    "shininess": 96.0,
-    "ambient": { "r": 0.08, "g": 0.08, "b": 0.1 }
-  },
+  "name": "Space Station",
   "root": {
-    "type": "torus",
-    "dimensions": { "major_radius": 2.0, "minor_radius": 0.4, "ring_segments": 24, "tube_segments": 12 },
+    "name": "ring",
+    "shape": { "type": "torus", "major_radius": 2.0, "minor_radius": 0.4, "ring_segments": 24, "tube_segments": 12 },
     "color": { "r": 0.6, "g": 0.6, "b": 0.65 },
     "children": [
       {
-        "parent_attachment": "outer_ring",
-        "child_attachment": "bottom",
-        "rotation_position": 0.0,
+        "connection": { "type": "Edge_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
         "node": {
-          "type": "cylinder",
-          "dimensions": { "radius": 0.3, "height": 1.2, "sides": 12 },
+          "name": "spoke",
+          "shape": { "type": "cylinder", "radius": 0.3, "height": 1.5, "sides": 12 },
           "color": { "r": 0.4, "g": 0.5, "b": 0.7 },
           "children": [
             {
-              "parent_attachment": "top",
-              "child_attachment": "bottom",
-              "rotation_position": 0.0,
+              "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
               "node": {
-                "type": "frustum",
-                "dimensions": { "top_radius": 0.15, "bottom_radius": 0.3, "height": 0.5, "sides": 12 },
+                "name": "antenna",
+                "shape": { "type": "frustum", "top_radius": 0.1, "bottom_radius": 0.3, "height": 0.6, "sides": 12 },
                 "color": { "r": 0.8, "g": 0.4, "b": 0.2 }
               }
             }
           ]
-        }
-      },
-      {
-        "parent_attachment": "inner_ring",
-        "child_attachment": "bottom",
-        "rotation_position": 0.5,
-        "node": {
-          "type": "cylinder",
-          "dimensions": { "radius": 0.5, "height": 3.0, "sides": 16 },
-          "color": { "r": 0.55, "g": 0.55, "b": 0.6 }
         }
       }
     ]

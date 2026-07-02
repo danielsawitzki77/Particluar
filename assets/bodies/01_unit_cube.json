@@ -1,12 +1,8 @@
 {
   "name": "Unit Cube",
-  "material": {
-    "shininess": 32.0,
-    "ambient": { "r": 0.1, "g": 0.1, "b": 0.1 }
-  },
   "root": {
-    "type": "box",
-    "dimensions": { "width": 1.0, "height": 1.0, "depth": 1.0 },
+    "name": "cube",
+    "shape": { "type": "box", "width": 1.0, "height": 1.0, "depth": 1.0 },
     "color": { "r": 0.2, "g": 0.6, "b": 0.9 }
   }
 }
