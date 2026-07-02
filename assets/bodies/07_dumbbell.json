@@ -1,0 +1,28 @@
+{
+  "name": "Dumbbell",
+  "root": {
+    "name": "weight_a",
+    "shape": { "type": "sphere", "radius": 0.6, "slices": 16, "stacks": 12 },
+    "color": { "r": 0.2, "g": 0.2, "b": 0.2 },
+    "children": [
+      {
+        "connection": { "type": "Point_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
+        "node": {
+          "name": "bar",
+          "shape": { "type": "cylinder", "radius": 0.12, "height": 2.0, "sides": 12 },
+          "color": { "r": 0.7, "g": 0.7, "b": 0.72 },
+          "children": [
+            {
+              "connection": { "type": "Point_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
+              "node": {
+                "name": "weight_b",
+                "shape": { "type": "sphere", "radius": 0.6, "slices": 16, "stacks": 12 },
+                "color": { "r": 0.2, "g": 0.2, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

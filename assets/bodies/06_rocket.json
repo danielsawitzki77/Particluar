@@ -1,0 +1,28 @@
+{
+  "name": "Rocket",
+  "root": {
+    "name": "nosecone",
+    "shape": { "type": "cone", "radius": 0.4, "height": 1.0, "sides": 20 },
+    "color": { "r": 0.9, "g": 0.2, "b": 0.15 },
+    "children": [
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
+        "node": {
+          "name": "fuselage",
+          "shape": { "type": "cylinder", "radius": 0.4, "height": 2.5, "sides": 20 },
+          "color": { "r": 0.9, "g": 0.9, "b": 0.92 },
+          "children": [
+            {
+              "connection": { "type": "Face_Connection", "parent_face": 1, "child_face": 0, "rotation": 0.0 },
+              "node": {
+                "name": "engine_bell",
+                "shape": { "type": "frustum", "top_radius": 0.4, "bottom_radius": 0.6, "height": 0.5, "sides": 20 },
+                "color": { "r": 0.7, "g": 0.7, "b": 0.75 }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

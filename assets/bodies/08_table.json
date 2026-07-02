@@ -1,0 +1,42 @@
+{
+  "name": "Table",
+  "root": {
+    "name": "tabletop",
+    "shape": { "type": "box", "width": 2.0, "height": 0.1, "depth": 1.2 },
+    "color": { "r": 0.55, "g": 0.35, "b": 0.15 },
+    "children": [
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 1, "child_face": 0, "rotation": 0.0 },
+        "node": {
+          "name": "leg1",
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 1, "child_face": 0, "rotation": 0.25 },
+        "node": {
+          "name": "leg2",
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 1, "child_face": 0, "rotation": 0.5 },
+        "node": {
+          "name": "leg3",
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 1, "child_face": 0, "rotation": 0.75 },
+        "node": {
+          "name": "leg4",
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
+        }
+      }
+    ]
+  }
+}
