@@ -284,6 +284,10 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
       imagewidth: number;
       imageheight: number;
       firstgid: number;
+      animations: Array<{
+        tileid: number;
+        frames: Array<{ tileid: number; duration_ms: number; source_rect: { x: number; y: number; w: number; h: number } }>;
+      }>;
     }> = [];
 
     // Match all <tileset ...> elements
@@ -321,6 +325,52 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
         imgH = parseInt(getSrc('height')) || 0;
       }
 
+      // Extract <animation> blocks from <tile> elements
+      const animations: Array<{
+        tileid: number;
+        frames: Array<{ tileid: number; duration_ms: number; source_rect: { x: number; y: number; w: number; h: number } }>;
+      }> = [];
+
+      // Find all <tile id="N"> ... </tile> blocks that contain <animation>
+      const tileBlockRegex = /<tile\s+id="(\d+)"[^>]*>([\s\S]*?)<\/tile>/g;
+      let tileMatch;
+      while ((tileMatch = tileBlockRegex.exec(block)) !== null) {
+        const tileId = parseInt(tileMatch[1]);
+        const tileContent = tileMatch[2];
+
+        // Check if this tile has an <animation> block
+        const animMatch = tileContent.match(/<animation>([\s\S]*?)<\/animation>/);
+        if (animMatch) {
+          const animContent = animMatch[1];
+          const frames: Array<{ tileid: number; duration_ms: number; source_rect: { x: number; y: number; w: number; h: number } }> = [];
+
+          // Extract <frame tileid="N" duration="M"/> entries
+          const frameRegex = /<frame\s+tileid="(\d+)"\s+duration="(\d+)"\s*\/?>/g;
+          let frameMatch;
+          while ((frameMatch = frameRegex.exec(animContent)) !== null) {
+            const frameTileId = parseInt(frameMatch[1]);
+            const duration = parseInt(frameMatch[2]);
+            // Convert tileid to source_rect coordinates
+            const col = frameTileId % columns;
+            const row = Math.floor(frameTileId / columns);
+            frames.push({
+              tileid: frameTileId,
+              duration_ms: duration,
+              source_rect: {
+                x: col * tilewidth,
+                y: row * tileheight,
+                w: tilewidth,
+                h: tileheight
+              }
+            });
+          }
+
+          if (frames.length > 0) {
+            animations.push({ tileid: tileId, frames });
+          }
+        }
+      }
+
       tilesets.push({
         name: tsName,
         tilewidth,
@@ -330,7 +380,8 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
         image: imgSource,
         imagewidth: imgW,
         imageheight: imgH,
-        firstgid
+        firstgid,
+        animations
       });
     }
 

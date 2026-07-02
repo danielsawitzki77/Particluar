@@ -674,13 +674,26 @@
         }
         const tw = targetTs.tilewidth, th = targetTs.tileheight;
         const cols = targetTs.columns, count = targetTs.tilecount;
+        // Build a map of tileid -> animation frames from parsed animations
+        const animMap = {};
+        if (targetTs.animations) {
+          targetTs.animations.forEach(anim => { animMap[anim.tileid] = anim.frames; });
+        }
         const newTiles = [];
         for (let i = 0; i < count; i++) {
-          newTiles.push({
+          const tile = {
             id: `${targetTs.name}_${i}`,
             source_rect: { x: (i % cols) * tw, y: Math.floor(i / cols) * th, w: tw, h: th },
             adjacency: { up: [], down: [], left: [], right: [] }, labels: []
-          });
+          };
+          // Attach animation data if this tile has an animation defined
+          if (animMap[i]) {
+            tile.animation = animMap[i].map(f => ({
+              source_rect: f.source_rect,
+              duration_ms: f.duration_ms
+            }));
+          }
+          newTiles.push(tile);
         }
         if (!confirm(`Import ${newTiles.length} tiles from "${targetTs.name}" (${tw}x${th}, ${cols} cols)?\nThis replaces current tiles.`)) return;
         if (!currentTilesetData) currentTilesetData = { tiles: [], labels: [] };
@@ -769,15 +782,51 @@
         imgW = parseInt(getIA('width')) || 0;
         imgH = parseInt(getIA('height')) || 0;
       }
+
+      const tilewidth = parseInt(getAttr('tilewidth')) || 16;
+      const tileheight = parseInt(getAttr('tileheight')) || 16;
+      const columns = parseInt(getAttr('columns')) || 1;
+
+      // Extract <animation> blocks from <tile> elements
+      const animations = [];
+      const tileBlockRegex = /<tile\s+id="(\d+)"[^>]*>([\s\S]*?)<\/tile>/g;
+      let tileMatch;
+      while ((tileMatch = tileBlockRegex.exec(block)) !== null) {
+        const tileId = parseInt(tileMatch[1]);
+        const tileContent = tileMatch[2];
+        const animMatch = tileContent.match(/<animation>([\s\S]*?)<\/animation>/);
+        if (animMatch) {
+          const animContent = animMatch[1];
+          const frames = [];
+          const frameRegex = /<frame\s+tileid="(\d+)"\s+duration="(\d+)"\s*\/?>/g;
+          let frameMatch;
+          while ((frameMatch = frameRegex.exec(animContent)) !== null) {
+            const frameTileId = parseInt(frameMatch[1]);
+            const duration = parseInt(frameMatch[2]);
+            const col = frameTileId % columns;
+            const row = Math.floor(frameTileId / columns);
+            frames.push({
+              tileid: frameTileId,
+              duration_ms: duration,
+              source_rect: { x: col * tilewidth, y: row * tileheight, w: tilewidth, h: tileheight }
+            });
+          }
+          if (frames.length > 0) {
+            animations.push({ tileid: tileId, frames });
+          }
+        }
+      }
+
       results.push({
         name: getAttr('name'),
-        tilewidth: parseInt(getAttr('tilewidth')) || 16,
-        tileheight: parseInt(getAttr('tileheight')) || 16,
+        tilewidth,
+        tileheight,
         tilecount: parseInt(getAttr('tilecount')) || 0,
-        columns: parseInt(getAttr('columns')) || 1,
+        columns,
         image: imgSource,
         imagewidth: imgW,
-        imageheight: imgH
+        imageheight: imgH,
+        animations
       });
     }
     return results;

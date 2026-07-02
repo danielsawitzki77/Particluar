@@ -267,14 +267,15 @@ int main(int argc, char* argv[])
         }
     }
 
-    // Use the first loaded tileset for the single-layer demo and WFC
-    Tileset& tileset = allTilesets[0];
-    TilesetDef tilesetDef = BuildTilesetDef(tileset);
+    // Use the first loaded tileset, switchable with Q/E
+    int activeTilesetIdx = 0;
+    Tileset* tileset = &allTilesets[activeTilesetIdx];
+    TilesetDef tilesetDef = BuildTilesetDef(*tileset);
 
     // --- Create Initial Map ---
     const int MAP_WIDTH = 64;
     const int MAP_HEIGHT = 64;
-    MapData activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, tileset);
+    MapData activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
 
     // --- Set Up Renderer Components ---
     Camera camera;
@@ -301,7 +302,7 @@ int main(int argc, char* argv[])
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
 
-    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, ESC/close=quit (2 layers active)");
+    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, ESC/close=quit");
 
     while (running) {
         // --- Delta time ---
@@ -388,6 +389,27 @@ int main(int argc, char* argv[])
                         SDL_Log("[PoC] Jigsaw WFC invalid input after %.3f seconds.", genTime);
                     }
                 }
+                // Q/E: swap active tileset
+                else if (event.key.scancode == SDL_SCANCODE_Q && !event.key.repeat) {
+                    if (allTilesets.size() > 1) {
+                        activeTilesetIdx = (activeTilesetIdx + static_cast<int>(allTilesets.size()) - 1) % static_cast<int>(allTilesets.size());
+                        tileset = &allTilesets[activeTilesetIdx];
+                        tilesetDef = BuildTilesetDef(*tileset);
+                        activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
+                        useJigsawRendering = false;
+                        SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
+                    }
+                }
+                else if (event.key.scancode == SDL_SCANCODE_E && !event.key.repeat) {
+                    if (allTilesets.size() > 1) {
+                        activeTilesetIdx = (activeTilesetIdx + 1) % static_cast<int>(allTilesets.size());
+                        tileset = &allTilesets[activeTilesetIdx];
+                        tilesetDef = BuildTilesetDef(*tileset);
+                        activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
+                        useJigsawRendering = false;
+                        SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
+                    }
+                }
             }
         }
 
@@ -415,7 +437,7 @@ int main(int argc, char* argv[])
             jigsawCfg.sampling = SamplingMode::Nearest;
 
             tileRenderer.RenderJigsawLayer(
-                renderer, tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
+                renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
         } else {
             // Legacy grid-based rendering (G-key / initial map)
             // Issue #91: Multi-layer rendering demonstration
@@ -433,7 +455,7 @@ int main(int argc, char* argv[])
                 layerCfg.sampling = SamplingMode::Nearest;
                 baseLayer.SetConfig(layerCfg);
                 baseLayer.SetMapData(activeMap);
-                baseLayer.SetTileset(&tileset);
+                baseLayer.SetTileset(tileset);
             }
 
             // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
@@ -450,7 +472,7 @@ int main(int argc, char* argv[])
                 layerCfg.sampling = SamplingMode::Linear;
                 overlayLayer.SetConfig(layerCfg);
                 overlayLayer.SetMapData(activeMap);
-                overlayLayer.SetTileset(&tileset);
+                overlayLayer.SetTileset(tileset);
             }
 
             std::vector<MapLayer> layers;
