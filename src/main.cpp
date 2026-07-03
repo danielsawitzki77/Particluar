@@ -271,24 +271,62 @@ int main(int argc, char* argv[])
     // --- Jigsaw Map (default rendering mode) ---
     JigsawMap jigsawMap;
 
-    // Generate initial jigsaw map
+    // Generate a jigsaw map by randomly placing tiles in a row-wrap layout
+    // Each tile is placed at its native effective size, no stretching
     auto generateJigsaw = [&]() {
-        JigsawWFCParams jParams;
-        jParams.target_width = 800.0f;
-        jParams.target_height = 600.0f;
-        jParams.origin_x = 0.0f;
-        jParams.origin_y = 0.0f;
-        jParams.seed = 0; // non-deterministic
-        jParams.tileset = &tilesetDef;
-        jParams.layer_scale = 1.0f;
+        jigsawMap = JigsawMap(); // reset
+        jigsawMap.SetTilesetId(tilesetDef.name);
 
-        JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
-        if (jResult.status == WFCStatus::Success) {
-            jigsawMap = jResult.map;
-            SDL_Log("[PoC] Jigsaw generated: %d tiles", (int)jigsawMap.GetTileCount());
-        } else {
-            SDL_Log("[PoC] Jigsaw generation failed (status %d)", (int)jResult.status);
+        if (tilesetDef.tiles.empty()) {
+            SDL_Log("[PoC] No tiles to place.");
+            return;
         }
+
+        float sheetScale = tilesetDef.sheet_scale;
+        const float TARGET_W = 2000.0f;  // wrap width (world pixels)
+        const float TARGET_H = 2000.0f;  // stop placing after this height
+
+        float curX = 0.0f;
+        float curY = 0.0f;
+        float rowHeight = 0.0f;
+        int tilesPlaced = 0;
+
+        // Simple seeded RNG for tile selection
+        unsigned int seed = static_cast<unsigned int>(SDL_GetTicks());
+        int numTiles = static_cast<int>(tilesetDef.tiles.size());
+
+        while (curY < TARGET_H) {
+            // Pick a random tile
+            seed = seed * 1103515245 + 12345;
+            int idx = static_cast<int>((seed >> 16) % numTiles);
+            const TileDef& def = tilesetDef.tiles[idx];
+
+            float ew = static_cast<float>(def.source_rect.w) * sheetScale * def.scale;
+            float eh = static_cast<float>(def.source_rect.h) * sheetScale * def.scale;
+
+            // Wrap to next row if tile exceeds target width
+            if (curX + ew > TARGET_W && curX > 0.0f) {
+                curX = 0.0f;
+                curY += rowHeight;
+                rowHeight = 0.0f;
+                if (curY >= TARGET_H) break;
+            }
+
+            PlacedTile pt;
+            pt.tile_id = def.id;
+            pt.x = curX;
+            pt.y = curY;
+            pt.w = ew;
+            pt.h = eh;
+
+            jigsawMap.AddTile(pt);
+            tilesPlaced++;
+
+            curX += ew;
+            if (eh > rowHeight) rowHeight = eh;
+        }
+
+        SDL_Log("[PoC] Placed %d tiles in row-wrap layout", tilesPlaced);
     };
     generateJigsaw();
 
