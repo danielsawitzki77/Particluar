@@ -439,54 +439,15 @@ int main(int argc, char* argv[])
             tileRenderer.RenderJigsawLayer(
                 renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
         } else {
-            // Legacy grid-based rendering (G-key / initial map)
-            // Issue #91: Multi-layer rendering demonstration
-            // Layer 0: Base ground layer (full opacity, no offset, nearest sampling)
-            MapLayer baseLayer;
-            {
-                MapLayerConfig layerCfg;
-                layerCfg.z_depth = 0;
-                layerCfg.alpha = 255;
-                layerCfg.pivot_x = camera.GetPivotX();
-                layerCfg.pivot_y = camera.GetPivotY();
-                layerCfg.offset_x = 0.0f;
-                layerCfg.offset_y = 0.0f;
-                layerCfg.scale = 1.0f;
-                layerCfg.sampling = SamplingMode::Nearest;
-                baseLayer.SetConfig(layerCfg);
-                baseLayer.SetMapData(activeMap);
-                baseLayer.SetTileset(tileset);
-            }
+            // Single-layer grid rendering — Q/E to swap tileset
+            VisibleTileRange visibleRange = viewport.ComputeVisibleTiles(
+                camera.GetX(), camera.GetY(),
+                camera.GetPivotX(), camera.GetPivotY(),
+                cfg.tile_width, cfg.tile_height);
 
-            // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
-            MapLayer overlayLayer;
-            {
-                MapLayerConfig layerCfg;
-                layerCfg.z_depth = 1;
-                layerCfg.alpha = 100;
-                layerCfg.pivot_x = camera.GetPivotX();
-                layerCfg.pivot_y = camera.GetPivotY();
-                layerCfg.offset_x = 16.0f;
-                layerCfg.offset_y = 16.0f;
-                layerCfg.scale = 1.0f;
-                layerCfg.sampling = SamplingMode::Linear;
-                overlayLayer.SetConfig(layerCfg);
-                overlayLayer.SetMapData(activeMap);
-                overlayLayer.SetTileset(tileset);
-            }
-
-            std::vector<MapLayer> layers;
-            layers.push_back(baseLayer);
-            layers.push_back(overlayLayer);
-
-            tileRenderer.RenderLayers(
-                renderer,
-                layers,
-                viewport,
-                camera,
-                cfg.tile_width, cfg.tile_height,
-                elapsed_ms
-            );
+            tileRenderer.RenderLayer(
+                renderer, *tileset, activeMap, visibleRange, viewport, camera,
+                cfg.tile_width, cfg.tile_height, 0, 255, elapsed_ms);
         }
 
         SDL_RenderPresent(renderer);
