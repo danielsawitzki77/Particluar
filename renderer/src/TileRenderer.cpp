@@ -57,8 +57,9 @@ void TileRenderer::RenderLayer(
             // Compute destination rect — snap to integer pixels to avoid sub-pixel gaps
             float dest_x = SDL_floorf(screen_origin_x + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x));
             float dest_y = SDL_floorf(screen_origin_y + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y));
-            float cellW = static_cast<float>(tile_width);
-            float cellH = static_cast<float>(tile_height);
+            // Overdraw by 1px to eliminate sub-pixel gaps between adjacent tiles
+            float cellW = static_cast<float>(tile_width) + 1.0f;
+            float cellH = static_cast<float>(tile_height) + 1.0f;
 
             // Fill cell with solid background to prevent transparency showing through
             SDL_FRect bgRect = { dest_x, dest_y, cellW, cellH };
