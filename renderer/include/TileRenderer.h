@@ -53,6 +53,10 @@ public:
     // Set the fallback tile color for unresolved tile IDs.
     void SetFallbackColor(Uint8 r, Uint8 g, Uint8 b);
 
+    // Set the background fill color for transparent tiles.
+    void SetBackgroundColor(Uint8 r, Uint8 g, Uint8 b);
+
 private:
     Uint8 m_fallback_r = 255, m_fallback_g = 0, m_fallback_b = 255; // magenta
+    Uint8 m_bg_r = 34, m_bg_g = 80, m_bg_b = 34; // dark green ground fill
 };

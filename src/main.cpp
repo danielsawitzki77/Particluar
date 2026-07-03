@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
 
     // --- Create Window and Renderer ---
     SDL_Window* window = SDL_CreateWindow(
-        "Particluar - Multi-Layer PoC (WASD=scroll, G=grid WFC, J=jigsaw WFC)",
+        "Particluar - PoC (WASD=scroll, Q/E=tileset, +/-=zoom, G=WFC, J=jigsaw)",
         cfg.viewport_width, cfg.viewport_height,
         0);
 
@@ -291,6 +291,12 @@ int main(int argc, char* argv[])
 
     TileRenderer tileRenderer;
 
+    // --- Zoom level (+ and - keys, or mouse wheel) ---
+    float zoomLevel = 1.0f;
+    const float ZOOM_MIN = 0.25f;
+    const float ZOOM_MAX = 4.0f;
+    const float ZOOM_STEP = 0.25f;
+
     // --- WFC Generator ---
     WFCGenerator wfcGenerator;
 
@@ -302,7 +308,7 @@ int main(int argc, char* argv[])
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
 
-    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, ESC/close=quit");
+    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, +/-=zoom, ESC/close=quit");
 
     while (running) {
         // --- Delta time ---
@@ -410,6 +416,28 @@ int main(int argc, char* argv[])
                         SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
                     }
                 }
+                // +/- or =/- : zoom in/out
+                else if ((event.key.scancode == SDL_SCANCODE_EQUALS || event.key.scancode == SDL_SCANCODE_KP_PLUS) && !event.key.repeat) {
+                    zoomLevel += ZOOM_STEP;
+                    if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
+                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
+                }
+                else if ((event.key.scancode == SDL_SCANCODE_MINUS || event.key.scancode == SDL_SCANCODE_KP_MINUS) && !event.key.repeat) {
+                    zoomLevel -= ZOOM_STEP;
+                    if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
+                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
+                }
+            }
+            // Mouse wheel zoom
+            else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                if (event.wheel.y > 0) {
+                    zoomLevel += ZOOM_STEP;
+                    if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
+                } else if (event.wheel.y < 0) {
+                    zoomLevel -= ZOOM_STEP;
+                    if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
+                }
+                SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
             }
         }
 
@@ -433,21 +461,26 @@ int main(int argc, char* argv[])
             jigsawCfg.pivot_y = camera.GetPivotY();
             jigsawCfg.offset_x = 0.0f;
             jigsawCfg.offset_y = 0.0f;
-            jigsawCfg.scale = 1.0f;
+            jigsawCfg.scale = zoomLevel;
             jigsawCfg.sampling = SamplingMode::Nearest;
 
             tileRenderer.RenderJigsawLayer(
                 renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
         } else {
-            // Single-layer grid rendering — Q/E to swap tileset
+            // Single-layer grid rendering — Q/E to swap tileset, +/- to zoom
+            int zoomedTileW = static_cast<int>(static_cast<float>(cfg.tile_width) * zoomLevel);
+            int zoomedTileH = static_cast<int>(static_cast<float>(cfg.tile_height) * zoomLevel);
+            if (zoomedTileW < 1) zoomedTileW = 1;
+            if (zoomedTileH < 1) zoomedTileH = 1;
+
             VisibleTileRange visibleRange = viewport.ComputeVisibleTiles(
                 camera.GetX(), camera.GetY(),
                 camera.GetPivotX(), camera.GetPivotY(),
-                cfg.tile_width, cfg.tile_height);
+                zoomedTileW, zoomedTileH);
 
             tileRenderer.RenderLayer(
                 renderer, *tileset, activeMap, visibleRange, viewport, camera,
-                cfg.tile_width, cfg.tile_height, 0, 255, elapsed_ms);
+                zoomedTileW, zoomedTileH, 0, 255, elapsed_ms);
         }
 
         SDL_RenderPresent(renderer);

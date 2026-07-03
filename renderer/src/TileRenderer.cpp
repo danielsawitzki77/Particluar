@@ -54,9 +54,16 @@ void TileRenderer::RenderLayer(
 
             const std::string& tileId = mapData.grid[row][col];
 
-            // Compute destination rect
-            float dest_x = screen_origin_x + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x);
-            float dest_y = screen_origin_y + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y);
+            // Compute destination rect — snap to integer pixels to avoid sub-pixel gaps
+            float dest_x = SDL_floorf(screen_origin_x + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x));
+            float dest_y = SDL_floorf(screen_origin_y + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y));
+            float cellW = static_cast<float>(tile_width);
+            float cellH = static_cast<float>(tile_height);
+
+            // Fill cell with solid background to prevent transparency showing through
+            SDL_FRect bgRect = { dest_x, dest_y, cellW, cellH };
+            SDL_SetRenderDrawColor(renderer, m_bg_r, m_bg_g, m_bg_b, 255);
+            SDL_RenderFillRect(renderer, &bgRect);
 
             // Look up tile ID in tileset
             auto it = tileset.id_index.find(tileId);
@@ -68,8 +75,8 @@ void TileRenderer::RenderLayer(
                 // Three-level scaling for single-layer overload:
                 // base_tile * sheet_scale * tile_scale (layer_scale is implicitly 1.0)
                 float finalScale = tileset.sheet_scale * tileDef.scale;
-                float destW = static_cast<float>(tile_width) * finalScale;
-                float destH = static_cast<float>(tile_height) * finalScale;
+                float destW = cellW * finalScale;
+                float destH = cellH * finalScale;
 
                 SDL_FRect destRect = { dest_x, dest_y, destW, destH };
 
@@ -87,11 +94,7 @@ void TileRenderer::RenderLayer(
                 SDL_RenderTexture(renderer, tileset.texture, &srcRect, &destRect);
             } else {
                 // Unresolved tile ID — render magenta fallback rectangle
-                SDL_FRect destRect = {
-                    dest_x, dest_y,
-                    static_cast<float>(tile_width),
-                    static_cast<float>(tile_height)
-                };
+                SDL_FRect destRect = { dest_x, dest_y, cellW, cellH };
                 SDL_SetRenderDrawColor(renderer, m_fallback_r, m_fallback_g, m_fallback_b, alpha);
                 SDL_RenderFillRect(renderer, &destRect);
             }
@@ -107,6 +110,13 @@ void TileRenderer::SetFallbackColor(Uint8 r, Uint8 g, Uint8 b)
     m_fallback_r = r;
     m_fallback_g = g;
     m_fallback_b = b;
+}
+
+void TileRenderer::SetBackgroundColor(Uint8 r, Uint8 g, Uint8 b)
+{
+    m_bg_r = r;
+    m_bg_g = g;
+    m_bg_b = b;
 }
 
 void TileRenderer::RenderLayers(
