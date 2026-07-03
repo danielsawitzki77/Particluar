@@ -168,33 +168,6 @@ static TilesetDef BuildTilesetDef(const Tileset& ts)
 }
 
 // ---------------------------------------------------------------------------
-// Generate a simple random map as the initial map (before WFC is triggered)
-// ---------------------------------------------------------------------------
-static MapData CreateInitialMap(int width, int height, const Tileset& tileset)
-{
-    MapData map;
-    map.width = width;
-    map.height = height;
-    map.tileset_id = tileset.name;
-    map.grid.resize(height);
-
-    int numTiles = static_cast<int>(tileset.tiles.size());
-    unsigned int seed = 12345;
-
-    for (int r = 0; r < height; ++r) {
-        map.grid[r].resize(width);
-        for (int c = 0; c < width; ++c) {
-            // Simple deterministic pseudo-random tile selection
-            seed = seed * 1103515245 + 12345;
-            int idx = static_cast<int>((seed >> 16) % numTiles);
-            map.grid[r][c] = tileset.tiles[idx].id;
-        }
-    }
-
-    return map;
-}
-
-// ---------------------------------------------------------------------------
 // Main entry point
 // ---------------------------------------------------------------------------
 int main(int argc, char* argv[])
@@ -217,7 +190,7 @@ int main(int argc, char* argv[])
 
     // --- Create Window and Renderer ---
     SDL_Window* window = SDL_CreateWindow(
-        "Particluar - Multi-Layer PoC (WASD=scroll, G=grid WFC, J=jigsaw WFC)",
+        "Particluar - PoC (WASD=scroll, Q/E=tileset, +/-=zoom, G=WFC, J=jigsaw)",
         cfg.viewport_width, cfg.viewport_height,
         0);
 
@@ -272,11 +245,6 @@ int main(int argc, char* argv[])
     Tileset* tileset = &allTilesets[activeTilesetIdx];
     TilesetDef tilesetDef = BuildTilesetDef(*tileset);
 
-    // --- Create Initial Map ---
-    const int MAP_WIDTH = 64;
-    const int MAP_HEIGHT = 64;
-    MapData activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
-
     // --- Set Up Renderer Components ---
     Camera camera;
     camera.SetPosition(0.0f, 0.0f);
@@ -291,18 +259,81 @@ int main(int argc, char* argv[])
 
     TileRenderer tileRenderer;
 
+    // --- Zoom level (+ and - keys, or mouse wheel) ---
+    float zoomLevel = 1.0f;
+    const float ZOOM_MIN = 0.25f;
+    const float ZOOM_MAX = 4.0f;
+    const float ZOOM_STEP = 0.25f;
+
     // --- WFC Generator ---
     WFCGenerator wfcGenerator;
 
-    // --- Jigsaw Map (Task 10: PoC integration) ---
+    // --- Jigsaw Map (default rendering mode) ---
     JigsawMap jigsawMap;
-    bool useJigsawRendering = false;
+
+    // Generate a jigsaw map by randomly placing tiles in a row-wrap layout
+    // Each tile is placed at its native effective size, no stretching
+    auto generateJigsaw = [&]() {
+        jigsawMap = JigsawMap(); // reset
+        jigsawMap.SetTilesetId(tilesetDef.name);
+
+        if (tilesetDef.tiles.empty()) {
+            SDL_Log("[PoC] No tiles to place.");
+            return;
+        }
+
+        float sheetScale = tilesetDef.sheet_scale;
+        const float TARGET_W = 2000.0f;  // wrap width (world pixels)
+        const float TARGET_H = 2000.0f;  // stop placing after this height
+
+        float curX = 0.0f;
+        float curY = 0.0f;
+        float rowHeight = 0.0f;
+        int tilesPlaced = 0;
+
+        // Simple seeded RNG for tile selection
+        unsigned int seed = static_cast<unsigned int>(SDL_GetTicks());
+        int numTiles = static_cast<int>(tilesetDef.tiles.size());
+
+        while (curY < TARGET_H) {
+            // Pick a random tile
+            seed = seed * 1103515245 + 12345;
+            int idx = static_cast<int>((seed >> 16) % numTiles);
+            const TileDef& def = tilesetDef.tiles[idx];
+
+            float ew = static_cast<float>(def.source_rect.w) * sheetScale * def.scale;
+            float eh = static_cast<float>(def.source_rect.h) * sheetScale * def.scale;
+
+            // Wrap to next row if tile exceeds target width
+            if (curX + ew > TARGET_W && curX > 0.0f) {
+                curX = 0.0f;
+                curY += rowHeight;
+                rowHeight = 0.0f;
+                if (curY >= TARGET_H) break;
+            }
+
+            PlacedTile pt;
+            pt.tile_id = def.id;
+            pt.x = curX;
+            pt.y = curY;
+            pt.w = ew;
+            pt.h = eh;
+
+            jigsawMap.AddTile(pt);
+            tilesPlaced++;
+
+            curX += ew;
+            if (eh > rowHeight) rowHeight = eh;
+        }
+
+        SDL_Log("[PoC] Placed %d tiles in row-wrap layout", tilesPlaced);
+    };
+    generateJigsaw();
 
     // --- Main Loop ---
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
-
-    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, ESC/close=quit");
+    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, +/-=zoom, ESC/close=quit");
 
     while (running) {
         // --- Delta time ---
@@ -325,78 +356,18 @@ int main(int argc, char* argv[])
                 if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
                     running = false;
                 }
-                // Task 11.1: G-key triggers WFC generation
+                // G: regenerate jigsaw with current tileset
                 else if (event.key.scancode == SDL_SCANCODE_G && !event.key.repeat) {
-                    SDL_Log("[PoC] Generating new map via WFC (64x64)...");
-                    useJigsawRendering = false;
-
-                    Uint64 genStart = SDL_GetTicks();
-
-                    WFCParams params;
-                    params.width = MAP_WIDTH;
-                    params.height = MAP_HEIGHT;
-                    params.seed = 0; // non-deterministic (random)
-                    params.tileset = &tilesetDef;
-
-                    WFCResult result = wfcGenerator.Generate(params);
-
-                    Uint64 genEnd = SDL_GetTicks();
-                    float genTime = static_cast<float>(genEnd - genStart) / 1000.0f;
-
-                    if (result.status == WFCStatus::Success) {
-                        // Task 11.2: On success, replace active map
-                        activeMap = result.map;
-                        SDL_Log("[PoC] WFC generation succeeded in %.3f seconds.", genTime);
-                    }
-                    else if (result.status == WFCStatus::Contradiction) {
-                        // Task 11.2: On contradiction, keep previous map
-                        SDL_Log("[PoC] WFC contradiction after %.3f seconds. Keeping previous map.", genTime);
-                    }
-                    else {
-                        SDL_Log("[PoC] WFC invalid input after %.3f seconds.", genTime);
-                    }
+                    SDL_Log("[PoC] Regenerating jigsaw...");
+                    generateJigsaw();
                 }
-                // Task 10: J-key triggers jigsaw WFC generation on a 512x512 area
-                else if (event.key.scancode == SDL_SCANCODE_J && !event.key.repeat) {
-                    SDL_Log("[PoC] Generating jigsaw map (512x512)...");
-
-                    Uint64 genStart = SDL_GetTicks();
-
-                    JigsawWFCParams jParams;
-                    jParams.target_width = 512.0f;
-                    jParams.target_height = 512.0f;
-                    jParams.origin_x = 0.0f;
-                    jParams.origin_y = 0.0f;
-                    jParams.seed = 0; // non-deterministic
-                    jParams.tileset = &tilesetDef;
-                    jParams.layer_scale = 1.0f;
-
-                    JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
-
-                    Uint64 genEnd = SDL_GetTicks();
-                    float genTime = static_cast<float>(genEnd - genStart) / 1000.0f;
-
-                    if (jResult.status == WFCStatus::Success) {
-                        jigsawMap = jResult.map;
-                        useJigsawRendering = true;
-                        SDL_Log("[PoC] Jigsaw generation succeeded in %.3f seconds (%d tiles).",
-                                genTime, (int)jigsawMap.GetTileCount());
-                    }
-                    else if (jResult.status == WFCStatus::Contradiction) {
-                        SDL_Log("[PoC] Jigsaw WFC contradiction after %.3f seconds.", genTime);
-                    }
-                    else {
-                        SDL_Log("[PoC] Jigsaw WFC invalid input after %.3f seconds.", genTime);
-                    }
-                }
-                // Q/E: swap active tileset
+                // Q/E: swap active tileset and regenerate
                 else if (event.key.scancode == SDL_SCANCODE_Q && !event.key.repeat) {
                     if (allTilesets.size() > 1) {
                         activeTilesetIdx = (activeTilesetIdx + static_cast<int>(allTilesets.size()) - 1) % static_cast<int>(allTilesets.size());
                         tileset = &allTilesets[activeTilesetIdx];
                         tilesetDef = BuildTilesetDef(*tileset);
-                        activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
-                        useJigsawRendering = false;
+                        generateJigsaw();
                         SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
                     }
                 }
@@ -405,11 +376,32 @@ int main(int argc, char* argv[])
                         activeTilesetIdx = (activeTilesetIdx + 1) % static_cast<int>(allTilesets.size());
                         tileset = &allTilesets[activeTilesetIdx];
                         tilesetDef = BuildTilesetDef(*tileset);
-                        activeMap = CreateInitialMap(MAP_WIDTH, MAP_HEIGHT, *tileset);
-                        useJigsawRendering = false;
+                        generateJigsaw();
                         SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
                     }
                 }
+                // +/- : zoom in/out
+                else if ((event.key.scancode == SDL_SCANCODE_EQUALS || event.key.scancode == SDL_SCANCODE_KP_PLUS) && !event.key.repeat) {
+                    zoomLevel += ZOOM_STEP;
+                    if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
+                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
+                }
+                else if ((event.key.scancode == SDL_SCANCODE_MINUS || event.key.scancode == SDL_SCANCODE_KP_MINUS) && !event.key.repeat) {
+                    zoomLevel -= ZOOM_STEP;
+                    if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
+                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
+                }
+            }
+            // Mouse wheel zoom
+            else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+                if (event.wheel.y > 0) {
+                    zoomLevel += ZOOM_STEP;
+                    if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
+                } else if (event.wheel.y < 0) {
+                    zoomLevel -= ZOOM_STEP;
+                    if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
+                }
+                SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
             }
         }
 
@@ -424,70 +416,19 @@ int main(int argc, char* argv[])
         // Elapsed time for tile animation (absolute ms since SDL init)
         Uint32 elapsed_ms = static_cast<Uint32>(currentTicks);
 
-        if (useJigsawRendering) {
-            // Task 10: Render jigsaw map using RenderJigsawLayer
-            MapLayerConfig jigsawCfg;
-            jigsawCfg.z_depth = 0;
-            jigsawCfg.alpha = 255;
-            jigsawCfg.pivot_x = camera.GetPivotX();
-            jigsawCfg.pivot_y = camera.GetPivotY();
-            jigsawCfg.offset_x = 0.0f;
-            jigsawCfg.offset_y = 0.0f;
-            jigsawCfg.scale = 1.0f;
-            jigsawCfg.sampling = SamplingMode::Nearest;
+        // Jigsaw rendering — tiles at native size, no grid forcing
+        MapLayerConfig jigsawCfg;
+        jigsawCfg.z_depth = 0;
+        jigsawCfg.alpha = 255;
+        jigsawCfg.pivot_x = camera.GetPivotX();
+        jigsawCfg.pivot_y = camera.GetPivotY();
+        jigsawCfg.offset_x = 0.0f;
+        jigsawCfg.offset_y = 0.0f;
+        jigsawCfg.scale = zoomLevel;
+        jigsawCfg.sampling = SamplingMode::Nearest;
 
-            tileRenderer.RenderJigsawLayer(
-                renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
-        } else {
-            // Legacy grid-based rendering (G-key / initial map)
-            // Issue #91: Multi-layer rendering demonstration
-            // Layer 0: Base ground layer (full opacity, no offset, nearest sampling)
-            MapLayer baseLayer;
-            {
-                MapLayerConfig layerCfg;
-                layerCfg.z_depth = 0;
-                layerCfg.alpha = 255;
-                layerCfg.pivot_x = camera.GetPivotX();
-                layerCfg.pivot_y = camera.GetPivotY();
-                layerCfg.offset_x = 0.0f;
-                layerCfg.offset_y = 0.0f;
-                layerCfg.scale = 1.0f;
-                layerCfg.sampling = SamplingMode::Nearest;
-                baseLayer.SetConfig(layerCfg);
-                baseLayer.SetMapData(activeMap);
-                baseLayer.SetTileset(tileset);
-            }
-
-            // Layer 1: Overlay/detail layer — same map, offset, semi-transparent, linear sampling
-            MapLayer overlayLayer;
-            {
-                MapLayerConfig layerCfg;
-                layerCfg.z_depth = 1;
-                layerCfg.alpha = 100;
-                layerCfg.pivot_x = camera.GetPivotX();
-                layerCfg.pivot_y = camera.GetPivotY();
-                layerCfg.offset_x = 16.0f;
-                layerCfg.offset_y = 16.0f;
-                layerCfg.scale = 1.0f;
-                layerCfg.sampling = SamplingMode::Linear;
-                overlayLayer.SetConfig(layerCfg);
-                overlayLayer.SetMapData(activeMap);
-                overlayLayer.SetTileset(tileset);
-            }
-
-            std::vector<MapLayer> layers;
-            layers.push_back(baseLayer);
-            layers.push_back(overlayLayer);
-
-            tileRenderer.RenderLayers(
-                renderer,
-                layers,
-                viewport,
-                camera,
-                cfg.tile_width, cfg.tile_height,
-                elapsed_ms
-            );
-        }
+        tileRenderer.RenderJigsawLayer(
+            renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
 
         SDL_RenderPresent(renderer);
     }
