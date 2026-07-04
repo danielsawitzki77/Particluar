@@ -51,9 +51,14 @@
     .canvas-wrapper canvas { display: block; cursor: crosshair; }
 
     /* Right Panel — FIXED position in flex, never scrolls with canvas */
-    .right-panel { width: 300px; min-width: 300px; max-width: 300px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; flex-grow: 0; }
+    .right-panel { width: 520px; min-width: 520px; max-width: 520px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; flex-grow: 0; }
     .right-panel h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; }
     .right-panel-section { padding: 8px 12px; border-bottom: 1px solid #0f3460; }
+    .right-panel-columns { display: flex; flex-direction: row; border-bottom: 1px solid #0f3460; }
+    .right-panel-col { flex: 1; min-width: 0; overflow-y: auto; }
+    .right-panel-col-tiles { max-height: 400px; border-right: 1px solid #0f3460; }
+    .right-panel-col-controls { max-height: 400px; }
+    .right-panel-col h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; }
 
     /* Created tiles list */
     .created-tile-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; margin-bottom: 2px; border-radius: 3px; font-size: 12px; cursor: pointer; }
@@ -185,12 +190,18 @@
         <h3>Labels</h3>
         <div class="right-panel-section" id="labels-panel"></div>
 
-        <h3>Created Tiles</h3>
-        <div class="right-panel-section" id="created-tiles-list"></div>
-
-        <h3>Selected Tile</h3>
-        <div class="right-panel-section" id="tile-info-panel">
-          <p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>
+        <!-- Created Tiles + Selected Tile side by side -->
+        <div class="right-panel-columns">
+          <div class="right-panel-col right-panel-col-tiles">
+            <h3>Created Tiles</h3>
+            <div class="right-panel-section" id="created-tiles-list"></div>
+          </div>
+          <div class="right-panel-col right-panel-col-controls">
+            <h3>Selected Tile</h3>
+            <div class="right-panel-section" id="tile-info-panel">
+              <p style="color:#a0a0a0;font-size:12px;">Click a tile on the canvas to select it.</p>
+            </div>
+          </div>
         </div>
 
         <h3>Blocking Rects</h3>

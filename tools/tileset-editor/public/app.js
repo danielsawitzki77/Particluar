@@ -601,7 +601,7 @@
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
       <br><strong>Src:</strong> (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}
       <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">🗑 Remove Duplicates</button>
-      <button id="auto-neighbor-btn" style="margin-top:6px;margin-left:4px;padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Auto-detect neighboring tiles by edge pixel similarity and add adjacency metadata">🔗 Auto-Neighbor</button>
+      <br><button id="auto-neighbor-btn" style="margin-top:6px;padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Auto-detect neighboring tiles by edge pixel similarity and add adjacency metadata">🔗 Auto-Neighbor</button>
       <br><label style="font-size:11px;color:#a0a0a0;margin-top:4px;display:inline-block;">Similarity:</label>
       <input type="number" id="auto-neighbor-threshold" value="90" min="0" max="100" step="5" style="width:50px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-left:4px;" title="Edge pixel similarity threshold (0-100%)">
       <span style="font-size:11px;color:#a0a0a0;">%</span>
@@ -609,9 +609,13 @@
 
     // Labels assignment
     html += '<div class="adjacency-section"><h4>Labels</h4><div class="adjacency-list">';
-    tile.labels.forEach((l, i) => {
-      html += `<span class="adj-tag">${escapeHtml(l)} <span class="remove-tile-label" data-idx="${i}">&times;</span></span>`;
-    });
+    if (tile.labels.length === 0) {
+      html += '<span style="color:#a0a0a0;font-size:11px;font-style:italic;">- No Labels Set -</span>';
+    } else {
+      tile.labels.forEach((l, i) => {
+        html += `<span class="adj-tag">${escapeHtml(l)} <span class="remove-tile-label" data-idx="${i}">&times;</span></span>`;
+      });
+    }
     html += '</div>';
     if (allLabels.length > 0) {
       const available = allLabels.filter(l => !tile.labels.includes(l));
