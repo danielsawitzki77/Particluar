@@ -28,7 +28,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_23"
+        ]
       },
       "labels": []
     },
@@ -43,7 +45,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_22"
+        ],
         "right": []
       },
       "labels": []
@@ -58,7 +62,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_45"
+        ],
         "left": [],
         "right": []
       },
@@ -74,7 +80,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_46"
+        ],
         "left": [],
         "right": []
       },
@@ -90,7 +98,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_47"
+        ],
         "left": [],
         "right": []
       },
@@ -106,9 +116,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_48"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_28"
+        ]
       },
       "labels": []
     },
@@ -123,7 +137,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_27"
+        ],
         "right": []
       },
       "labels": []
@@ -172,7 +188,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_34"
+        ]
       },
       "labels": []
     },
@@ -187,7 +205,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_33"
+        ],
         "right": []
       },
       "labels": []
@@ -204,7 +224,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_38"
+        ]
       },
       "labels": []
     },
@@ -219,7 +241,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_37"
+        ],
         "right": []
       },
       "labels": []
@@ -236,7 +260,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_44"
+        ]
       },
       "labels": []
     },
@@ -251,7 +277,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_43"
+        ],
         "right": []
       },
       "labels": []
@@ -265,10 +293,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_24"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_46"
+        ]
       },
       "labels": []
     },
@@ -281,10 +313,16 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_25"
+        ],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_45"
+        ],
+        "right": [
+          "Ground_grass_47"
+        ]
       },
       "labels": []
     },
@@ -297,9 +335,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_26"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_46"
+        ],
         "right": []
       },
       "labels": []
@@ -313,10 +355,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_27"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_49"
+        ]
       },
       "labels": []
     },
@@ -331,7 +377,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_48"
+        ],
         "right": []
       },
       "labels": []
@@ -412,7 +460,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_61"
+        ]
       },
       "labels": []
     },
@@ -427,7 +477,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_60"
+        ],
         "right": []
       },
       "labels": []
@@ -444,7 +496,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_65"
+        ]
       },
       "labels": []
     },
@@ -459,7 +513,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_64"
+        ],
         "right": []
       },
       "labels": []
@@ -476,7 +532,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_67"
+        ]
       },
       "labels": []
     },
@@ -491,8 +549,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_66"
+        ],
+        "right": [
+          "Ground_grass_68"
+        ]
       },
       "labels": []
     },
@@ -507,7 +569,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_67"
+        ],
         "right": []
       },
       "labels": []
@@ -524,7 +588,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_70"
+        ]
       },
       "labels": []
     },
@@ -539,7 +605,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_69"
+        ],
         "right": []
       },
       "labels": []
@@ -556,7 +624,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_73"
+        ]
       },
       "labels": []
     },
@@ -571,7 +641,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_72"
+        ],
         "right": []
       },
       "labels": []
@@ -588,7 +660,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_76"
+        ]
       },
       "labels": []
     },
@@ -603,7 +677,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_75"
+        ],
         "right": []
       },
       "labels": []
@@ -620,7 +696,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_80"
+        ]
       },
       "labels": []
     },
@@ -635,8 +713,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_79"
+        ],
+        "right": [
+          "Ground_grass_81"
+        ]
       },
       "labels": []
     },
@@ -651,8 +733,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_80"
+        ],
+        "right": [
+          "Ground_grass_82"
+        ]
       },
       "labels": []
     },
@@ -667,7 +753,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_81"
+        ],
         "right": []
       },
       "labels": []
@@ -716,7 +804,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_100"
+        ]
       },
       "labels": []
     },
@@ -731,7 +821,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_99"
+        ],
         "right": []
       },
       "labels": []
@@ -778,9 +870,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_127"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_107"
+        ]
       },
       "labels": []
     },
@@ -794,8 +890,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_128"
+        ],
+        "left": [
+          "Ground_grass_106"
+        ],
         "right": []
       },
       "labels": []
@@ -812,7 +912,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_109"
+        ]
       },
       "labels": []
     },
@@ -827,8 +929,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_108"
+        ],
+        "right": [
+          "Ground_grass_110"
+        ]
       },
       "labels": []
     },
@@ -843,7 +949,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_109"
+        ],
         "right": []
       },
       "labels": []
@@ -858,9 +966,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_132"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_112"
+        ]
       },
       "labels": []
     },
@@ -874,8 +986,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_133"
+        ],
+        "left": [
+          "Ground_grass_111"
+        ],
         "right": []
       },
       "labels": []
@@ -892,7 +1008,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_115"
+        ]
       },
       "labels": []
     },
@@ -907,7 +1025,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_114"
+        ],
         "right": []
       },
       "labels": []
@@ -921,10 +1041,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_106"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_128"
+        ]
       },
       "labels": []
     },
@@ -937,9 +1061,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_107"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_127"
+        ],
         "right": []
       },
       "labels": []
@@ -953,10 +1081,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_111"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_133"
+        ]
       },
       "labels": []
     },
@@ -969,9 +1101,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_112"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_132"
+        ],
         "right": []
       },
       "labels": []
@@ -988,7 +1124,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_136"
+        ]
       },
       "labels": []
     },
@@ -1003,7 +1141,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_135"
+        ],
         "right": []
       },
       "labels": []
@@ -1100,7 +1240,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_145"
+        ]
       },
       "labels": []
     },
@@ -1115,7 +1257,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_144"
+        ],
         "right": []
       },
       "labels": []
@@ -1132,7 +1276,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_149"
+        ]
       },
       "labels": []
     },
@@ -1147,7 +1293,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_148"
+        ],
         "right": []
       },
       "labels": []
@@ -1164,7 +1312,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_154"
+        ]
       },
       "labels": []
     },
@@ -1179,7 +1329,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_153"
+        ],
         "right": []
       },
       "labels": []
@@ -1196,7 +1348,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_157"
+        ]
       },
       "labels": []
     },
@@ -1211,7 +1365,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_156"
+        ],
         "right": []
       },
       "labels": []
@@ -1228,7 +1384,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_164"
+        ]
       },
       "labels": []
     },
@@ -1243,8 +1401,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_163"
+        ],
+        "right": [
+          "Ground_grass_165"
+        ]
       },
       "labels": []
     },
@@ -1259,8 +1421,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_164"
+        ],
+        "right": [
+          "Ground_grass_166"
+        ]
       },
       "labels": []
     },
@@ -1275,7 +1441,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_165"
+        ],
         "right": []
       },
       "labels": []
@@ -1340,7 +1508,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_187"
+        ]
       },
       "labels": []
     },
@@ -1355,7 +1525,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_186"
+        ],
         "right": []
       },
       "labels": []
@@ -1372,7 +1544,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_191"
+        ]
       },
       "labels": []
     },
@@ -1387,7 +1561,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_190"
+        ],
         "right": []
       },
       "labels": []
@@ -1404,7 +1580,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_193"
+        ]
       },
       "labels": []
     },
@@ -1419,8 +1597,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_192"
+        ],
+        "right": [
+          "Ground_grass_194"
+        ]
       },
       "labels": []
     },
@@ -1435,7 +1617,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_193"
+        ],
         "right": []
       },
       "labels": []
@@ -1452,7 +1636,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_196"
+        ]
       },
       "labels": []
     },
@@ -1467,7 +1653,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_195"
+        ],
         "right": []
       },
       "labels": []
@@ -1500,7 +1688,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_206"
+        ]
       },
       "labels": []
     },
@@ -1515,7 +1705,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_205"
+        ],
         "right": []
       },
       "labels": []
@@ -1612,7 +1804,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_229"
+        ]
       },
       "labels": []
     },
@@ -1627,7 +1821,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_228"
+        ],
         "right": []
       },
       "labels": []
@@ -1644,7 +1840,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_233"
+        ]
       },
       "labels": []
     },
@@ -1659,7 +1857,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_232"
+        ],
         "right": []
       },
       "labels": []
@@ -1676,7 +1876,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_236"
+        ]
       },
       "labels": []
     },
@@ -1691,7 +1893,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_235"
+        ],
         "right": []
       },
       "labels": []
@@ -1740,7 +1944,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_243"
+        ]
       },
       "labels": []
     },
@@ -1755,7 +1961,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_242"
+        ],
         "right": []
       },
       "labels": []
@@ -1788,7 +1996,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_250"
+        ]
       },
       "labels": []
     },
@@ -1803,7 +2013,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_249"
+        ],
         "right": []
       },
       "labels": []
@@ -1820,7 +2032,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_264"
+        ]
       },
       "labels": []
     },
@@ -1835,7 +2049,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_263"
+        ],
         "right": []
       },
       "labels": []
@@ -1852,7 +2068,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_267"
+        ]
       },
       "labels": []
     },
@@ -1867,7 +2085,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_266"
+        ],
         "right": []
       },
       "labels": []
@@ -1884,7 +2104,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_271"
+        ]
       },
       "labels": []
     },
@@ -1899,7 +2121,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_270"
+        ],
         "right": []
       },
       "labels": []
@@ -1916,7 +2140,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_275"
+        ]
       },
       "labels": []
     },
@@ -1931,8 +2157,12 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_274"
+        ],
+        "right": [
+          "Ground_grass_276"
+        ]
       },
       "labels": []
     },
@@ -1947,7 +2177,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_275"
+        ],
         "right": []
       },
       "labels": []
@@ -1964,7 +2196,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_278"
+        ]
       },
       "labels": []
     },
@@ -1979,7 +2213,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_277"
+        ],
         "right": []
       },
       "labels": []
@@ -1996,7 +2232,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_281"
+        ]
       },
       "labels": []
     },
@@ -2011,7 +2249,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_280"
+        ],
         "right": []
       },
       "labels": []
@@ -2060,7 +2300,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_302"
+        ]
       },
       "labels": []
     },
@@ -2075,7 +2317,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_301"
+        ],
         "right": []
       },
       "labels": []
@@ -2092,7 +2336,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_306"
+        ]
       },
       "labels": []
     },
@@ -2107,7 +2353,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_305"
+        ],
         "right": []
       },
       "labels": []
@@ -2124,7 +2372,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_309"
+        ]
       },
       "labels": []
     },
@@ -2139,7 +2389,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_308"
+        ],
         "right": []
       },
       "labels": []
@@ -2204,7 +2456,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_320"
+        ]
       },
       "labels": []
     },
@@ -2219,7 +2473,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_319"
+        ],
         "right": []
       },
       "labels": []
@@ -2236,7 +2492,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_323"
+        ]
       },
       "labels": []
     },
@@ -2251,7 +2509,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_322"
+        ],
         "right": []
       },
       "labels": []
@@ -2330,9 +2590,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_370"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_350"
+        ]
       },
       "labels": []
     },
@@ -2346,9 +2610,15 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "down": [
+          "Ground_grass_371"
+        ],
+        "left": [
+          "Ground_grass_349"
+        ],
+        "right": [
+          "Ground_grass_351"
+        ]
       },
       "labels": []
     },
@@ -2362,8 +2632,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_372"
+        ],
+        "left": [
+          "Ground_grass_350"
+        ],
         "right": []
       },
       "labels": []
@@ -2378,9 +2652,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_373"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_353"
+        ]
       },
       "labels": []
     },
@@ -2394,8 +2672,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_374"
+        ],
+        "left": [
+          "Ground_grass_352"
+        ],
         "right": []
       },
       "labels": []
@@ -2444,7 +2726,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_362"
+        ]
       },
       "labels": []
     },
@@ -2459,7 +2743,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_361"
+        ],
         "right": []
       },
       "labels": []
@@ -2476,7 +2762,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_365"
+        ]
       },
       "labels": []
     },
@@ -2491,7 +2779,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_364"
+        ],
         "right": []
       },
       "labels": []
@@ -2508,7 +2798,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_368"
+        ]
       },
       "labels": []
     },
@@ -2523,7 +2815,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_367"
+        ],
         "right": []
       },
       "labels": []
@@ -2537,10 +2831,16 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_349"
+        ],
+        "down": [
+          "Ground_grass_391"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_371"
+        ]
       },
       "labels": []
     },
@@ -2553,10 +2853,18 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "up": [
+          "Ground_grass_350"
+        ],
+        "down": [
+          "Ground_grass_392"
+        ],
+        "left": [
+          "Ground_grass_370"
+        ],
+        "right": [
+          "Ground_grass_372"
+        ]
       },
       "labels": []
     },
@@ -2569,9 +2877,15 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
+        "up": [
+          "Ground_grass_351"
+        ],
+        "down": [
+          "Ground_grass_393"
+        ],
+        "left": [
+          "Ground_grass_371"
+        ],
         "right": []
       },
       "labels": []
@@ -2585,10 +2899,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_352"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_374"
+        ]
       },
       "labels": []
     },
@@ -2601,9 +2919,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_353"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_373"
+        ],
         "right": []
       },
       "labels": []
@@ -2618,9 +2940,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_400"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_380"
+        ]
       },
       "labels": []
     },
@@ -2634,8 +2960,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_401"
+        ],
+        "left": [
+          "Ground_grass_379"
+        ],
         "right": []
       },
       "labels": []
@@ -2649,10 +2979,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_370"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_392"
+        ]
       },
       "labels": []
     },
@@ -2665,10 +2999,16 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_371"
+        ],
         "down": [],
-        "left": [],
-        "right": []
+        "left": [
+          "Ground_grass_391"
+        ],
+        "right": [
+          "Ground_grass_393"
+        ]
       },
       "labels": []
     },
@@ -2681,9 +3021,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_372"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_392"
+        ],
         "right": []
       },
       "labels": []
@@ -2697,8 +3041,12 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_379"
+        ],
+        "down": [
+          "Ground_grass_421"
+        ],
         "left": [],
         "right": []
       },
@@ -2713,8 +3061,12 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_380"
+        ],
+        "down": [
+          "Ground_grass_422"
+        ],
         "left": [],
         "right": []
       },
@@ -2730,7 +3082,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_423"
+        ],
         "left": [],
         "right": []
       },
@@ -2746,9 +3100,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_424"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_404"
+        ]
       },
       "labels": []
     },
@@ -2762,8 +3120,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_425"
+        ],
+        "left": [
+          "Ground_grass_403"
+        ],
         "right": []
       },
       "labels": []
@@ -2780,7 +3142,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_407"
+        ]
       },
       "labels": []
     },
@@ -2795,7 +3159,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_406"
+        ],
         "right": []
       },
       "labels": []
@@ -2810,9 +3176,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_430"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_410"
+        ]
       },
       "labels": []
     },
@@ -2826,8 +3196,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_431"
+        ],
+        "left": [
+          "Ground_grass_409"
+        ],
         "right": []
       },
       "labels": []
@@ -2858,9 +3232,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_434"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_414"
+        ]
       },
       "labels": []
     },
@@ -2874,8 +3252,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_435"
+        ],
+        "left": [
+          "Ground_grass_413"
+        ],
         "right": []
       },
       "labels": []
@@ -2890,9 +3272,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_437"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_417"
+        ]
       },
       "labels": []
     },
@@ -2906,8 +3292,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_438"
+        ],
+        "left": [
+          "Ground_grass_416"
+        ],
         "right": []
       },
       "labels": []
@@ -2937,10 +3327,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_400"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_422"
+        ]
       },
       "labels": []
     },
@@ -2953,10 +3347,18 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "up": [
+          "Ground_grass_401"
+        ],
+        "down": [
+          "Ground_grass_443"
+        ],
+        "left": [
+          "Ground_grass_421"
+        ],
+        "right": [
+          "Ground_grass_423"
+        ]
       },
       "labels": []
     },
@@ -2969,9 +3371,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_402"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_422"
+        ],
         "right": []
       },
       "labels": []
@@ -2985,10 +3391,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_403"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_425"
+        ]
       },
       "labels": []
     },
@@ -3001,9 +3411,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_404"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_424"
+        ],
         "right": []
       },
       "labels": []
@@ -3020,7 +3434,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_428"
+        ]
       },
       "labels": []
     },
@@ -3035,7 +3451,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_427"
+        ],
         "right": []
       },
       "labels": []
@@ -3049,10 +3467,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_409"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_431"
+        ]
       },
       "labels": []
     },
@@ -3065,9 +3487,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_410"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_430"
+        ],
         "right": []
       },
       "labels": []
@@ -3081,10 +3507,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_413"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_435"
+        ]
       },
       "labels": []
     },
@@ -3097,9 +3527,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_414"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_434"
+        ],
         "right": []
       },
       "labels": []
@@ -3113,10 +3547,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_416"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_438"
+        ]
       },
       "labels": []
     },
@@ -3129,9 +3567,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_417"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_437"
+        ],
         "right": []
       },
       "labels": []
@@ -3161,7 +3603,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_422"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3228,7 +3672,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_455"
+        ]
       },
       "labels": []
     },
@@ -3242,9 +3688,15 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "down": [
+          "Ground_grass_476"
+        ],
+        "left": [
+          "Ground_grass_454"
+        ],
+        "right": [
+          "Ground_grass_456"
+        ]
       },
       "labels": []
     },
@@ -3259,7 +3711,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_455"
+        ],
         "right": []
       },
       "labels": []
@@ -3274,9 +3728,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_478"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_458"
+        ]
       },
       "labels": []
     },
@@ -3290,8 +3748,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_479"
+        ],
+        "left": [
+          "Ground_grass_457"
+        ],
         "right": []
       },
       "labels": []
@@ -3386,9 +3848,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_496"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_476"
+        ]
       },
       "labels": []
     },
@@ -3401,10 +3867,18 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "up": [
+          "Ground_grass_455"
+        ],
+        "down": [
+          "Ground_grass_497"
+        ],
+        "left": [
+          "Ground_grass_475"
+        ],
+        "right": [
+          "Ground_grass_477"
+        ]
       },
       "labels": []
     },
@@ -3418,8 +3892,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_498"
+        ],
+        "left": [
+          "Ground_grass_476"
+        ],
         "right": []
       },
       "labels": []
@@ -3433,10 +3911,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_457"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_479"
+        ]
       },
       "labels": []
     },
@@ -3449,9 +3931,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_458"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_478"
+        ],
         "right": []
       },
       "labels": []
@@ -3465,10 +3951,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_475"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_497"
+        ]
       },
       "labels": []
     },
@@ -3481,9 +3971,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_476"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_496"
+        ],
         "right": []
       },
       "labels": []
@@ -3497,7 +3991,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_477"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3530,9 +4026,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_527"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_507"
+        ]
       },
       "labels": []
     },
@@ -3547,7 +4047,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_506"
+        ],
         "right": []
       },
       "labels": []
@@ -3564,7 +4066,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_509"
+        ]
       },
       "labels": []
     },
@@ -3579,7 +4083,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_508"
+        ],
         "right": []
       },
       "labels": []
@@ -3596,7 +4102,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_512"
+        ]
       },
       "labels": []
     },
@@ -3611,7 +4119,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_511"
+        ],
         "right": []
       },
       "labels": []
@@ -3626,7 +4136,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_535"
+        ],
         "left": [],
         "right": []
       },
@@ -3642,7 +4154,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_536"
+        ],
         "left": [],
         "right": []
       },
@@ -3674,9 +4188,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_539"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_519"
+        ]
       },
       "labels": []
     },
@@ -3690,8 +4208,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_540"
+        ],
+        "left": [
+          "Ground_grass_518"
+        ],
         "right": []
       },
       "labels": []
@@ -3706,9 +4228,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_542"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_522"
+        ]
       },
       "labels": []
     },
@@ -3722,8 +4248,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_543"
+        ],
+        "left": [
+          "Ground_grass_521"
+        ],
         "right": []
       },
       "labels": []
@@ -3754,9 +4284,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_547"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_527"
+        ]
       },
       "labels": []
     },
@@ -3769,10 +4303,18 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "up": [
+          "Ground_grass_506"
+        ],
+        "down": [
+          "Ground_grass_548"
+        ],
+        "left": [
+          "Ground_grass_526"
+        ],
+        "right": [
+          "Ground_grass_528"
+        ]
       },
       "labels": []
     },
@@ -3787,7 +4329,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_527"
+        ],
         "right": []
       },
       "labels": []
@@ -3865,7 +4409,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_514"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3881,7 +4427,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_515"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3897,10 +4445,14 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_518"
+        ],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_540"
+        ]
       },
       "labels": []
     },
@@ -3913,9 +4465,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_519"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_539"
+        ],
         "right": []
       },
       "labels": []
@@ -3929,7 +4485,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_521"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3945,7 +4503,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_522"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -3961,8 +4521,12 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_526"
+        ],
+        "down": [
+          "Ground_grass_568"
+        ],
         "left": [],
         "right": []
       },
@@ -3977,8 +4541,12 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_527"
+        ],
+        "down": [
+          "Ground_grass_569"
+        ],
         "left": [],
         "right": []
       },
@@ -3994,7 +4562,9 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_570"
+        ],
         "left": [],
         "right": []
       },
@@ -4009,7 +4579,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_547"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -4025,10 +4597,16 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
+        "up": [
+          "Ground_grass_548"
+        ],
+        "down": [
+          "Ground_grass_590"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_570"
+        ]
       },
       "labels": []
     },
@@ -4041,9 +4619,13 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_549"
+        ],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_569"
+        ],
         "right": []
       },
       "labels": []
@@ -4060,7 +4642,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_572"
+        ]
       },
       "labels": []
     },
@@ -4074,8 +4658,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_593"
+        ],
+        "left": [
+          "Ground_grass_571"
+        ],
         "right": []
       },
       "labels": []
@@ -4092,7 +4680,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_575"
+        ]
       },
       "labels": []
     },
@@ -4107,7 +4697,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_574"
+        ],
         "right": []
       },
       "labels": []
@@ -4122,9 +4714,13 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
+        "down": [
+          "Ground_grass_598"
+        ],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_578"
+        ]
       },
       "labels": []
     },
@@ -4138,8 +4734,12 @@
       },
       "adjacency": {
         "up": [],
-        "down": [],
-        "left": [],
+        "down": [
+          "Ground_grass_599"
+        ],
+        "left": [
+          "Ground_grass_577"
+        ],
         "right": []
       },
       "labels": []
@@ -4172,7 +4772,9 @@
         "up": [],
         "down": [],
         "left": [],
-        "right": []
+        "right": [
+          "Ground_grass_590"
+        ]
       },
       "labels": []
     },
@@ -4185,10 +4787,18 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
-        "down": [],
-        "left": [],
-        "right": []
+        "up": [
+          "Ground_grass_569"
+        ],
+        "down": [
+          "Ground_grass_611"
+        ],
+        "left": [
+          "Ground_grass_589"
+        ],
+        "right": [
+          "Ground_grass_591"
+        ]
       },
       "labels": []
     },
@@ -4203,7 +4813,9 @@
       "adjacency": {
         "up": [],
         "down": [],
-        "left": [],
+        "left": [
+          "Ground_grass_590"
+        ],
         "right": []
       },
       "labels": []
@@ -4233,7 +4845,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_572"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -4281,7 +4895,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_577"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -4297,7 +4913,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_578"
+        ],
         "down": [],
         "left": [],
         "right": []
@@ -4329,7 +4947,9 @@
         "h": 16
       },
       "adjacency": {
-        "up": [],
+        "up": [
+          "Ground_grass_590"
+        ],
         "down": [],
         "left": [],
         "right": []
