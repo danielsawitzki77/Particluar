@@ -1260,6 +1260,111 @@
   let leSelectedTileId = null;
   let leCellW = 32, leCellH = 32;
   let leActiveLabelFilter = '';
+  let leZoom = 1;
+  let leConstrainNeighbors = false;
+  let leHoverRow = -1, leHoverCol = -1;
+
+  // --- Zoom controls ---
+  const leZoomIn = document.getElementById('le-zoom-in');
+  const leZoomOut = document.getElementById('le-zoom-out');
+  const leZoomLabel = document.getElementById('le-zoom-label');
+
+  function updateLeZoom(delta) {
+    leZoom = Math.max(0.25, Math.min(4, leZoom + delta));
+    leZoomLabel.textContent = leZoom + 'x';
+    if (leJigsawMode) renderLECanvasJigsaw();
+    else renderLECanvas();
+  }
+  leZoomIn.addEventListener('click', () => updateLeZoom(0.25));
+  leZoomOut.addEventListener('click', () => updateLeZoom(-0.25));
+
+  // --- Constrain Neighbors toggle ---
+  const leConstrainToggle = document.getElementById('le-constrain-toggle');
+  leConstrainToggle.addEventListener('click', () => {
+    leConstrainNeighbors = !leConstrainNeighbors;
+    leConstrainToggle.textContent = leConstrainNeighbors ? 'Constrain Neighbors: On' : 'Constrain Neighbors: Off';
+    leConstrainToggle.style.background = leConstrainNeighbors ? '#4caf50' : '';
+    leConstrainToggle.style.color = leConstrainNeighbors ? '#1a1a2e' : '';
+    if (leJigsawMode) renderLEPaletteJigsaw();
+    else renderLEPalette();
+  });
+
+  // --- Adjacency filter: given a grid position, return tile IDs allowed there ---
+  function getConstrainedTileIds(row, col) {
+    if (!leTilesetData || !leGrid || leGrid.length === 0) return null;
+    // Collect neighbor tile IDs in each direction
+    const neighbors = { up: null, down: null, left: null, right: null };
+    if (row > 0 && leGrid[row-1][col]) neighbors.up = leGrid[row-1][col];
+    if (row < leGridH-1 && leGrid[row+1][col]) neighbors.down = leGrid[row+1][col];
+    if (col > 0 && leGrid[row][col-1]) neighbors.left = leGrid[row][col-1];
+    if (col < leGridW-1 && leGrid[row][col+1]) neighbors.right = leGrid[row][col+1];
+
+    // If no neighbors placed, no constraint
+    if (!neighbors.up && !neighbors.down && !neighbors.left && !neighbors.right) return null;
+
+    const allTiles = leTilesetData.tiles;
+    const allowed = [];
+
+    for (const tile of allTiles) {
+      let ok = true;
+      const adj = tile.adjacency || {};
+
+      // Check each direction: if a neighbor exists, candidate must be allowed
+      // Reciprocal: neighbor must allow candidate AND candidate must allow neighbor
+
+      // UP neighbor: neighbor is above us, so neighbor's DOWN must allow us, and our UP must allow neighbor
+      if (neighbors.up && ok) {
+        const nTile = allTiles.find(t => t.id === neighbors.up);
+        if (nTile) {
+          const nDown = (nTile.adjacency && nTile.adjacency.down) || [];
+          const cUp = (adj.up) || [];
+          // Empty = unconstrained
+          const nAllowsC = nDown.length === 0 || nDown.includes(tile.id);
+          const cAllowsN = cUp.length === 0 || cUp.includes(nTile.id);
+          if (!nAllowsC || !cAllowsN) ok = false;
+        }
+      }
+
+      // DOWN neighbor
+      if (neighbors.down && ok) {
+        const nTile = allTiles.find(t => t.id === neighbors.down);
+        if (nTile) {
+          const nUp = (nTile.adjacency && nTile.adjacency.up) || [];
+          const cDown = (adj.down) || [];
+          const nAllowsC = nUp.length === 0 || nUp.includes(tile.id);
+          const cAllowsN = cDown.length === 0 || cDown.includes(nTile.id);
+          if (!nAllowsC || !cAllowsN) ok = false;
+        }
+      }
+
+      // LEFT neighbor
+      if (neighbors.left && ok) {
+        const nTile = allTiles.find(t => t.id === neighbors.left);
+        if (nTile) {
+          const nRight = (nTile.adjacency && nTile.adjacency.right) || [];
+          const cLeft = (adj.left) || [];
+          const nAllowsC = nRight.length === 0 || nRight.includes(tile.id);
+          const cAllowsN = cLeft.length === 0 || cLeft.includes(nTile.id);
+          if (!nAllowsC || !cAllowsN) ok = false;
+        }
+      }
+
+      // RIGHT neighbor
+      if (neighbors.right && ok) {
+        const nTile = allTiles.find(t => t.id === neighbors.right);
+        if (nTile) {
+          const nLeft = (nTile.adjacency && nTile.adjacency.left) || [];
+          const cRight = (adj.right) || [];
+          const nAllowsC = nLeft.length === 0 || nLeft.includes(tile.id);
+          const cAllowsN = cRight.length === 0 || cRight.includes(nTile.id);
+          if (!nAllowsC || !cAllowsN) ok = false;
+        }
+      }
+
+      if (ok) allowed.push(tile.id);
+    }
+    return allowed;
+  }
 
   function populateLETilesetSelect(tilesets) {
     leTilesetSelect.innerHTML = '<option value="">-- Select Tileset --</option>';
@@ -1329,9 +1434,17 @@
   function renderLEPalette() {
     lePalette.innerHTML = '';
     if (!leTilesetData || !leTilesetImage) return;
+
+    // Get allowed tile IDs based on adjacency constraints (if enabled and hovering)
+    let constrainedIds = null;
+    if (leConstrainNeighbors && leHoverRow >= 0 && leHoverCol >= 0) {
+      constrainedIds = getConstrainedTileIds(leHoverRow, leHoverCol);
+    }
+
     const tiles = leTilesetData.tiles.filter(t => {
-      if (!leActiveLabelFilter) return true;
-      return (t.labels || []).includes(leActiveLabelFilter);
+      if (leActiveLabelFilter && !(t.labels || []).includes(leActiveLabelFilter)) return false;
+      if (constrainedIds && !constrainedIds.includes(t.id)) return false;
+      return true;
     });
     tiles.forEach(tile => {
       const div = document.createElement('div');
@@ -1343,6 +1456,7 @@
         tile.source_rect.x, tile.source_rect.y, tile.source_rect.w, tile.source_rect.h,
         0, 0, tile.source_rect.w, tile.source_rect.h);
       div.appendChild(c);
+      if (leSelectedTileId === tile.id) div.classList.add('selected');
       div.addEventListener('click', () => {
         document.querySelectorAll('.palette-tile').forEach(el => el.classList.remove('selected'));
         div.classList.add('selected');
@@ -1352,7 +1466,7 @@
       lePalette.appendChild(div);
     });
     if (tiles.length === 0) {
-      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px">No tiles match filter</p>';
+      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px">No tiles match' + (constrainedIds ? ' (constrained by neighbors)' : '') + '</p>';
     }
   }
 
@@ -1363,24 +1477,31 @@
       leGrid = [];
       for (let r = 0; r < leGridH; r++) leGrid.push(new Array(leGridW).fill(''));
     }
-    levelCanvas.width = leGridW * leCellW;
-    levelCanvas.height = leGridH * leCellH;
+    const zCellW = Math.round(leCellW * leZoom);
+    const zCellH = Math.round(leCellH * leZoom);
+    levelCanvas.width = leGridW * zCellW;
+    levelCanvas.height = leGridH * zCellH;
     lCtx.imageSmoothingEnabled = false;
     lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
     for (let r = 0; r < leGridH; r++) {
       for (let c = 0; c < leGridW; c++) {
         const tileId = leGrid[r][c];
-        const dx = c * leCellW, dy = r * leCellH;
+        const dx = c * zCellW, dy = r * zCellH;
         if (tileId && leTilesetData && leTilesetImage) {
           const td = leTilesetData.tiles.find(t => t.id === tileId);
-          if (td) lCtx.drawImage(leTilesetImage, td.source_rect.x, td.source_rect.y, td.source_rect.w, td.source_rect.h, dx, dy, leCellW, leCellH);
-          else { lCtx.fillStyle = '#ff00ff'; lCtx.fillRect(dx, dy, leCellW, leCellH); }
+          if (td) lCtx.drawImage(leTilesetImage, td.source_rect.x, td.source_rect.y, td.source_rect.w, td.source_rect.h, dx, dy, zCellW, zCellH);
+          else { lCtx.fillStyle = '#ff00ff'; lCtx.fillRect(dx, dy, zCellW, zCellH); }
         }
       }
     }
+    // Highlight hovered cell when constraining
+    if (leConstrainNeighbors && leHoverRow >= 0 && leHoverCol >= 0) {
+      lCtx.fillStyle = 'rgba(255,255,0,0.15)';
+      lCtx.fillRect(leHoverCol * zCellW, leHoverRow * zCellH, zCellW, zCellH);
+    }
     lCtx.strokeStyle = 'rgba(79,195,247,0.3)'; lCtx.lineWidth = 1;
-    for (let x = 0; x <= levelCanvas.width; x += leCellW) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
-    for (let y = 0; y <= levelCanvas.height; y += leCellH) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
+    for (let x = 0; x <= levelCanvas.width; x += zCellW) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
+    for (let y = 0; y <= levelCanvas.height; y += zCellH) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
   }
 
   // ============================================================
@@ -1515,21 +1636,24 @@
   }
 
   function renderLECanvasJigsaw() {
-    // Compute canvas size from placed tiles bounding box
+    // Compute canvas size from placed tiles bounding box (scaled by zoom)
     let maxX = 320, maxY = 240;
     for (const t of leJigsawTiles) {
       maxX = Math.max(maxX, t.x + t.w + 32);
       maxY = Math.max(maxY, t.y + t.h + 32);
     }
-    levelCanvas.width = maxX;
-    levelCanvas.height = maxY;
+    levelCanvas.width = Math.round(maxX * leZoom);
+    levelCanvas.height = Math.round(maxY * leZoom);
     lCtx.imageSmoothingEnabled = false;
     lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
 
+    lCtx.save();
+    lCtx.scale(leZoom, leZoom);
+
     // Draw background grid hint
-    lCtx.strokeStyle = 'rgba(79,195,247,0.15)'; lCtx.lineWidth = 1;
-    for (let x = 0; x <= levelCanvas.width; x += 32) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
-    for (let y = 0; y <= levelCanvas.height; y += 32) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
+    lCtx.strokeStyle = 'rgba(79,195,247,0.15)'; lCtx.lineWidth = 1 / leZoom;
+    for (let x = 0; x <= maxX; x += 32) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,maxY); lCtx.stroke(); }
+    for (let y = 0; y <= maxY; y += 32) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(maxX,y+0.5); lCtx.stroke(); }
 
     // Draw placed jigsaw tiles
     for (const pt of leJigsawTiles) {
@@ -1545,9 +1669,11 @@
         }
       }
       // Outline
-      lCtx.strokeStyle = 'rgba(79,195,247,0.6)'; lCtx.lineWidth = 1;
+      lCtx.strokeStyle = 'rgba(79,195,247,0.6)'; lCtx.lineWidth = 1 / leZoom;
       lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
     }
+
+    lCtx.restore();
   }
 
   // Jigsaw mode click handler
@@ -1562,8 +1688,8 @@
 
     const rect = levelCanvas.getBoundingClientRect();
     const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    const mouseX = (e.clientX - rect.left) * sx;
-    const mouseY = (e.clientY - rect.top) * sy;
+    const mouseX = (e.clientX - rect.left) * sx / leZoom;
+    const mouseY = (e.clientY - rect.top) * sy / leZoom;
 
     const snap = findSnapPosition({ w: candW, h: candH }, mouseX, mouseY, leJigsawTiles, 16);
     const placement = { tile_id: leSelectedTileId, x: snap.x, y: snap.y, w: candW, h: candH };
@@ -1584,8 +1710,8 @@
     e.preventDefault();
     const rect = levelCanvas.getBoundingClientRect();
     const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * sx;
-    const my = (e.clientY - rect.top) * sy;
+    const mx = (e.clientX - rect.left) * sx / leZoom;
+    const my = (e.clientY - rect.top) * sy / leZoom;
 
     // Find tile at cursor (last placed on top)
     for (let i = leJigsawTiles.length - 1; i >= 0; i--) {
@@ -1604,7 +1730,9 @@
   function getLEGridPos(e) {
     const rect = levelCanvas.getBoundingClientRect();
     const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    return { row: Math.floor((e.clientY-rect.top)*sy/leCellH), col: Math.floor((e.clientX-rect.left)*sx/leCellW) };
+    const zCellW = Math.round(leCellW * leZoom);
+    const zCellH = Math.round(leCellH * leZoom);
+    return { row: Math.floor((e.clientY-rect.top)*sy/zCellH), col: Math.floor((e.clientX-rect.left)*sx/zCellW) };
   }
   function paintTile(e) {
     if (leGrid.length === 0) return;
@@ -1618,10 +1746,36 @@
     }
   }
   levelCanvas.addEventListener('mousedown', (e) => { if (leJigsawMode) return; isDrawing = true; paintTile(e); });
-  levelCanvas.addEventListener('mousemove', (e) => { if (leJigsawMode) return; if (isDrawing) paintTile(e); });
+  levelCanvas.addEventListener('mousemove', (e) => {
+    if (leJigsawMode) return;
+    if (isDrawing) paintTile(e);
+    // Update hover position for constrain-neighbors mode
+    if (leConstrainNeighbors) {
+      const {row, col} = getLEGridPos(e);
+      if (row !== leHoverRow || col !== leHoverCol) {
+        leHoverRow = row; leHoverCol = col;
+        renderLEPalette();
+        renderLECanvas();
+      }
+    }
+  });
   levelCanvas.addEventListener('mouseup', () => { if (leJigsawMode) return; isDrawing = false; });
-  levelCanvas.addEventListener('mouseleave', () => { if (leJigsawMode) return; isDrawing = false; });
+  levelCanvas.addEventListener('mouseleave', () => {
+    if (leJigsawMode) return;
+    isDrawing = false;
+    if (leConstrainNeighbors && (leHoverRow >= 0 || leHoverCol >= 0)) {
+      leHoverRow = -1; leHoverCol = -1;
+      renderLEPalette();
+      renderLECanvas();
+    }
+  });
   levelCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  // Mouse wheel zoom on canvas
+  levelCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    updateLeZoom(e.deltaY < 0 ? 0.25 : -0.25);
+  }, { passive: false });
 
   // Export
   leExportBtn.addEventListener('click', () => {
