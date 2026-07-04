@@ -117,6 +117,117 @@
     return true;
   }
 
+  // --- Edge pixel helpers (for Auto-Neighbor) ---
+  // Extract a single pixel column (x offset within srcRect) as Uint8ClampedArray [r,g,b,a, r,g,b,a, ...]
+  function getEdgeColumn(srcRect, xOffset) {
+    if (!currentTilesetImage) return null;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 1;
+    offscreen.height = srcRect.h;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(currentTilesetImage, srcRect.x + xOffset, srcRect.y, 1, srcRect.h, 0, 0, 1, srcRect.h);
+    return octx.getImageData(0, 0, 1, srcRect.h).data;
+  }
+
+  // Extract a single pixel row (y offset within srcRect) as Uint8ClampedArray [r,g,b,a, r,g,b,a, ...]
+  function getEdgeRow(srcRect, yOffset) {
+    if (!currentTilesetImage) return null;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = srcRect.w;
+    offscreen.height = 1;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(currentTilesetImage, srcRect.x, srcRect.y + yOffset, srcRect.w, 1, 0, 0, srcRect.w, 1);
+    return octx.getImageData(0, 0, srcRect.w, 1).data;
+  }
+
+  // Compare two edge pixel arrays using RGBA vector similarity.
+  // Returns the fraction of pixels that are "similar" (0.0 to 1.0).
+  // Two pixels are similar if their RGBA Euclidean distance is within threshold (max distance = 510 = sqrt(255^2*4)).
+  function edgeSimilarity(edgeA, edgeB) {
+    if (!edgeA || !edgeB || edgeA.length !== edgeB.length) return 0;
+    const pixelCount = edgeA.length / 4;
+    if (pixelCount === 0) return 0;
+    let matchingPixels = 0;
+    // Max distance for a single pixel: sqrt(255^2 + 255^2 + 255^2 + 255^2) ≈ 510
+    const maxDist = 510;
+    // Per-pixel threshold: allow ~10% color deviation per channel
+    const pixelThreshold = maxDist * 0.1; // ~51 distance units
+    for (let i = 0; i < pixelCount; i++) {
+      const off = i * 4;
+      const dr = edgeA[off] - edgeB[off];
+      const dg = edgeA[off + 1] - edgeB[off + 1];
+      const db = edgeA[off + 2] - edgeB[off + 2];
+      const da = edgeA[off + 3] - edgeB[off + 3];
+      const dist = Math.sqrt(dr * dr + dg * dg + db * db + da * da);
+      if (dist <= pixelThreshold) matchingPixels++;
+    }
+    return matchingPixels / pixelCount;
+  }
+
+  // Auto-Neighbor: for all tile pairs, if they share an edge on the tileset image
+  // and their edge pixels are similar enough, add adjacency metadata to both.
+  function autoNeighborAll(similarityThreshold) {
+    if (!currentTilesetData || !currentTilesetImage) return 0;
+    const tiles = currentTilesetData.tiles;
+    let addedCount = 0;
+
+    for (let i = 0; i < tiles.length; i++) {
+      for (let j = i + 1; j < tiles.length; j++) {
+        const a = tiles[i], b = tiles[j];
+        const arect = a.source_rect, brect = b.source_rect;
+
+        // Ensure adjacency objects exist
+        if (!a.adjacency) a.adjacency = { up: [], down: [], left: [], right: [] };
+        if (!b.adjacency) b.adjacency = { up: [], down: [], left: [], right: [] };
+
+        // Check: A's right edge touches B's left edge (A is left of B)
+        if (arect.x + arect.w === brect.x && arect.h === brect.h && arect.y === brect.y) {
+          const edgeA = getEdgeColumn(arect, arect.w - 1); // rightmost column of A
+          const edgeB = getEdgeColumn(brect, 0);            // leftmost column of B
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            if (!a.adjacency.right.includes(b.id)) { a.adjacency.right.push(b.id); addedCount++; }
+            if (!b.adjacency.left.includes(a.id)) { b.adjacency.left.push(a.id); addedCount++; }
+          }
+        }
+
+        // Check: B's right edge touches A's left edge (B is left of A)
+        if (brect.x + brect.w === arect.x && arect.h === brect.h && arect.y === brect.y) {
+          const edgeB = getEdgeColumn(brect, brect.w - 1); // rightmost column of B
+          const edgeA = getEdgeColumn(arect, 0);            // leftmost column of A
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            if (!b.adjacency.right.includes(a.id)) { b.adjacency.right.push(a.id); addedCount++; }
+            if (!a.adjacency.left.includes(b.id)) { a.adjacency.left.push(b.id); addedCount++; }
+          }
+        }
+
+        // Check: A's bottom edge touches B's top edge (A is above B)
+        if (arect.y + arect.h === brect.y && arect.w === brect.w && arect.x === brect.x) {
+          const edgeA = getEdgeRow(arect, arect.h - 1); // bottom row of A
+          const edgeB = getEdgeRow(brect, 0);            // top row of B
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            if (!a.adjacency.down.includes(b.id)) { a.adjacency.down.push(b.id); addedCount++; }
+            if (!b.adjacency.up.includes(a.id)) { b.adjacency.up.push(a.id); addedCount++; }
+          }
+        }
+
+        // Check: B's bottom edge touches A's top edge (B is above A)
+        if (brect.y + brect.h === arect.y && arect.w === brect.w && arect.x === brect.x) {
+          const edgeB = getEdgeRow(brect, brect.h - 1); // bottom row of B
+          const edgeA = getEdgeRow(arect, 0);            // top row of A
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
+            if (!a.adjacency.up.includes(b.id)) { a.adjacency.up.push(b.id); addedCount++; }
+          }
+        }
+      }
+    }
+    return addedCount;
+  }
+
   // --- Tileset list ---
   async function loadTilesetList() {
     try {
@@ -490,6 +601,10 @@
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
       <br><strong>Src:</strong> (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}
       <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">🗑 Remove Duplicates</button>
+      <button id="auto-neighbor-btn" style="margin-top:6px;margin-left:4px;padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Auto-detect neighboring tiles by edge pixel similarity and add adjacency metadata">🔗 Auto-Neighbor</button>
+      <br><label style="font-size:11px;color:#a0a0a0;margin-top:4px;display:inline-block;">Similarity:</label>
+      <input type="number" id="auto-neighbor-threshold" value="90" min="0" max="100" step="5" style="width:50px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-left:4px;" title="Edge pixel similarity threshold (0-100%)">
+      <span style="font-size:11px;color:#a0a0a0;">%</span>
     </div>`;
 
     // Labels assignment
@@ -561,6 +676,28 @@
         renderTilesetCanvas();
         renderTileInfo();
         renderCreatedTilesList();
+      });
+    }
+
+    // Bind "Auto-Neighbor" button
+    const autoNeighborBtn = document.getElementById('auto-neighbor-btn');
+    if (autoNeighborBtn) {
+      autoNeighborBtn.addEventListener('click', () => {
+        if (!currentTilesetData || !currentTilesetImage) return;
+        if (currentTilesetData.tiles.length < 2) {
+          setStatus('Need at least 2 tiles for auto-neighbor detection.');
+          return;
+        }
+        const thresholdInput = document.getElementById('auto-neighbor-threshold');
+        const thresholdPct = Math.max(0, Math.min(100, parseInt(thresholdInput.value) || 90));
+        const threshold = thresholdPct / 100;
+        const added = autoNeighborAll(threshold);
+        if (added === 0) {
+          setStatus(`Auto-Neighbor: no new adjacency links found at ${thresholdPct}% similarity.`);
+        } else {
+          setStatus(`Auto-Neighbor: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+        }
+        renderTileInfo();
       });
     }
 
