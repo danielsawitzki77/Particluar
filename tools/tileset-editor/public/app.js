@@ -56,9 +56,26 @@
         btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:3px;cursor:pointer;font-size:11px;';
       } else if (id === 'import-tmx-btn') {
         btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#ff9800;border:1px solid #ff9800;border-radius:3px;cursor:pointer;font-size:11px;';
+      } else if (id === 'auto-neighbor-btn-global') {
+        btn.style.cssText = 'padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;';
       }
     } else {
-      btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;';
+      if (id === 'auto-neighbor-btn-global') {
+        btn.style.cssText = 'padding:5px 10px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;font-weight:600;';
+      } else {
+        btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;';
+      }
+    }
+  }
+
+  // Update Auto-Neighbor button enabled state based on current tileset
+  function updateAutoNeighborBtnState() {
+    const hasEnoughTiles = currentTilesetData && currentTilesetImage && currentTilesetData.tiles && currentTilesetData.tiles.length >= 2;
+    enableBtn('auto-neighbor-btn-global', !!hasEnoughTiles);
+    const thresholdInput = document.getElementById('auto-neighbor-threshold');
+    if (thresholdInput) {
+      thresholdInput.disabled = !hasEnoughTiles;
+      thresholdInput.style.opacity = hasEnoughTiles ? '1' : '0.4';
     }
   }
 
@@ -264,6 +281,7 @@
     // Enable "Open in Explorer" now that a folder is picked
     enableBtn('open-explorer-btn', true);
     enableBtn('import-tmx-btn', false); // need a sheet first
+    enableBtn('auto-neighbor-btn-global', false); // need tiles first
     setStatus(`Loading tileset: ${name}...`);
     try {
       const res = await fetch(`/api/tilesets/${name}/sheets`);
@@ -475,8 +493,12 @@
   // --- Created Tiles list (persists across grid changes) ---
   function renderCreatedTilesList() {
     const container = document.getElementById('created-tiles-list');
-    if (!container || !currentTilesetData) return;
+    if (!container || !currentTilesetData) {
+      updateAutoNeighborBtnState();
+      return;
+    }
     const tiles = currentTilesetData.tiles;
+    updateAutoNeighborBtnState();
     let html = '';
 
     // Show "Create Tile" button if a cell is highlighted but no tile exists there
