@@ -51,13 +51,13 @@
     .canvas-wrapper canvas { display: block; cursor: crosshair; }
 
     /* Right Panel — FIXED position in flex, never scrolls with canvas */
-    .right-panel { width: 520px; min-width: 520px; max-width: 520px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; flex-grow: 0; }
-    .right-panel h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; }
-    .right-panel-section { padding: 8px 12px; border-bottom: 1px solid #0f3460; }
-    .right-panel-columns { display: flex; flex-direction: row; border-bottom: 1px solid #0f3460; }
+    .right-panel { width: 520px; min-width: 520px; max-width: 520px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; flex-grow: 0; }
+    .right-panel h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+    .right-panel-section { padding: 8px 12px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+    .right-panel-columns { display: flex; flex-direction: row; border-bottom: 1px solid #0f3460; flex: 1; min-height: 0; overflow: hidden; }
     .right-panel-col { flex: 1; min-width: 0; overflow-y: auto; }
-    .right-panel-col-tiles { max-height: 400px; border-right: 1px solid #0f3460; }
-    .right-panel-col-controls { max-height: 400px; }
+    .right-panel-col-tiles { flex: 1; border-right: 1px solid #0f3460; overflow-y: auto; }
+    .right-panel-col-controls { flex: 1; overflow-y: auto; }
     .right-panel-col h3 { padding: 10px 12px 6px; color: #4fc3f7; font-size: 13px; text-transform: uppercase; border-bottom: 1px solid #0f3460; }
 
     /* Created tiles list */
@@ -189,6 +189,16 @@
       <div class="right-panel">
         <h3>Labels</h3>
         <div class="right-panel-section" id="labels-panel"></div>
+
+        <h3>Tileset Tools</h3>
+        <div class="right-panel-section" id="tileset-tools-panel">
+          <button id="auto-neighbor-btn-global" style="padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Auto-detect neighboring tiles by edge pixel similarity and add adjacency metadata to all tiles">🔗 Auto-Neighbor All Tiles</button>
+          <div style="margin-top:6px;">
+            <label style="font-size:11px;color:#a0a0a0;">Similarity:</label>
+            <input type="number" id="auto-neighbor-threshold" value="90" min="0" max="100" step="5" style="width:50px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-left:4px;" title="Edge pixel similarity threshold (0-100%)">
+            <span style="font-size:11px;color:#a0a0a0;">%</span>
+          </div>
+        </div>
 
         <!-- Created Tiles + Selected Tile side by side -->
         <div class="right-panel-columns">
