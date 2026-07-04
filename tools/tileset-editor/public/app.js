@@ -96,6 +96,27 @@
   let blockerDragStart = null; // {x, y} in source px
   let blockerDragCurrent = null; // {x, y} in source px
 
+  // --- Pixel comparison helpers (for Remove Duplicates) ---
+  // Extract raw pixel data (Uint8ClampedArray) for a given source_rect from the current tileset image
+  function getTilePixelData(srcRect) {
+    if (!currentTilesetImage) return null;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = srcRect.w;
+    offscreen.height = srcRect.h;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(currentTilesetImage, srcRect.x, srcRect.y, srcRect.w, srcRect.h, 0, 0, srcRect.w, srcRect.h);
+    return octx.getImageData(0, 0, srcRect.w, srcRect.h).data;
+  }
+
+  // Compare two Uint8ClampedArray pixel buffers for exact equality
+  function pixelDataEqual(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
   // --- Tileset list ---
   async function loadTilesetList() {
     try {
@@ -468,6 +489,7 @@
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
       <br><strong>Src:</strong> (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}
+      <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">🗑 Remove Duplicates</button>
     </div>`;
 
     // Labels assignment
@@ -498,6 +520,49 @@
       html += `</div><div class="add-adj-row"><input type="text" placeholder="Neighbor ID" id="add-adj-${dir}"><button data-dir="${dir}" class="add-adj-btn">+</button></div></div>`;
     });
     tileInfoPanel.innerHTML = html;
+
+    // Bind "Remove Duplicates" button
+    const removeDupsBtn = document.getElementById('remove-duplicates-btn');
+    if (removeDupsBtn) {
+      removeDupsBtn.addEventListener('click', () => {
+        if (selectedTileIndex < 0 || !currentTilesetData || !currentTilesetImage) return;
+        const refTile = currentTilesetData.tiles[selectedTileIndex];
+        const refPixels = getTilePixelData(refTile.source_rect);
+        if (!refPixels) { setStatus('Could not read pixel data for selected tile'); return; }
+
+        // Find all tiles with identical pixel content (excluding the selected one)
+        const toRemove = [];
+        for (let i = 0; i < currentTilesetData.tiles.length; i++) {
+          if (i === selectedTileIndex) continue;
+          const t = currentTilesetData.tiles[i];
+          // Quick size check
+          if (t.source_rect.w !== refTile.source_rect.w || t.source_rect.h !== refTile.source_rect.h) continue;
+          const pixels = getTilePixelData(t.source_rect);
+          if (pixels && pixelDataEqual(refPixels, pixels)) {
+            toRemove.push(i);
+          }
+        }
+
+        if (toRemove.length === 0) {
+          setStatus('No duplicate tiles found matching the selected tile.');
+          return;
+        }
+
+        if (!confirm(`Remove ${toRemove.length} tile(s) with identical pixel content to "${refTile.id}"?`)) return;
+
+        // Remove in reverse order to keep indices stable
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+          const idx = toRemove[i];
+          currentTilesetData.tiles.splice(idx, 1);
+          if (selectedTileIndex > idx) selectedTileIndex--;
+        }
+
+        setStatus(`Removed ${toRemove.length} duplicate tile(s).`);
+        renderTilesetCanvas();
+        renderTileInfo();
+        renderCreatedTilesList();
+      });
+    }
 
     // Bind ID change
     document.getElementById('tile-id-input').addEventListener('change', (e) => {
