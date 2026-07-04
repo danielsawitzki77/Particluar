@@ -18,15 +18,15 @@ void RunConnectionSolverTests()
         FaceGenerator faceGen;
         ConnectionSolver solver;
 
-        // Parent: a box
+        // Parent: a cylinder
         ShapeParams parent_shape;
-        parent_shape.type = ShapeType::Box;
-        parent_shape.width = 2.0f;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
         parent_shape.height = 2.0f;
-        parent_shape.depth = 2.0f;
+        parent_shape.segments = 8;
 
         auto parent_faces = faceGen.Generate(parent_shape);
-        RC_PRE(parent_faces.size() == 6);
+        RC_PRE(parent_faces.size() == 10); // 8 lateral + top cap + bottom cap
 
         // Child: a cylinder
         ShapeParams child_shape;
@@ -37,11 +37,12 @@ void RunConnectionSolverTests()
 
         auto child_faces = faceGen.Generate(child_shape);
 
-        int parent_face_idx = *rc::gen::inRange(0, 6);
+        // Connect via top cap (face 8) to bottom cap (face 9)
+        // Both are 8-gons (8 vertices) — topologically compatible
         Connection conn;
         conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = parent_face_idx;
-        conn.child_face_index = 0;
+        conn.parent_face_index = 8; // top cap
+        conn.child_face_index = 9;  // bottom cap
         conn.offset_u = 0.5f;
         conn.offset_v = 0.5f;
         conn.rotation = 0.0f;
@@ -51,10 +52,10 @@ void RunConnectionSolverTests()
         // The child origin (0,0,0) should end up on the parent face plane
         Vec3 child_origin = transform.TransformPoint(Vec3(0, 0, 0));
         Vec3 face_center(0, 0, 0);
-        for (const Vec3& v : parent_faces[parent_face_idx].vertices) {
+        for (const Vec3& v : parent_faces[8].vertices) {
             face_center = face_center + v;
         }
-        face_center = face_center * (1.0f / static_cast<float>(parent_faces[parent_face_idx].vertices.size()));
+        face_center = face_center * (1.0f / static_cast<float>(parent_faces[8].vertices.size()));
 
         // Child origin should be near the face center
         Vec3 diff = child_origin - face_center;

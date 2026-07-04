@@ -13,10 +13,10 @@
           "color": { "r": 0.4, "g": 0.5, "b": 0.7 },
           "children": [
             {
-              "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
+              "connection": { "type": "Face_Connection", "parent_face": 12, "child_face": 12, "rotation": 0.0 },
               "node": {
                 "name": "antenna",
-                "shape": { "type": "frustum", "top_radius": 0.1, "bottom_radius": 0.3, "height": 0.6, "sides": 12 },
+                "shape": { "type": "cone", "radius": 0.3, "height": 0.6, "sides": 12 },
                 "color": { "r": 0.8, "g": 0.4, "b": 0.2 }
               }
             }

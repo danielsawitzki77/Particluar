@@ -1,4 +1,5 @@
 #include "BodyLoader.h"
+#include "ConnectionValidator.h"
 #include "picojson.h"
 #include <fstream>
 #include <sstream>
@@ -86,6 +87,15 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     if (!ParseNode(static_cast<const void*>(node_obj), &result.body.root, 0, parse_err)) {
         result.success = false;
         result.error = parse_err;
+        return result;
+    }
+
+    // Validate connection topology compatibility
+    ConnectionValidator validator;
+    ValidationResult validation = validator.ValidateBody(result.body);
+    if (!validation.valid) {
+        result.success = false;
+        result.error = validation.error;
         return result;
     }
 
@@ -198,9 +208,7 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     const picojson::object& obj = *static_cast<const picojson::object*>(dims_ptr);
 
     // Determine type
-    if (type_str == "box") {
-        out->type = ShapeType::Box;
-    } else if (type_str == "cone") {
+    if (type_str == "cone") {
         out->type = ShapeType::Cone;
     } else if (type_str == "cylinder") {
         out->type = ShapeType::Cylinder;
@@ -208,10 +216,8 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         out->type = ShapeType::Sphere;
     } else if (type_str == "torus") {
         out->type = ShapeType::Torus;
-    } else if (type_str == "frustum") {
-        out->type = ShapeType::Frustum;
     } else {
-        error = "Unknown shape type: '" + type_str + "'";
+        error = "Unknown shape type: '" + type_str + "'. Valid types: cone, cylinder, sphere, torus";
         return false;
     }
 
@@ -245,12 +251,6 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     };
 
     switch (out->type) {
-    case ShapeType::Box:
-        if (!readFloat("width", out->width)) return false;
-        if (!readFloat("height", out->height)) return false;
-        if (!readFloat("depth", out->depth)) return false;
-        break;
-
     case ShapeType::Cone:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
@@ -276,17 +276,6 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         if (!readInt("tube_segments", out->side_segments, 3, 64)) return false;
         if (out->minor_radius >= out->major_radius) {
             error = "'minor_radius' must be less than 'major_radius'";
-            return false;
-        }
-        break;
-
-    case ShapeType::Frustum:
-        if (!readFloat("top_radius", out->top_radius, true)) return false;
-        if (!readFloat("bottom_radius", out->bottom_radius)) return false;
-        if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
-        if (out->top_radius >= out->bottom_radius) {
-            error = "'bottom_radius' must be greater than 'top_radius'";
             return false;
         }
         break;
@@ -350,12 +339,6 @@ static picojson::value SerializeNode(const BodyNode& node)
     // Shape
     picojson::object shape;
     switch (node.shape.type) {
-    case ShapeType::Box:
-        shape["type"] = picojson::value(std::string("box"));
-        shape["width"] = picojson::value(static_cast<double>(node.shape.width));
-        shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["depth"] = picojson::value(static_cast<double>(node.shape.depth));
-        break;
     case ShapeType::Cone:
         shape["type"] = picojson::value(std::string("cone"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
@@ -380,13 +363,6 @@ static picojson::value SerializeNode(const BodyNode& node)
         shape["minor_radius"] = picojson::value(static_cast<double>(node.shape.minor_radius));
         shape["ring_segments"] = picojson::value(static_cast<double>(node.shape.ring_segments));
         shape["tube_segments"] = picojson::value(static_cast<double>(node.shape.side_segments));
-        break;
-    case ShapeType::Frustum:
-        shape["type"] = picojson::value(std::string("frustum"));
-        shape["top_radius"] = picojson::value(static_cast<double>(node.shape.top_radius));
-        shape["bottom_radius"] = picojson::value(static_cast<double>(node.shape.bottom_radius));
-        shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     }
     obj["shape"] = picojson::value(shape);

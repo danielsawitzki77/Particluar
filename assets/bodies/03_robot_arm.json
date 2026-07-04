@@ -6,21 +6,21 @@
     "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 16, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "joint",
           "shape": { "type": "sphere", "radius": 0.5, "slices": 12, "stacks": 8 },
           "color": { "r": 0.7, "g": 0.3, "b": 0.2 },
           "children": [
             {
-              "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 1, "rotation": 0.25 },
+              "connection": { "type": "Point_Connection", "parent_face": 0, "child_face": 16, "rotation": 45.0 },
               "node": {
                 "name": "forearm",
                 "shape": { "type": "cylinder", "radius": 0.3, "height": 1.5, "sides": 16 },
                 "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
                 "children": [
                   {
-                    "connection": { "type": "Face_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
+                    "connection": { "type": "Face_Connection", "parent_face": 16, "child_face": 16, "rotation": 0.0 },
                     "node": {
                       "name": "hand",
                       "shape": { "type": "cone", "radius": 0.35, "height": 0.8, "sides": 16 },

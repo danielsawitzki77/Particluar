@@ -19,23 +19,19 @@ using Particluar::Mat4;
 // ============================================================================
 
 enum class ShapeType {
-    Box,
     Cone,
     Cylinder,
     Sphere,
-    Torus,
-    Frustum
+    Torus
 };
 
 // Shape parameters — stores fields for all types, only relevant ones used per type
 struct ShapeParams {
     ShapeType type;
 
-    // Box: width, height, depth
-    float width, height, depth;
-
-    // Cone/Cylinder/Frustum: radius, height, segments
+    // Cone/Cylinder: radius, height, segments
     float radius;
+    float height;
     int segments;
 
     // Sphere: radius, lat_segments, lon_segments
@@ -45,17 +41,12 @@ struct ShapeParams {
     float major_radius, minor_radius;
     int ring_segments, side_segments;
 
-    // Frustum: top_radius, bottom_radius (height and segments shared)
-    float top_radius, bottom_radius;
-
     ShapeParams()
-        : type(ShapeType::Box)
-        , width(1.0f), height(1.0f), depth(1.0f)
-        , radius(0.5f), segments(16)
+        : type(ShapeType::Cylinder)
+        , radius(0.5f), height(1.0f), segments(16)
         , lat_segments(12), lon_segments(16)
         , major_radius(1.0f), minor_radius(0.25f)
         , ring_segments(16), side_segments(8)
-        , top_radius(0.25f), bottom_radius(0.5f)
     {}
 };
 

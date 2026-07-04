@@ -16,17 +16,6 @@ void RunFaceGeneratorTests()
     rc::check("Property 3: Face count matches formula for shape type", []() {
         FaceGenerator gen;
 
-        // Box: always 6 faces
-        {
-            ShapeParams s;
-            s.type = ShapeType::Box;
-            s.width = *rc::gen::inRange(1, 100) / 10.0f;
-            s.height = *rc::gen::inRange(1, 100) / 10.0f;
-            s.depth = *rc::gen::inRange(1, 100) / 10.0f;
-            auto faces = gen.Generate(s);
-            RC_ASSERT(static_cast<int>(faces.size()) == 6);
-        }
-
         // Cone: segments + 1
         {
             ShapeParams s;
@@ -71,31 +60,16 @@ void RunFaceGeneratorTests()
             auto faces = gen.Generate(s);
             RC_ASSERT(static_cast<int>(faces.size()) == s.ring_segments * s.side_segments);
         }
-
-        // Frustum (with top_radius > 0): segments + 2
-        {
-            ShapeParams s;
-            s.type = ShapeType::Frustum;
-            s.bottom_radius = *rc::gen::inRange(10, 50) / 10.0f;
-            s.top_radius = *rc::gen::inRange(1, 9) / 10.0f;
-            s.height = *rc::gen::inRange(1, 50) / 10.0f;
-            s.segments = *rc::gen::inRange(3, 32);
-            auto faces = gen.Generate(s);
-            RC_ASSERT(static_cast<int>(faces.size()) == s.segments + 2);
-        }
     });
 
     // Property 5: Face Normal Unit-Length
     rc::check("Property 5: Face normals have unit length", []() {
         FaceGenerator gen;
-        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 6));
+        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 4));
 
         ShapeParams s;
         s.type = type;
         switch (type) {
-        case ShapeType::Box:
-            s.width = 2.0f; s.height = 3.0f; s.depth = 1.0f;
-            break;
         case ShapeType::Cone:
             s.radius = 1.0f; s.height = 2.0f; s.segments = 8;
             break;
@@ -107,9 +81,6 @@ void RunFaceGeneratorTests()
             break;
         case ShapeType::Torus:
             s.major_radius = 2.0f; s.minor_radius = 0.5f; s.ring_segments = 8; s.side_segments = 6;
-            break;
-        case ShapeType::Frustum:
-            s.bottom_radius = 2.0f; s.top_radius = 1.0f; s.height = 2.0f; s.segments = 8;
             break;
         }
 

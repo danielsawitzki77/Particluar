@@ -156,6 +156,7 @@
     <ClCompile Include="test_triangulator.cpp" />
     <ClCompile Include="test_connection_solver.cpp" />
     <ClCompile Include="test_model_switcher.cpp" />
+    <ClCompile Include="test_connection_validator.cpp" />
   </ItemGroup>
 
   <!-- RapidCheck source files -->
