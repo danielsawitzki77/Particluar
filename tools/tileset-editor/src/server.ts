@@ -414,20 +414,24 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
 // --- Shutdown endpoint (called by the Close button in the UI) ---
 app.post('/api/shutdown', (req, res) => {
   res.json({ message: 'Server shutting down...' });
-  console.log('\nTileset Editor shutting down. Goodbye!');
+  console.log('\nTile-O-Matic shutting down. Goodbye!');
   setTimeout(() => process.exit(0), 500);
 });
 
 // --- Start server ---
 const server = app.listen(PORT, () => {
-  console.log(`\n  Particluar Tileset Editor`);
-  console.log(`  ========================`);
+  console.log(`\n  Tile-O-Matic`);
+  console.log(`  =============`);
   console.log(`  Tileset Configurator: ${BASE_URL}/tileset-configurator`);
   console.log(`  Level Editor:         ${BASE_URL}/level-editor`);
   console.log(`  Assets directory:     ${ASSETS_DIR}\n`);
 
-  // Auto-open browser
-  const openCmd = process.platform === 'win32' ? 'start' :
-                  process.platform === 'darwin' ? 'open' : 'xdg-open';
-  exec(`${openCmd} ${BASE_URL}/tileset-configurator`);
+  // Auto-open browser in a new window
+  if (process.platform === 'win32') {
+    exec(`start "" "${BASE_URL}/tileset-configurator"`);
+  } else if (process.platform === 'darwin') {
+    exec(`open "${BASE_URL}/tileset-configurator"`);
+  } else {
+    exec(`xdg-open "${BASE_URL}/tileset-configurator"`);
+  }
 });

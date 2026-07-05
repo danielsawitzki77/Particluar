@@ -1,5 +1,5 @@
 // ============================================================
-// Particluar Tileset Editor — app.js
+// Tile-O-Matic — app.js
 // Tileset Configurator + Level Editor with zoom, labels, filters
 // ============================================================
 
@@ -33,7 +33,7 @@
 
   // --- Close Button ---
   document.getElementById('close-server-btn').addEventListener('click', async () => {
-    if (!confirm('Shut down the Tileset Editor server?')) return;
+    if (!confirm('Shut down the Tile-O-Matic server?')) return;
     try { await fetch('/api/shutdown', { method: 'POST' }); } catch(e) {}
     document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif"><h1>Editor closed.</h1></div>';
     setTimeout(() => window.close(), 1000);
