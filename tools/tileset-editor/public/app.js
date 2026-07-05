@@ -1260,6 +1260,7 @@
   let leActiveLabelFilter = '';
   let leZoom = 1.0;
   let leGridCellW = 16, leGridCellH = 16, leGridOffX = 0, leGridOffY = 0;
+  let leMapW = 20, leMapH = 15; // map size in cells
   let leShowBlockers = false;
   let leMode = 'free'; // 'free' | 'picking' | 'constrained'
   let leSlottedTile = null; // { tile_id, x, y, w, h }
@@ -1361,6 +1362,22 @@
       leGridCellH = Math.max(1, parseInt(document.getElementById('le-cell-h').value) || 16);
       leGridOffX = Math.max(0, parseInt(document.getElementById('le-off-x').value) || 0);
       leGridOffY = Math.max(0, parseInt(document.getElementById('le-off-y').value) || 0);
+      leMapW = Math.max(1, parseInt(document.getElementById('le-map-w').value) || 20);
+      leMapH = Math.max(1, parseInt(document.getElementById('le-map-h').value) || 15);
+      renderLECanvas();
+    });
+  });
+
+  // --- Map/grid size inputs: sync on direct typing ---
+  ['le-map-w', 'le-map-h', 'le-cell-w', 'le-cell-h', 'le-off-x', 'le-off-y'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => {
+      leGridCellW = Math.max(1, parseInt(document.getElementById('le-cell-w').value) || 16);
+      leGridCellH = Math.max(1, parseInt(document.getElementById('le-cell-h').value) || 16);
+      leGridOffX = Math.max(0, parseInt(document.getElementById('le-off-x').value) || 0);
+      leGridOffY = Math.max(0, parseInt(document.getElementById('le-off-y').value) || 0);
+      leMapW = Math.max(1, parseInt(document.getElementById('le-map-w').value) || 20);
+      leMapH = Math.max(1, parseInt(document.getElementById('le-map-h').value) || 15);
       renderLECanvas();
     });
   });
@@ -1586,16 +1603,18 @@
 
   // --- Canvas rendering ---
   function renderLECanvas() {
-    // Compute bounding box for canvas sizing
-    let maxX = 400, maxY = 300;
-    for (const t of lePlacedTiles) {
-      maxX = Math.max(maxX, t.x + t.w + 32);
-      maxY = Math.max(maxY, t.y + t.h + 32);
-    }
-    levelCanvas.width = Math.round(maxX * leZoom);
-    levelCanvas.height = Math.round(maxY * leZoom);
+    // Map size determines the full canvas area — zoom scales the entire area (like tileset configurator)
+    const mapPixelW = leMapW * leGridCellW;
+    const mapPixelH = leMapH * leGridCellH;
+    levelCanvas.width = Math.round(mapPixelW * leZoom);
+    levelCanvas.height = Math.round(mapPixelH * leZoom);
     lCtx.imageSmoothingEnabled = false;
     lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
+
+    // Fill map background so it's visually distinct from the outer dark area
+    lCtx.fillStyle = '#141428';
+    lCtx.fillRect(0, 0, levelCanvas.width, levelCanvas.height);
+
     lCtx.save();
     lCtx.scale(leZoom, leZoom);
 
@@ -1603,11 +1622,11 @@
     if (leMode === 'free') {
       lCtx.strokeStyle = 'rgba(79,195,247,0.2)';
       lCtx.lineWidth = 1 / leZoom;
-      for (let x = leGridOffX; x <= maxX; x += leGridCellW) {
-        lCtx.beginPath(); lCtx.moveTo(x + 0.5, 0); lCtx.lineTo(x + 0.5, maxY); lCtx.stroke();
+      for (let x = leGridOffX; x <= mapPixelW; x += leGridCellW) {
+        lCtx.beginPath(); lCtx.moveTo(x + 0.5, 0); lCtx.lineTo(x + 0.5, mapPixelH); lCtx.stroke();
       }
-      for (let y = leGridOffY; y <= maxY; y += leGridCellH) {
-        lCtx.beginPath(); lCtx.moveTo(0, y + 0.5); lCtx.lineTo(maxX, y + 0.5); lCtx.stroke();
+      for (let y = leGridOffY; y <= mapPixelH; y += leGridCellH) {
+        lCtx.beginPath(); lCtx.moveTo(0, y + 0.5); lCtx.lineTo(mapPixelW, y + 0.5); lCtx.stroke();
       }
     }
 
@@ -1670,6 +1689,11 @@
         }
       }
     }
+
+    // Map border
+    lCtx.strokeStyle = 'rgba(79,195,247,0.5)';
+    lCtx.lineWidth = 2 / leZoom;
+    lCtx.strokeRect(0, 0, mapPixelW, mapPixelH);
 
     lCtx.restore();
   }
@@ -1767,6 +1791,10 @@
     const mapFile = {
       format: 'jigsaw',
       tileset_id: leTilesetName,
+      map_width: leMapW,
+      map_height: leMapH,
+      cell_width: leGridCellW,
+      cell_height: leGridCellH,
       tiles: lePlacedTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
     };
     const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
@@ -1774,7 +1802,7 @@
     a.href = URL.createObjectURL(blob);
     a.download = `map_${leTilesetName.replace(/[/\\]/g, '_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus(`Exported map (${lePlacedTiles.length} tiles)`);
+    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells)`);
   });
 
   // ============================================================

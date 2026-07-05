@@ -89,8 +89,9 @@
     .blocker-item .del-blocker { color: #ff6b6b; cursor: pointer; font-weight: bold; padding: 0 4px; }
 
     /* Level Editor */
-    .le-layout { display: flex; height: 100%; min-height: 0; }
-    .le-sidebar { width: 320px; min-width: 320px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
+    .le-layout { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+    .le-top { display: flex; flex: 1; min-height: 0; }
+    .le-sidebar { width: 260px; min-width: 260px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
     .le-sidebar h3 { color: #4fc3f7; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; }
     .le-sidebar label { font-size: 12px; color: #a0a0a0; }
     .le-sidebar input, .le-sidebar select { width: 100%; padding: 6px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; margin-bottom: 4px; }
@@ -114,11 +115,17 @@
     .le-detail-panel .adj-section { margin-top: 4px; }
     .le-detail-panel .adj-section h5 { color: #4fc3f7; font-size: 10px; margin: 2px 0; text-transform: uppercase; }
     .le-detail-panel .adj-ids { color: #a0a0a0; font-size: 10px; word-break: break-all; }
-    .palette-wrap { flex: 1; min-height: 80px; max-height: none; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; align-content: flex-start; }
+    /* Palette as bottom panel */
+    .le-palette-panel { height: 180px; min-height: 120px; max-height: 300px; background: #16213e; border-top: 1px solid #0f3460; display: flex; flex-direction: column; flex-shrink: 0; resize: vertical; overflow: hidden; }
+    .le-palette-header { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
+    .le-palette-header h3 { color: #4fc3f7; font-size: 13px; text-transform: uppercase; margin: 0; }
+    .le-palette-header label { font-size: 11px; color: #a0a0a0; }
+    .le-palette-header select { padding: 4px 6px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 11px; }
+    .palette-wrap { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 2px; padding: 6px; align-content: flex-start; }
     .palette-tile { border: 2px solid transparent; border-radius: 3px; cursor: pointer; position: relative; }
     .palette-tile:hover { border-color: #4fc3f7; }
     .palette-tile.selected { border-color: #ff6b6b; }
-    .palette-tile canvas { display: block; image-rendering: pixelated; }
+    .palette-tile canvas { display: block; image-rendering: pixelated; width: 48px; height: 48px; }
     .palette-tile .dir-arrow { position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.7); color: #ff9800; font-size: 14px; font-weight: bold; padding: 1px 3px; border-radius: 0 3px 0 3px; line-height: 1; }
 
     /* Status bar */
@@ -242,79 +249,91 @@
   <!-- Level Editor -->
   <div class="tab-content" id="tab-level-editor">
     <div class="le-layout">
-      <div class="le-sidebar">
-        <h3>Level Editor</h3>
-        <label>Tileset:</label>
-        <select id="le-tileset-select"></select>
-        <button id="le-load-btn">Load Tileset</button>
-        <label>Filter by label:</label>
-        <select id="le-label-filter"><option value="">All tiles</option></select>
+      <div class="le-top">
+        <div class="le-sidebar">
+          <h3>Level Editor</h3>
+          <label>Tileset:</label>
+          <select id="le-tileset-select"></select>
+          <button id="le-load-btn">Load Tileset</button>
 
-        <hr style="border-color:#0f3460;margin:8px 0;">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-          <button id="le-blocker-btn" style="padding:6px 12px;background:#1a1a2e;color:#ff6b6b;border:2px solid #ff6b6b;border-radius:4px;cursor:pointer;font-weight:600;font-size:11px;">Blockers:</button>
-          <select id="le-blocker-mode" style="padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;">
-            <option value="off">Off</option>
-            <option value="outlines">Outlines</option>
-            <option value="overlay">Overlay</option>
-          </select>
+          <hr style="border-color:#0f3460;margin:8px 0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <button id="le-blocker-btn" style="padding:6px 12px;background:#1a1a2e;color:#ff6b6b;border:2px solid #ff6b6b;border-radius:4px;cursor:pointer;font-weight:600;font-size:11px;">Blockers:</button>
+            <select id="le-blocker-mode" style="padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;">
+              <option value="off">Off</option>
+              <option value="outlines">Outlines</option>
+              <option value="overlay">Overlay</option>
+            </select>
+          </div>
+          <button id="le-export-btn">Export JSON</button>
+
+          <hr style="border-color:#0f3460;margin:8px 0;">
+          <h3>Selection Slot</h3>
+          <div id="le-selection-slot" class="le-slot" title="Click to pick a tile from the map">
+            <span class="le-slot-placeholder">Click to pick from map</span>
+          </div>
+
+          <hr style="border-color:#0f3460;margin:8px 0;">
+          <h3>Tile Detail</h3>
+          <div id="le-tile-detail" class="le-detail-panel">
+            <p style="color:#a0a0a0;font-size:11px;">Select a tile to see its data.</p>
+          </div>
         </div>
-        <button id="le-export-btn">Export JSON</button>
-
-        <hr style="border-color:#0f3460;margin:8px 0;">
-        <h3>Selection Slot</h3>
-        <div id="le-selection-slot" class="le-slot" title="Click to pick a tile from the map">
-          <span class="le-slot-placeholder">Click to pick from map</span>
+        <div class="le-canvas-area">
+          <div class="controls-bar le-controls-bar">
+            <div class="control-group">
+              <label>Map W:</label>
+              <input type="number" id="le-map-w" value="20" min="1" max="200">
+              <div class="step-btns"><button class="step-btn" data-target="le-map-w" data-step="1">&#9650;</button><button class="step-btn" data-target="le-map-w" data-step="-1">&#9660;</button></div>
+              <div class="step-btns"><button class="step-btn" data-target="le-map-w" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-map-w" data-step="-8">&#9660;&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Map H:</label>
+              <input type="number" id="le-map-h" value="15" min="1" max="200">
+              <div class="step-btns"><button class="step-btn" data-target="le-map-h" data-step="1">&#9650;</button><button class="step-btn" data-target="le-map-h" data-step="-1">&#9660;</button></div>
+              <div class="step-btns"><button class="step-btn" data-target="le-map-h" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-map-h" data-step="-8">&#9660;&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Cell W:</label>
+              <input type="number" id="le-cell-w" value="16" min="1">
+              <div class="step-btns"><button class="step-btn" data-target="le-cell-w" data-step="1">&#9650;</button><button class="step-btn" data-target="le-cell-w" data-step="-1">&#9660;</button></div>
+              <div class="step-btns"><button class="step-btn" data-target="le-cell-w" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-w" data-step="-8">&#9660;&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Cell H:</label>
+              <input type="number" id="le-cell-h" value="16" min="1">
+              <div class="step-btns"><button class="step-btn" data-target="le-cell-h" data-step="1">&#9650;</button><button class="step-btn" data-target="le-cell-h" data-step="-1">&#9660;</button></div>
+              <div class="step-btns"><button class="step-btn" data-target="le-cell-h" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-h" data-step="-8">&#9660;&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Off X:</label>
+              <input type="number" id="le-off-x" value="0" min="0">
+              <div class="step-btns"><button class="step-btn" data-target="le-off-x" data-step="1">&#9650;</button><button class="step-btn" data-target="le-off-x" data-step="-1">&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Off Y:</label>
+              <input type="number" id="le-off-y" value="0" min="0">
+              <div class="step-btns"><button class="step-btn" data-target="le-off-y" data-step="1">&#9650;</button><button class="step-btn" data-target="le-off-y" data-step="-1">&#9660;</button></div>
+            </div>
+            <div class="control-group">
+              <label>Zoom:</label>
+              <button id="le-zoom-out" class="step-btn" style="width:22px;height:22px;font-size:14px;">-</button>
+              <span id="le-zoom-label" style="min-width:30px;text-align:center;font-size:12px;">1x</span>
+              <button id="le-zoom-in" class="step-btn" style="width:22px;height:22px;font-size:14px;">+</button>
+            </div>
+          </div>
+          <div class="le-canvas-scroll">
+            <canvas id="level-canvas"></canvas>
+          </div>
         </div>
-
-        <hr style="border-color:#0f3460;margin:8px 0;">
-        <h3>Tile Detail</h3>
-        <div id="le-tile-detail" class="le-detail-panel">
-          <p style="color:#a0a0a0;font-size:11px;">Select a tile to see its data.</p>
-        </div>
-
-        <hr style="border-color:#0f3460;margin:8px 0;">
-        <h3>Palette</h3>
-        <div id="le-palette" class="palette-wrap"></div>
       </div>
-      <div class="le-canvas-area">
-        <div class="controls-bar le-controls-bar">
-          <div class="control-group">
-            <label>Cell W:</label>
-            <input type="number" id="le-cell-w" value="16" min="1">
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-w" data-step="1">&#9650;</button><button class="step-btn" data-target="le-cell-w" data-step="-1">&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-w" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-w" data-step="-8">&#9660;&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-w" data-step="16">&#9650;&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-w" data-step="-16">&#9660;&#9660;&#9660;</button></div>
-          </div>
-          <div class="control-group">
-            <label>Cell H:</label>
-            <input type="number" id="le-cell-h" value="16" min="1">
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-h" data-step="1">&#9650;</button><button class="step-btn" data-target="le-cell-h" data-step="-1">&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-h" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-h" data-step="-8">&#9660;&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-cell-h" data-step="16">&#9650;&#9650;&#9650;</button><button class="step-btn" data-target="le-cell-h" data-step="-16">&#9660;&#9660;&#9660;</button></div>
-          </div>
-          <div class="control-group">
-            <label>Off X:</label>
-            <input type="number" id="le-off-x" value="0" min="0">
-            <div class="step-btns"><button class="step-btn" data-target="le-off-x" data-step="1">&#9650;</button><button class="step-btn" data-target="le-off-x" data-step="-1">&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-off-x" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-off-x" data-step="-8">&#9660;&#9660;</button></div>
-          </div>
-          <div class="control-group">
-            <label>Off Y:</label>
-            <input type="number" id="le-off-y" value="0" min="0">
-            <div class="step-btns"><button class="step-btn" data-target="le-off-y" data-step="1">&#9650;</button><button class="step-btn" data-target="le-off-y" data-step="-1">&#9660;</button></div>
-            <div class="step-btns"><button class="step-btn" data-target="le-off-y" data-step="8">&#9650;&#9650;</button><button class="step-btn" data-target="le-off-y" data-step="-8">&#9660;&#9660;</button></div>
-          </div>
-          <div class="control-group">
-            <label>Zoom:</label>
-            <button id="le-zoom-out" class="step-btn" style="width:22px;height:22px;font-size:14px;">-</button>
-            <span id="le-zoom-label" style="min-width:30px;text-align:center;font-size:12px;">1x</span>
-            <button id="le-zoom-in" class="step-btn" style="width:22px;height:22px;font-size:14px;">+</button>
-          </div>
+      <div class="le-palette-panel">
+        <div class="le-palette-header">
+          <h3>Palette</h3>
+          <label>Filter:</label>
+          <select id="le-label-filter"><option value="">All tiles</option></select>
         </div>
-        <div class="le-canvas-scroll">
-          <canvas id="level-canvas"></canvas>
-        </div>
+        <div id="le-palette" class="palette-wrap"></div>
       </div>
     </div>
   </div>
