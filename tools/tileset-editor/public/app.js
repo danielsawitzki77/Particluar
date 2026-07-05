@@ -621,7 +621,7 @@
 
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
-    html += `<div style="color:#a0a0a0;">Src: (${td.source_rect.x},${td.source_rect.y}) ${td.source_rect.w}x${td.source_rect.h}</div>`;
+      <div style="color:#a0a0a0;">Src: (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}</div>
       <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">ðŸ—‘ Remove Duplicates</button>
     </div>`;
 
