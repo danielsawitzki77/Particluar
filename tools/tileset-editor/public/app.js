@@ -1548,9 +1548,7 @@
           const overlapIdx = findTileAtRect(placement);
           if (overlapIdx >= 0) lePlacedTiles.splice(overlapIdx, 1);
           lePlacedTiles.push(placement);
-          // Chain: new tile becomes slotted
-          leSlottedTile = placement;
-          updateSlotUI();
+          // Keep the slotted tile unchanged — user explicitly picks a new slot
           renderLEPalette();
           renderLECanvas();
           setStatus(`Placed ${tileDef.id} ${arrow} of slotted tile`);
