@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Particluar Tileset Editor â€” app.js
 // Tileset Configurator + Level Editor with zoom, labels, filters
 // ============================================================
@@ -621,7 +621,7 @@
 
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
-      <br><strong>Src:</strong> (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}
+    html += `<div style="color:#a0a0a0;">Src: (${td.source_rect.x},${td.source_rect.y}) ${td.source_rect.w}x${td.source_rect.h}</div>`;
       <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">ðŸ—‘ Remove Duplicates</button>
     </div>`;
 
@@ -1154,7 +1154,7 @@
     blockerRects.push(newRect);
     pushBlockerHistory();
     selectedBlockerIndex = blockerRects.length - 1;
-    setStatus(`Blocker added: (${x},${y}) ${w}Ã—${h}`);
+    setStatus(`Blocker added: (${x},${y}) ${w}x${h}`);
     renderTilesetCanvas();
     renderBlockersList();
   });
@@ -1206,7 +1206,7 @@
     blockerRects.forEach((r, i) => {
       const active = (i === selectedBlockerIndex) ? ' active' : '';
       html += `<div class="blocker-item${active}" data-idx="${i}">
-        <span>(${r.x},${r.y}) ${r.w}Ã—${r.h}</span>
+        <span>(${r.x},${r.y}) ${r.w}x${r.h}</span>
         <span class="del-blocker" data-idx="${i}">&times;</span>
       </div>`;
     });
@@ -1232,7 +1232,7 @@
         else if (selectedBlockerIndex > idx) selectedBlockerIndex--;
         renderTilesetCanvas();
         renderBlockersList();
-        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}Ã—${removed.h}`);
+        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}x${removed.h}`);
       });
     });
   }
@@ -1251,7 +1251,6 @@
   const leLabelFilter = document.getElementById('le-label-filter');
   const leSlotEl = document.getElementById('le-selection-slot');
   const leDetailPanel = document.getElementById('le-tile-detail');
-  const leBlockerToggle = document.getElementById('le-blocker-toggle');
 
   // State
   let leTilesetName = null;
@@ -1345,13 +1344,14 @@
   leZoomOut.addEventListener('click', () => updateLeZoom(-0.25));
 
   // --- Blocker toggle ---
-  leBlockerToggle.addEventListener('change', () => {
-    leShowBlockers = leBlockerToggle.checked;
+  const leBlockerMode = document.getElementById('le-blocker-mode');
+  leBlockerMode.addEventListener('change', () => {
+    leShowBlockers = leBlockerMode.value !== 'off';
     renderLECanvas();
   });
 
   // --- Grid param step buttons (reuse configurator pattern) ---
-  document.querySelectorAll('.le-grid-controls .step-btn').forEach(btn => {
+  document.querySelectorAll('.le-controls-bar .step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = document.getElementById(btn.dataset.target);
       if (!target) return;
@@ -1426,7 +1426,7 @@
     const seen = new Set();
     const directions = ['up', 'down', 'left', 'right'];
     const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
-    const arrows = { up: 'â†‘', down: 'â†“', left: 'â†', right: 'â†’' };
+    const arrows = { up: '\u2191', down: '\u2193', left: '\u2190', right: '\u2192' };
 
     for (const dir of directions) {
       const list = adj[dir] || [];
@@ -1507,14 +1507,11 @@
       div.dataset.direction = direction || '';
 
       const c = document.createElement('canvas');
-      const maxDim = 48;
-      const scale = Math.min(1, maxDim / Math.max(tileDef.source_rect.w, tileDef.source_rect.h));
-      c.width = Math.round(tileDef.source_rect.w * scale);
-      c.height = Math.round(tileDef.source_rect.h * scale);
-      c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+      c.width = tileDef.source_rect.w;
+      c.height = tileDef.source_rect.h;
       c.getContext('2d').drawImage(leTilesetImage,
         tileDef.source_rect.x, tileDef.source_rect.y, tileDef.source_rect.w, tileDef.source_rect.h,
-        0, 0, c.width, c.height);
+        0, 0, tileDef.source_rect.w, tileDef.source_rect.h);
       div.appendChild(c);
 
       // Direction arrow overlay
@@ -1576,14 +1573,14 @@
     if (!td) { leDetailPanel.innerHTML = '<p style="color:#ff6b6b;font-size:11px;">Tile not found.</p>'; return; }
     const adj = td.adjacency || { up: [], down: [], left: [], right: [] };
     let html = `<div style="margin-bottom:4px;"><strong>${escapeHtml(td.id)}</strong></div>`;
-    html += `<div style="color:#a0a0a0;">Src: (${td.source_rect.x},${td.source_rect.y}) ${td.source_rect.w}Ã—${td.source_rect.h}</div>`;
+    html += `<div style="color:#a0a0a0;">Src: (${td.source_rect.x},${td.source_rect.y}) ${td.source_rect.w}x${td.source_rect.h}</div>`;
     if (td.labels && td.labels.length > 0) {
       html += `<div style="margin-top:3px;">Labels: ${td.labels.map(l => '<span class="adj-tag">' + escapeHtml(l) + '</span>').join(' ')}</div>`;
     }
-    html += '<div class="adj-section"><h5>â†‘ Up</h5><div class="adj-ids">' + (adj.up.length ? adj.up.join(', ') : '<em>any</em>') + '</div></div>';
-    html += '<div class="adj-section"><h5>â†“ Down</h5><div class="adj-ids">' + (adj.down.length ? adj.down.join(', ') : '<em>any</em>') + '</div></div>';
-    html += '<div class="adj-section"><h5>â† Left</h5><div class="adj-ids">' + (adj.left.length ? adj.left.join(', ') : '<em>any</em>') + '</div></div>';
-    html += '<div class="adj-section"><h5>â†’ Right</h5><div class="adj-ids">' + (adj.right.length ? adj.right.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>^ Up</h5><div class="adj-ids">' + (adj.up.length ? adj.up.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>v Down</h5><div class="adj-ids">' + (adj.down.length ? adj.down.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>&lt; Left</h5><div class="adj-ids">' + (adj.left.length ? adj.left.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>&gt; Right</h5><div class="adj-ids">' + (adj.right.length ? adj.right.join(', ') : '<em>any</em>') + '</div></div>';
     leDetailPanel.innerHTML = html;
   }
 
