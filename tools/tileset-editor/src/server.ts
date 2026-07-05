@@ -71,6 +71,25 @@ app.get('/api/tilesets/:name/sheets', (req, res) => {
   }
 });
 
+// --- API: List all JSON files in a tileset folder ---
+app.get('/api/tilesets/:name/jsons', (req, res) => {
+  const name = req.params.name;
+  const tilesetDir = path.join(ASSETS_DIR, name);
+
+  if (!fs.existsSync(tilesetDir)) {
+    return res.status(404).json({ error: `Tileset '${name}' not found` });
+  }
+
+  try {
+    const files = fs.readdirSync(tilesetDir);
+    const jsons = files.filter(f => f.toLowerCase().endsWith('.json'));
+    res.json(jsons);
+  } catch (err) {
+    console.error(`Error listing JSON files for '${name}':`, err);
+    res.status(500).json({ error: 'Failed to list JSON files' });
+  }
+});
+
 // --- API: Serve a specific PNG sheet by filename ---
 app.get('/api/tilesets/:name/sheets/:filename', (req, res) => {
   const { name, filename } = req.params;

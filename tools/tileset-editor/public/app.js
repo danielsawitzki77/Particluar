@@ -1,5 +1,5 @@
 // ============================================================
-// Particluar Tileset Editor â€” app.js
+// Particluar Tileset Editor — app.js
 // Tileset Configurator + Level Editor with zoom, labels, filters
 // ============================================================
 
@@ -258,12 +258,12 @@
         const parts = name.split('/');
         const folderName = parts[parts.length - 1];
         const pathPrefix = parts.length > 1 ? parts.slice(0, -1).join('/') + '/' : '';
-        div.innerHTML = `<span style="opacity:0.5;font-size:11px">${escapeHtml(pathPrefix)}</span>${escapeHtml(folderName)} ðŸ“`;
+        div.innerHTML = `<span style="opacity:0.5;font-size:11px">${escapeHtml(pathPrefix)}</span>${escapeHtml(folderName)} &#x1F4C1;`;
         div.dataset.path = name;
         div.addEventListener('click', () => selectTileset(name));
         tilesetList.appendChild(div);
       });
-      populateLETilesetSelect(tilesets);
+      populateLEFolderList(tilesets);
     } catch (err) {
       setStatus('Error loading tileset list');
     }
@@ -482,7 +482,7 @@
       // Highlight this empty cell (do NOT auto-create)
       highlightedCell = { x: tileX, y: tileY, w: cellW, h: cellH };
       selectedTileIndex = -1;
-      setStatus(`Cell highlighted at (${tileX},${tileY}) ${cellW}x${cellH} â€” click "Create Tile" to add it.`);
+      setStatus(`Cell highlighted at (${tileX},${tileY}) ${cellW}x${cellH} — click "Create Tile" to add it.`);
     }
 
     renderTilesetCanvas();
@@ -622,7 +622,7 @@
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
       <div style="color:#a0a0a0;">Src: (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}</div>
-      <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">ðŸ—‘ Remove Duplicates</button>
+      <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">&#x1F5D1; Remove Duplicates</button>
     </div>`;
 
     // Labels assignment
@@ -763,13 +763,23 @@
       setStatus('Need at least 2 tiles for auto-neighbor detection.');
       return;
     }
+    // Check if any tiles already have adjacency data
+    const tilesWithAdjacency = currentTilesetData.tiles.filter(t => t.adjacency &&
+      (t.adjacency.up?.length || t.adjacency.down?.length || t.adjacency.left?.length || t.adjacency.right?.length));
+    if (tilesWithAdjacency.length > 0) {
+      if (!confirm(`Warning: ${tilesWithAdjacency.length} tile(s) already have neighbor/adjacency data. Auto-Neighbor will add new links (existing links are preserved). Continue?`)) {
+        return;
+      }
+    }
     const thresholdInput = document.getElementById('auto-neighbor-threshold');
     const thresholdPct = Math.max(0, Math.min(100, parseInt(thresholdInput.value) || 90));
     const threshold = thresholdPct / 100;
     const added = autoNeighborAll(threshold);
     if (added === 0) {
+      alert('Auto-Neighbor complete: no new adjacency links found at ' + thresholdPct + '% similarity.');
       setStatus(`Auto-Neighbor: no new adjacency links found at ${thresholdPct}% similarity.`);
     } else {
+      alert('Auto-Neighbor complete: added ' + added + ' adjacency link(s) at ' + thresholdPct + '% similarity.');
       setStatus(`Auto-Neighbor: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
     }
     renderTileInfo();
@@ -779,7 +789,7 @@
   // Save with overwrite confirmation and feedback
   saveTilesetBtn.addEventListener('click', async () => {
     if (!currentTilesetName || !currentTilesetData || !currentSheetBase) { setStatus('No sheet loaded'); return; }
-    // Check if file exists â€” ask for overwrite confirmation
+    // Check if file exists — ask for overwrite confirmation
     try {
       const existsRes = await fetch(`/api/tilesets/${currentTilesetName}/exists/${currentSheetBase}.json`);
       if (existsRes.ok) {
@@ -863,7 +873,7 @@
     });
   }
 
-  // Import TMX button â€” shows in-app picker defaulting to TMX files in current folder
+  // Import TMX button — shows in-app picker defaulting to TMX files in current folder
   const importTmxBtn = document.getElementById('import-tmx-btn');
   if (importTmxBtn) {
     importTmxBtn.addEventListener('click', async () => {
@@ -926,7 +936,7 @@
         cellWidthInput.value = tw; cellHeightInput.value = th;
         renderTilesetCanvas(); renderTileInfo(); renderCreatedTilesList();
         if (typeof renderBlockersList === 'function') renderBlockersList();
-        setStatus(`Imported ${newTiles.length} tiles from "${targetTs.name}" â€” Save to persist.`);
+        setStatus(`Imported ${newTiles.length} tiles from "${targetTs.name}" — Save to persist.`);
       } catch (err) { alert(`TMX import failed: ${err.message}`); }
     });
   }
@@ -962,7 +972,7 @@
       }
       // Browse button for native file picker
       const browseBtn = document.createElement('button');
-      browseBtn.textContent = 'ðŸ“‚ Browse for .tmx file...';
+      browseBtn.textContent = '\u{1F4C2} Browse for .tmx file...';
       browseBtn.style.cssText = 'display:block;width:100%;padding:10px;margin-bottom:6px;background:#1a1a2e;color:#4fc3f7;border:1px solid #4fc3f7;border-radius:4px;cursor:pointer;font-size:12px';
       browseBtn.addEventListener('click', () => {
         document.body.removeChild(overlay);
@@ -1239,10 +1249,11 @@
 
 
   // ============================================================
-  // LEVEL EDITOR â€” Redesigned with Selection Slot workflow
+  // LEVEL EDITOR — Redesigned with Selection Slot workflow
   // ============================================================
 
-  const leTilesetSelect = document.getElementById('le-tileset-select');
+  const leFolderList = document.getElementById('le-folder-list');
+  const leJsonSelect = document.getElementById('le-json-select');
   const leLoadBtn = document.getElementById('le-load-btn');
   const leExportBtn = document.getElementById('le-export-btn');
   const lePalette = document.getElementById('le-palette');
@@ -1267,30 +1278,76 @@
   let lePlacedTiles = []; // Array of { tile_id, x, y, w, h }
   let leHoveredPaletteId = null;
   let leHoverWarningTile = null; // tile that would be removed on placement
+  let leSelectedFolder = null; // currently selected folder name
 
-  // --- Tileset select population ---
-  function populateLETilesetSelect(tilesets) {
-    leTilesetSelect.innerHTML = '<option value="">-- Select Tileset --</option>';
-    tilesets.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      leTilesetSelect.appendChild(opt);
+  // --- Folder list population (matching configurator style) ---
+  function populateLEFolderList(tilesets) {
+    if (!leFolderList) return;
+    leFolderList.innerHTML = '';
+    // Extract unique folder paths
+    const folders = [...new Set(tilesets.map(name => name.split('/')[0]))];
+    folders.forEach(folder => {
+      const div = document.createElement('div');
+      div.className = 'tileset-item';
+      div.textContent = folder;
+      div.dataset.folder = folder;
+      div.addEventListener('click', () => selectLEFolder(folder));
+      leFolderList.appendChild(div);
     });
+  }
+
+  async function selectLEFolder(folder) {
+    // Highlight selected folder
+    if (leFolderList) {
+      leFolderList.querySelectorAll('.tileset-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.folder === folder);
+      });
+    }
+    leSelectedFolder = folder;
+    // Fetch JSON files in this folder
+    try {
+      const res = await fetch(`/api/tilesets/${folder}/jsons`);
+      const jsons = await res.json();
+      leJsonSelect.innerHTML = '';
+      leJsonSelect.disabled = false;
+      if (jsons.length === 0) {
+        leJsonSelect.innerHTML = '<option value="">No JSON files found</option>';
+        leJsonSelect.disabled = true;
+        return;
+      }
+      if (jsons.length === 1) {
+        const opt = document.createElement('option');
+        opt.value = jsons[0]; opt.textContent = jsons[0];
+        leJsonSelect.appendChild(opt);
+      } else {
+        jsons.forEach(jsonFile => {
+          const opt = document.createElement('option');
+          opt.value = jsonFile; opt.textContent = jsonFile;
+          leJsonSelect.appendChild(opt);
+        });
+      }
+    } catch (err) {
+      leJsonSelect.innerHTML = '<option value="">Error loading JSONs</option>';
+      leJsonSelect.disabled = true;
+    }
   }
 
   // --- Load tileset ---
   leLoadBtn.addEventListener('click', async () => {
-    const name = leTilesetSelect.value;
-    if (!name) { setStatus('Select a tileset first'); return; }
+    if (!leSelectedFolder) { setStatus('Select a tileset folder first'); return; }
+    const jsonFile = leJsonSelect.value;
+    if (!jsonFile) { setStatus('Select a JSON tileset file first'); return; }
+    const name = leSelectedFolder;
+    const sheetBase = jsonFile.replace(/\.json$/i, '');
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       await new Promise((resolve, reject) => {
         img.onload = resolve; img.onerror = reject;
-        img.src = `/api/tilesets/${name}/image?t=${Date.now()}`;
+        img.src = `/api/tilesets/${name}/sheets/${sheetBase}.png?t=${Date.now()}`;
       });
       leTilesetImage = img;
-      const res = await fetch(`/api/tilesets/${name}/json`);
+      const res = await fetch(`/api/tilesets/${name}/json/${sheetBase}`);
       leTilesetData = res.ok ? await res.json() : { tiles: [], labels: [], blockers: [] };
       if (!leTilesetData.tiles) leTilesetData.tiles = [];
       if (!leTilesetData.labels) leTilesetData.labels = [];
@@ -1311,7 +1368,7 @@
       renderLEPalette();
       renderLECanvas();
       renderLEDetail();
-      setStatus(`Level Editor: Loaded '${name}' (${leTilesetData.tiles.length} tiles)`);
+      setStatus(`Level Editor: Loaded '${name}/${jsonFile}' (${leTilesetData.tiles.length} tiles)`);
     } catch (err) { setStatus(`Error: ${err.message}`); }
   });
 
@@ -1386,7 +1443,7 @@
   function updateSlotUI() {
     if (leMode === 'picking') {
       leSlotEl.className = 'le-slot picking';
-      leSlotEl.innerHTML = '<span class="le-slot-placeholder">ðŸŽ¯ Click a tile on the map...</span>';
+      leSlotEl.innerHTML = '<span class="le-slot-placeholder">&#x1F3AF; Click a tile on the map...</span>';
     } else if (leSlottedTile && leTilesetData && leTilesetImage) {
       leSlotEl.className = 'le-slot occupied';
       const td = leTilesetData.tiles.find(t => t.id === leSlottedTile.tile_id);
@@ -1425,7 +1482,7 @@
       updateSlotUI();
       renderLEPalette();
       renderLECanvas();
-      setStatus('Slot cleared â€” free placement mode');
+      setStatus('Slot cleared — free placement mode');
     } else {
       // Enter picking mode
       leMode = 'picking';
@@ -1727,9 +1784,9 @@
         updateSlotUI();
         renderLEPalette();
         renderLECanvas();
-        setStatus(`Picked: ${leSlottedTile.tile_id} â€” palette filtered to compatible tiles`);
+        setStatus(`Picked: ${leSlottedTile.tile_id} — palette filtered to compatible tiles`);
       } else {
-        setStatus('No tile at that position â€” click a placed tile');
+        setStatus('No tile at that position — click a placed tile');
       }
       return;
     }
