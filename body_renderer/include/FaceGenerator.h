@@ -19,6 +19,7 @@ private:
     std::vector<Face> GenerateCylinder(const ShapeParams& s) const;
     std::vector<Face> GenerateSphere(const ShapeParams& s) const;
     std::vector<Face> GenerateTorus(const ShapeParams& s) const;
+    std::vector<Face> GenerateCapsule(const ShapeParams& s) const;
 };
 
 } // namespace BodyRenderer

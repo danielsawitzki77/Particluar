@@ -22,14 +22,15 @@ enum class ShapeType {
     Cone,
     Cylinder,
     Sphere,
-    Torus
+    Torus,
+    Capsule
 };
 
 // Shape parameters — stores fields for all types, only relevant ones used per type
 struct ShapeParams {
     ShapeType type;
 
-    // Cone/Cylinder: radius, height, segments
+    // Cone/Cylinder/Capsule: radius, height, segments
     float radius;
     float height;
     int segments;
@@ -51,7 +52,34 @@ struct ShapeParams {
 };
 
 // ============================================================================
-// Connection types
+// Attachment regions (parametric connection system v2)
+// ============================================================================
+
+enum class AttachRegion {
+    // For Sphere/Torus: entire surface
+    Surface,
+    // For Cylinder/Capsule: specific regions
+    Top,
+    Bottom,
+    Side,
+    // For Cone
+    Base,
+    // For Capsule hemisphere caps
+    TopCap,
+    BottomCap
+};
+
+struct AttachmentPoint {
+    AttachRegion region;
+    float u;  // 0.0-1.0 first parametric coordinate
+    float v;  // 0.0-1.0 second parametric coordinate
+
+    AttachmentPoint() : region(AttachRegion::Top), u(0.5f), v(0.5f) {}
+    AttachmentPoint(AttachRegion r, float u_, float v_) : region(r), u(u_), v(v_) {}
+};
+
+// ============================================================================
+// Connection types (kept for backward compatibility during transition)
 // ============================================================================
 
 enum class ConnectionType {
@@ -60,19 +88,30 @@ enum class ConnectionType {
     Point_Connection
 };
 
+// ============================================================================
+// Connection (v2: parametric, v1: face indices)
+// ============================================================================
+
 struct Connection {
-    ConnectionType type;
-    int parent_face_index;    // which face/edge/point on parent
-    int child_face_index;     // which face/edge/point on child (for alignment)
-    float offset_u, offset_v; // parametric offset on the face/edge (0.0-1.0)
+    // v2 parametric connection
+    AttachmentPoint parent_attach;
+    AttachmentPoint child_attach;
     float rotation;           // rotation around connection normal (degrees)
 
+    // v1 legacy fields (used only when loading old format)
+    ConnectionType type;
+    int parent_face_index;
+    int child_face_index;
+    float offset_u, offset_v;
+    bool is_legacy;           // true if loaded from v1 format
+
     Connection()
-        : type(ConnectionType::Face_Connection)
+        : rotation(0.0f)
+        , type(ConnectionType::Face_Connection)
         , parent_face_index(0)
         , child_face_index(0)
         , offset_u(0.5f), offset_v(0.5f)
-        , rotation(0.0f)
+        , is_legacy(false)
     {}
 };
 
@@ -110,6 +149,9 @@ struct Body {
     std::string name;
     BodyNode root;
     Material material;
+    int format_version;       // 1 = legacy face indices, 2 = parametric
+
+    Body() : format_version(2) {}
 };
 
 } // namespace BodyRenderer

@@ -139,6 +139,7 @@ void RunConnectionValidatorTests()
 
         Body body;
         body.name = "test";
+        body.format_version = 1;
         body.root.name = "parent";
         body.root.shape.type = ShapeType::Cylinder;
         body.root.shape.radius = 1.0f;
@@ -198,7 +199,7 @@ void RunConnectionValidatorTests()
         conn.child_face_index = n + 1;  // child bottom cap
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
@@ -235,7 +236,7 @@ void RunConnectionValidatorTests()
         conn.child_face_index = n;   // child top cap
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
@@ -275,7 +276,7 @@ void RunConnectionValidatorTests()
         conn.child_face_index = 0;   // torus quad face
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
@@ -313,7 +314,7 @@ void RunConnectionValidatorTests()
         conn.child_face_index = n;   // cone base
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
@@ -345,7 +346,7 @@ void RunConnectionValidatorTests()
         conn.parent_face_index = 8;
         conn.child_face_index = 0;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
@@ -388,6 +389,7 @@ void RunConnectionValidatorTests()
 
         Body body;
         body.name = "test_overlap";
+        body.format_version = 1;
         body.root.name = "base";
         body.root.shape.type = ShapeType::Cylinder;
         body.root.shape.radius = 1.0f;
@@ -449,7 +451,7 @@ void RunConnectionValidatorTests()
         conn.child_face_index = 3;   // child lateral quad
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");

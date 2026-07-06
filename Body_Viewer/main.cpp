@@ -12,6 +12,7 @@
 #include "BodyGenerator.h"
 #include "ConnectionSolver.h"
 #include "JointAnimator.h"
+#include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
 
 #include <string>
@@ -37,6 +38,9 @@ struct ViewerState {
 
     // Joint animation
     BodyRenderer::JointAnimator animator;
+
+    // Shape scale animation
+    BodyRenderer::ShapeScaleAnimator scale_animator;
 
     // Random generation state
     unsigned int next_gen_seed = 1000;
@@ -102,26 +106,11 @@ static void ApplySubdivision(BodyRenderer::Body& body, int level)
         int level;
         void Apply(BodyRenderer::BodyNode& node) {
             BodyRenderer::ShapeParams& s = node.shape;
-            switch (s.type) {
-            case BodyRenderer::ShapeType::Cone:
-            case BodyRenderer::ShapeType::Cylinder:
-                s.segments = (s.segments > 3) ? s.segments : 6;
-                // Scale relative to base (minimum segments preserved)
-                break;
-            case BodyRenderer::ShapeType::Sphere:
-                s.lon_segments = (s.lon_segments > 4) ? s.lon_segments : 8;
-                s.lat_segments = (s.lat_segments > 3) ? s.lat_segments : 6;
-                break;
-            case BodyRenderer::ShapeType::Torus:
-                s.ring_segments = (s.ring_segments > 3) ? s.ring_segments : 8;
-                s.side_segments = (s.side_segments > 3) ? s.side_segments : 6;
-                break;
-            }
-
             // Apply multiplier
             switch (s.type) {
             case BodyRenderer::ShapeType::Cone:
-            case BodyRenderer::ShapeType::Cylinder: {
+            case BodyRenderer::ShapeType::Cylinder:
+            case BodyRenderer::ShapeType::Capsule: {
                 int base = 8;
                 s.segments = base * level;
                 if (s.segments < 3) s.segments = 3;
@@ -232,8 +221,9 @@ static bool LoadModel(const std::string& path, ViewerState& state)
     BodyRenderer::ConnectionSolver solver;
     solver.ResolveTree(&state.current_body.root);
 
-    // Setup animator for this body
+    // Setup animators for this body
     state.animator.SetBody(state.current_body);
+    state.scale_animator.SetBody(state.current_body);
 
     return true;
 }
@@ -254,8 +244,9 @@ static void LoadGeneratedBody(ViewerState& state)
     BodyRenderer::ConnectionSolver solver;
     solver.ResolveTree(&state.current_body.root);
 
-    // Setup animator
+    // Setup animators
     state.animator.SetBody(state.current_body);
+    state.scale_animator.SetBody(state.current_body);
 }
 
 static void ReloadCurrentBody(ViewerState& state, BodyRenderer::ModelSwitcher& switcher,
@@ -282,6 +273,7 @@ static void ReloadCurrentBody(ViewerState& state, BodyRenderer::ModelSwitcher& s
     solver.ResolveTree(&state.current_body.root);
 
     state.animator.SetBody(state.current_body);
+    state.scale_animator.SetBody(state.current_body);
 }
 
 // ============================================================================
@@ -296,9 +288,14 @@ static void UpdateWindowTitle(SDL_Window* window, const ViewerState& state,
     title += " | Subdiv: " + std::to_string(state.subdivision_level);
     title += " | Joints: " + std::to_string(state.animator.GetJointCount());
     if (state.animator.IsEnabled()) {
-        title += " | Anim: " + state.animator.GetCurrentJointName();
+        title += " | JointAnim: " + state.animator.GetCurrentJointName();
     } else {
-        title += " | Anim: OFF (Space to toggle)";
+        title += " | JointAnim: OFF (Space)";
+    }
+    if (state.scale_animator.IsEnabled()) {
+        title += " | Scale: " + state.scale_animator.GetCurrentShapeName() + "." + state.scale_animator.GetCurrentDimensionName();
+    } else {
+        title += " | Scale: OFF (T)";
     }
     SDL_SetWindowTitle(window, title.c_str());
 }
@@ -388,6 +385,7 @@ int main(int argc, char* argv[])
     SDL_Log("  W/A/S/D            - Orbit camera");
     SDL_Log("  +/-                - Increase/decrease subdivision");
     SDL_Log("  Space              - Toggle joint animation");
+    SDL_Log("  T                  - Toggle shape scale animation");
     SDL_Log("  G                  - Generate new random body");
     SDL_Log("  Scroll wheel       - Zoom");
     SDL_Log("  Escape             - Quit");
@@ -448,8 +446,19 @@ int main(int argc, char* argv[])
                 } else if (event.key.key == SDLK_ESCAPE) {
                     running = false;
                 } else if (event.key.key == SDLK_SPACE) {
-                    // Toggle animation
+                    // Toggle joint animation
                     state.animator.SetEnabled(!state.animator.IsEnabled());
+                    UpdateWindowTitle(window, state, state.current_body.name,
+                                      current_index, total_models);
+                } else if (event.key.key == SDLK_T) {
+                    // Toggle shape scale animation
+                    state.scale_animator.SetEnabled(!state.scale_animator.IsEnabled());
+                    if (!state.scale_animator.IsEnabled()) {
+                        // Reset shapes to base values when disabling
+                        state.scale_animator.ResetTo(state.current_body);
+                        BodyRenderer::ConnectionSolver solver;
+                        solver.ResolveTree(&state.current_body.root);
+                    }
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
                 } else if (event.key.key == SDLK_EQUALS || event.key.key == SDLK_KP_PLUS) {
@@ -517,6 +526,21 @@ int main(int argc, char* argv[])
                 solver.ResolveTree(&state.current_body.root);
 
                 // Update title to show current joint
+                UpdateWindowTitle(window, state, state.current_body.name,
+                                  current_index, total_models);
+            }
+        }
+
+        // Update shape scale animation
+        if (state.scale_animator.IsEnabled() && state.has_model) {
+            bool changed = state.scale_animator.Update(dt);
+            if (changed) {
+                state.scale_animator.ApplyTo(state.current_body);
+
+                // Re-resolve transforms after scale change
+                BodyRenderer::ConnectionSolver solver;
+                solver.ResolveTree(&state.current_body.root);
+
                 UpdateWindowTitle(window, state, state.current_body.name,
                                   current_index, total_models);
             }

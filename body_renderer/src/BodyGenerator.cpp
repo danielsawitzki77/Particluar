@@ -30,15 +30,15 @@ int BodyGenerator::EstimateFaceCount(const ShapeParams& shape) const
 {
     switch (shape.type) {
     case ShapeType::Cone:
-        // sides + 1 base face
         return shape.segments + 1;
     case ShapeType::Cylinder:
-        // sides + 2 cap faces
         return shape.segments + 2;
     case ShapeType::Sphere:
         return shape.lon_segments * shape.lat_segments;
     case ShapeType::Torus:
         return shape.ring_segments * shape.side_segments;
+    case ShapeType::Capsule:
+        return shape.segments * 2 + shape.segments; // hemispheres + cylinder
     }
     return 8;
 }
@@ -66,12 +66,10 @@ std::string BodyGenerator::GenerateName(RNG& rng, int depth) const
 
 Vec3 BodyGenerator::RandomColor(RNG& rng) const
 {
-    // Generate pleasant colors by picking hue and varying saturation/value
     float hue = rng.FloatRange(0.0f, 360.0f);
     float sat = rng.FloatRange(0.3f, 0.8f);
     float val = rng.FloatRange(0.5f, 0.9f);
 
-    // HSV to RGB conversion
     float c = val * sat;
     float x = c * (1.0f - std::fabs(std::fmod(hue / 60.0f, 2.0f) - 1.0f));
     float m = val - c;
@@ -90,7 +88,7 @@ Vec3 BodyGenerator::RandomColor(RNG& rng) const
 ShapeParams BodyGenerator::RandomShape(RNG& rng) const
 {
     ShapeParams s;
-    int type_choice = rng.IntRange(0, 3);
+    int type_choice = rng.IntRange(0, 4); // now includes capsule
 
     switch (type_choice) {
     case 0: // Cone
@@ -118,6 +116,12 @@ ShapeParams BodyGenerator::RandomShape(RNG& rng) const
         s.ring_segments = rng.IntRange(8, 20);
         s.side_segments = rng.IntRange(6, 12);
         break;
+    case 4: // Capsule
+        s.type = ShapeType::Capsule;
+        s.radius = rng.FloatRange(0.15f, 0.5f);
+        s.height = s.radius * 2.0f + rng.FloatRange(0.3f, 1.5f); // ensure height >= 2*radius
+        s.segments = rng.IntRange(6, 20);
+        break;
     }
     return s;
 }
@@ -125,27 +129,121 @@ ShapeParams BodyGenerator::RandomShape(RNG& rng) const
 Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_shape) const
 {
     Connection conn;
+    conn.is_legacy = false; // generate v2 parametric connections
 
-    // Prefer face connections — they ensure shapes share faces without intersecting
-    int type_choice = rng.IntRange(0, 4);
-    if (type_choice <= 2) {
-        conn.type = ConnectionType::Face_Connection;
-    } else if (type_choice == 3) {
-        conn.type = ConnectionType::Point_Connection;
-    } else {
-        conn.type = ConnectionType::Edge_Connection;
+    // Select a valid region for the parent shape
+    switch (parent_shape.type) {
+    case ShapeType::Sphere:
+        conn.parent_attach.region = AttachRegion::Surface;
+        conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
+        conn.parent_attach.v = rng.FloatRange(0.1f, 0.9f); // avoid exact poles
+        break;
+    case ShapeType::Cylinder: {
+        int region_choice = rng.IntRange(0, 2);
+        if (region_choice == 0) {
+            conn.parent_attach.region = AttachRegion::Top;
+            conn.parent_attach.u = 0.5f;
+            conn.parent_attach.v = 0.5f;
+        } else if (region_choice == 1) {
+            conn.parent_attach.region = AttachRegion::Bottom;
+            conn.parent_attach.u = 0.5f;
+            conn.parent_attach.v = 0.5f;
+        } else {
+            conn.parent_attach.region = AttachRegion::Side;
+            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parent_attach.v = rng.FloatRange(0.2f, 0.8f);
+        }
+        break;
+    }
+    case ShapeType::Cone: {
+        int region_choice = rng.IntRange(0, 1);
+        if (region_choice == 0) {
+            conn.parent_attach.region = AttachRegion::Base;
+            conn.parent_attach.u = 0.5f;
+            conn.parent_attach.v = 0.5f;
+        } else {
+            conn.parent_attach.region = AttachRegion::Side;
+            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parent_attach.v = rng.FloatRange(0.1f, 0.6f); // lower half of cone side
+        }
+        break;
+    }
+    case ShapeType::Torus:
+        conn.parent_attach.region = AttachRegion::Surface;
+        conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
+        conn.parent_attach.v = rng.FloatRange(0.0f, 1.0f);
+        break;
+    case ShapeType::Capsule: {
+        int region_choice = rng.IntRange(0, 2);
+        if (region_choice == 0) {
+            conn.parent_attach.region = AttachRegion::TopCap;
+            conn.parent_attach.u = 0.5f;
+            conn.parent_attach.v = 0.0f; // pole
+        } else if (region_choice == 1) {
+            conn.parent_attach.region = AttachRegion::BottomCap;
+            conn.parent_attach.u = 0.5f;
+            conn.parent_attach.v = 0.0f;
+        } else {
+            conn.parent_attach.region = AttachRegion::Side;
+            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parent_attach.v = rng.FloatRange(0.2f, 0.8f);
+        }
+        break;
+    }
     }
 
-    int face_count = EstimateFaceCount(parent_shape);
-    if (face_count < 1) face_count = 1;
+    // Child attachment — typically connect at top or bottom for directional shapes
+    // For spheres, use surface bottom pole
+    conn.child_attach.u = 0.5f;
+    conn.child_attach.v = 0.5f;
 
-    conn.parent_face_index = rng.IntRange(0, face_count - 1);
-    conn.child_face_index = rng.IntRange(0, 3); // usually low index for child alignment
-    conn.offset_u = rng.FloatRange(0.3f, 0.7f);
-    conn.offset_v = rng.FloatRange(0.3f, 0.7f);
+    // Pick a sensible child attachment based on child shape would be ideal,
+    // but we don't know the child shape at this point — use defaults
+    // that work for most shapes (top/bottom/surface center)
+    int child_choice = rng.IntRange(0, 1);
+    if (child_choice == 0) {
+        conn.child_attach.region = AttachRegion::Top;
+    } else {
+        conn.child_attach.region = AttachRegion::Bottom;
+    }
+
     conn.rotation = static_cast<float>(rng.IntRange(0, 7)) * 45.0f;
 
     return conn;
+}
+
+// Fix up child attachment region to be valid for the child's shape type
+static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
+{
+    AttachRegion region = conn.child_attach.region;
+
+    switch (child_shape.type) {
+    case ShapeType::Sphere:
+        conn.child_attach.region = AttachRegion::Surface;
+        conn.child_attach.v = 1.0f; // bottom pole
+        break;
+    case ShapeType::Cylinder:
+        if (region != AttachRegion::Top && region != AttachRegion::Bottom && region != AttachRegion::Side) {
+            conn.child_attach.region = AttachRegion::Bottom;
+        }
+        break;
+    case ShapeType::Cone:
+        if (region != AttachRegion::Base && region != AttachRegion::Side) {
+            conn.child_attach.region = AttachRegion::Base;
+        }
+        break;
+    case ShapeType::Torus:
+        conn.child_attach.region = AttachRegion::Surface;
+        break;
+    case ShapeType::Capsule:
+        if (region != AttachRegion::Top && region != AttachRegion::TopCap &&
+            region != AttachRegion::Bottom && region != AttachRegion::BottomCap &&
+            region != AttachRegion::Side) {
+            conn.child_attach.region = AttachRegion::BottomCap;
+            conn.child_attach.v = 0.0f;
+        }
+        break;
+    }
 }
 
 BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
@@ -156,7 +254,6 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
     node.color = RandomColor(rng);
 
     if (depth < max_depth) {
-        // Number of children decreases with depth
         int max_children = (max_depth - depth);
         if (max_children > 4) max_children = 4;
         int num_children = rng.IntRange(0, max_children);
@@ -164,6 +261,8 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
         for (int i = 0; i < num_children; ++i) {
             BodyNode child = GenerateNode(rng, depth + 1, max_depth);
             child.connection = RandomConnection(rng, node.shape);
+            // Fix up the child attachment to be valid for the child's actual shape
+            FixChildAttachment(child.connection, child.shape);
             node.children.push_back(child);
         }
     }
@@ -173,10 +272,11 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
 
 Body BodyGenerator::Generate(unsigned int seed, int depth_limit) const
 {
-    RNG rng(seed == 0 ? 1 : seed); // avoid zero seed
+    RNG rng(seed == 0 ? 1 : seed);
 
     Body body;
     body.name = "Generated_" + std::to_string(seed);
+    body.format_version = 2;
     body.material.shininess = rng.FloatRange(16.0f, 80.0f);
     body.material.ambient = Vec3(
         rng.FloatRange(0.05f, 0.2f),

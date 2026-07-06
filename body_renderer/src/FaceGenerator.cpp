@@ -14,6 +14,7 @@ std::vector<Face> FaceGenerator::Generate(const ShapeParams& shape) const
     case ShapeType::Cylinder: return GenerateCylinder(shape);
     case ShapeType::Sphere:   return GenerateSphere(shape);
     case ShapeType::Torus:    return GenerateTorus(shape);
+    case ShapeType::Capsule:  return GenerateCapsule(shape);
     }
     return {};
 }
@@ -220,6 +221,150 @@ std::vector<Face> FaceGenerator::GenerateTorus(const ShapeParams& s) const
             f.normal = (n0 + n1 + n2 + n3).Normalized();
             faces.push_back(f);
         }
+    }
+
+    return faces;
+}
+
+std::vector<Face> FaceGenerator::GenerateCapsule(const ShapeParams& s) const
+{
+    std::vector<Face> faces;
+    int n = s.segments;
+    float r = s.radius;
+    float total_h = s.height;
+    float cyl_h = total_h - 2.0f * r;
+    if (cyl_h < 0.0f) cyl_h = 0.0f;
+    float hh = cyl_h * 0.5f;
+
+    // Use half the segments for hemisphere stacks (minimum 2)
+    int hemi_stacks = n / 2;
+    if (hemi_stacks < 2) hemi_stacks = 2;
+
+    // --- Top hemisphere ---
+    // Generate vertices for top hemisphere (y offset = +hh)
+    auto top_vertex = [&](int stack, int slice) -> Vec3 {
+        // stack 0 = pole (top), stack hemi_stacks = equator
+        float phi = 0.5f * static_cast<float>(M_PI) * stack / hemi_stacks; // 0 to PI/2
+        float theta = 2.0f * static_cast<float>(M_PI) * slice / n;
+        float sp = std::sin(phi);
+        float cp = std::cos(phi);
+        return Vec3(
+            r * sp * std::cos(theta),
+            hh + r * cp,
+            r * sp * std::sin(theta)
+        );
+    };
+
+    // Top pole triangles
+    for (int j = 0; j < n; ++j) {
+        int jn = (j + 1) % n;
+        Face f;
+        Vec3 v0 = top_vertex(0, j);
+        Vec3 v1 = top_vertex(1, j);
+        Vec3 v2 = top_vertex(1, jn);
+        f.vertices = {v0, v1, v2};
+        Vec3 center = (v0 + v1 + v2) * (1.0f / 3.0f);
+        Vec3 local_center = center - Vec3(0, hh, 0);
+        f.normal = local_center.Normalized();
+        faces.push_back(f);
+    }
+
+    // Top hemisphere quads
+    for (int i = 1; i < hemi_stacks; ++i) {
+        for (int j = 0; j < n; ++j) {
+            int jn = (j + 1) % n;
+            Face f;
+            Vec3 v0 = top_vertex(i, j);
+            Vec3 v1 = top_vertex(i + 1, j);
+            Vec3 v2 = top_vertex(i + 1, jn);
+            Vec3 v3 = top_vertex(i, jn);
+            f.vertices = {v0, v1, v2, v3};
+            Vec3 center = (v0 + v1 + v2 + v3) * 0.25f;
+            Vec3 local_center = center - Vec3(0, hh, 0);
+            f.normal = local_center.Normalized();
+            faces.push_back(f);
+        }
+    }
+
+    // --- Cylinder middle ---
+    if (cyl_h > 0.0f) {
+        std::vector<Vec3> top_ring(n), bot_ring(n);
+        for (int i = 0; i < n; ++i) {
+            float angle = 2.0f * static_cast<float>(M_PI) * i / n;
+            float cx = r * std::cos(angle);
+            float cz = r * std::sin(angle);
+            top_ring[i] = Vec3(cx, hh, cz);
+            bot_ring[i] = Vec3(cx, -hh, cz);
+        }
+
+        for (int i = 0; i < n; ++i) {
+            int next = (i + 1) % n;
+            Face f;
+            f.vertices = {bot_ring[i], bot_ring[next], top_ring[next], top_ring[i]};
+            Vec3 mid = (bot_ring[i] + bot_ring[next]) * 0.5f;
+            f.normal = Vec3(mid.x, 0, mid.z).Normalized();
+            faces.push_back(f);
+        }
+    }
+
+    // --- Bottom hemisphere ---
+    auto bot_vertex = [&](int stack, int slice) -> Vec3 {
+        // stack 0 = equator, stack hemi_stacks = pole (bottom)
+        float phi = 0.5f * static_cast<float>(M_PI) * stack / hemi_stacks; // 0 to PI/2
+        float theta = 2.0f * static_cast<float>(M_PI) * slice / n;
+        float sp = std::sin(phi);
+        float cp = std::cos(phi);
+        return Vec3(
+            r * sp * std::cos(theta),
+            -hh - r * cp,  // Note: mirrored (going downward from equator)
+            r * sp * std::sin(theta)
+        );
+    };
+
+    // Actually for bottom hemisphere, we go from equator to bottom pole
+    // Let's redefine: stack 0 = equator (at -hh), stack hemi_stacks = bottom pole
+    auto bot_vertex2 = [&](int stack, int slice) -> Vec3 {
+        // phi goes from PI/2 (equator) to PI (bottom pole)
+        float phi = 0.5f * static_cast<float>(M_PI) + 0.5f * static_cast<float>(M_PI) * stack / hemi_stacks;
+        float theta = 2.0f * static_cast<float>(M_PI) * slice / n;
+        float sp = std::sin(phi);
+        float cp = std::cos(phi);
+        return Vec3(
+            r * sp * std::cos(theta),
+            -hh + r * cp, // cp goes from 0 (equator) to -1 (pole)
+            r * sp * std::sin(theta)
+        );
+    };
+
+    // Bottom hemisphere quads (equator to near-pole)
+    for (int i = 0; i < hemi_stacks - 1; ++i) {
+        for (int j = 0; j < n; ++j) {
+            int jn = (j + 1) % n;
+            Face f;
+            Vec3 v0 = bot_vertex2(i, j);
+            Vec3 v1 = bot_vertex2(i + 1, j);
+            Vec3 v2 = bot_vertex2(i + 1, jn);
+            Vec3 v3 = bot_vertex2(i, jn);
+            f.vertices = {v0, v1, v2, v3};
+            Vec3 center = (v0 + v1 + v2 + v3) * 0.25f;
+            Vec3 local_center = center - Vec3(0, -hh, 0);
+            f.normal = local_center.Normalized();
+            faces.push_back(f);
+        }
+    }
+
+    // Bottom pole triangles
+    for (int j = 0; j < n; ++j) {
+        int jn = (j + 1) % n;
+        Face f;
+        Vec3 v0 = bot_vertex2(hemi_stacks - 1, j);
+        Vec3 v1 = bot_vertex2(hemi_stacks, j); // bottom pole
+        Vec3 v2 = bot_vertex2(hemi_stacks - 1, jn);
+        f.vertices = {v0, v1, v2};
+        Vec3 center = (v0 + v1 + v2) * (1.0f / 3.0f);
+        Vec3 local_center = center - Vec3(0, -hh, 0);
+        f.normal = local_center.Normalized();
+        faces.push_back(f);
     }
 
     return faces;

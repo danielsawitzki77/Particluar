@@ -1,4 +1,5 @@
 {
+  "format_version": 2,
   "name": "Table",
   "root": {
     "name": "tabletop",
@@ -6,7 +7,11 @@
     "color": { "r": 0.55, "g": 0.35, "b": 0.15 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 9, "child_face": 8, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "leg1",
           "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
@@ -14,7 +19,11 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 9, "child_face": 8, "rotation": 90.0 },
+        "connection": {
+          "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "rotation": 90.0
+        },
         "node": {
           "name": "leg2",
           "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
@@ -22,7 +31,11 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 9, "child_face": 8, "rotation": 180.0 },
+        "connection": {
+          "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "rotation": 180.0
+        },
         "node": {
           "name": "leg3",
           "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
@@ -30,7 +43,11 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 9, "child_face": 8, "rotation": 270.0 },
+        "connection": {
+          "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "rotation": 270.0
+        },
         "node": {
           "name": "leg4",
           "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },

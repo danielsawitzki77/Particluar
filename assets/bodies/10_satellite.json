@@ -1,4 +1,5 @@
 {
+  "format_version": 2,
   "name": "Satellite",
   "material": {
     "shininess": 80.0,
@@ -10,7 +11,11 @@
     "color": { "r": 0.7, "g": 0.7, "b": 0.75 },
     "children": [
       {
-        "connection": { "type": "Point_Connection", "parent_face": 3, "child_face": 0, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "side", "u": 0.25, "v": 0.5 },
+          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "solar_panel_right",
           "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 12 },
@@ -18,7 +23,11 @@
         }
       },
       {
-        "connection": { "type": "Point_Connection", "parent_face": 9, "child_face": 0, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "side", "u": 0.75, "v": 0.5 },
+          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "solar_panel_left",
           "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 12 },
@@ -26,14 +35,22 @@
         }
       },
       {
-        "connection": { "type": "Point_Connection", "parent_face": 12, "child_face": 0, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "antenna_dish",
           "shape": { "type": "sphere", "radius": 0.5, "slices": 12, "stacks": 6 },
           "color": { "r": 0.85, "g": 0.85, "b": 0.9 },
           "children": [
             {
-              "connection": { "type": "Point_Connection", "parent_face": 0, "child_face": 0, "rotation": 0.0 },
+              "connection": {
+                "parent_attach": { "region": "surface", "u": 0.5, "v": 0.0 },
+                "child_attach": { "region": "base", "u": 0.5, "v": 0.5 },
+                "rotation": 0.0
+              },
               "node": {
                 "name": "feed_horn",
                 "shape": { "type": "cone", "radius": 0.1, "height": 0.4, "sides": 8 },
@@ -44,7 +61,11 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 13, "child_face": 12, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "base", "u": 0.5, "v": 0.5 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "thruster",
           "shape": { "type": "cone", "radius": 0.25, "height": 0.4, "sides": 12 },
