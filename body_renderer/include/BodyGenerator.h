@@ -6,10 +6,8 @@
 namespace BodyRenderer {
 
 // Procedural body generator — creates random bodies from a seed.
-// Generated bodies connect child shapes at matching subdivision faces:
-// faces share the same polygon topology (vertex count) and are scaled
-// to exactly overlap, ensuring bodies touch at one shared face without
-// volume intersection.
+// Generated bodies connect child shapes at parent subdivision faces
+// (no interpenetration, only shared faces).
 class BodyGenerator {
 public:
     // Generate a random body using the given seed.
@@ -25,10 +23,11 @@ private:
         float FloatRange(float min_val, float max_val);
     };
 
-    BodyNode GenerateNode(RNG& rng, int depth, int max_depth, int segments) const;
-    ShapeParams RandomShape(RNG& rng, int segments) const;
+    BodyNode GenerateNode(RNG& rng, int depth, int max_depth) const;
+    ShapeParams RandomShape(RNG& rng) const;
     Vec3 RandomColor(RNG& rng) const;
-    Connection FindCompatibleConnection(RNG& rng, const ShapeParams& parent_shape, const ShapeParams& child_shape) const;
+    Connection RandomConnection(RNG& rng, const ShapeParams& parent_shape) const;
+    int EstimateFaceCount(const ShapeParams& shape) const;
     std::string GenerateName(RNG& rng, int depth) const;
 };
 
