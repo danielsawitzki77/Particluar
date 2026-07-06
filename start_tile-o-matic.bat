@@ -1,7 +1,7 @@
 @echo off
 setlocal
-:: Particluar Tileset Editor - auto-install and launch
-:: Opens the browser-based tileset configurator and level editor.
+:: Tile-O-Matic — Tileset Configurator + Level Editor
+:: Opens a browser window with the web-based editor on launch.
 
 cd /d "%~dp0tools\tileset-editor"
 
@@ -18,7 +18,7 @@ if not exist "node_modules\" (
 )
 
 echo.
-echo Starting Tileset Editor...
+echo Starting Tile-O-Matic...
 echo Use the Close button in the browser or Ctrl+C here to stop.
 echo.
 npx ts-node src/server.ts

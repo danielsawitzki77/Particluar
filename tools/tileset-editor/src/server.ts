@@ -71,6 +71,25 @@ app.get('/api/tilesets/:name/sheets', (req, res) => {
   }
 });
 
+// --- API: List all JSON files in a tileset folder ---
+app.get('/api/tilesets/:name/jsons', (req, res) => {
+  const name = req.params.name;
+  const tilesetDir = path.join(ASSETS_DIR, name);
+
+  if (!fs.existsSync(tilesetDir)) {
+    return res.status(404).json({ error: `Tileset '${name}' not found` });
+  }
+
+  try {
+    const files = fs.readdirSync(tilesetDir);
+    const jsons = files.filter(f => f.toLowerCase().endsWith('.json'));
+    res.json(jsons);
+  } catch (err) {
+    console.error(`Error listing JSON files for '${name}':`, err);
+    res.status(500).json({ error: 'Failed to list JSON files' });
+  }
+});
+
 // --- API: Serve a specific PNG sheet by filename ---
 app.get('/api/tilesets/:name/sheets/:filename', (req, res) => {
   const { name, filename } = req.params;
@@ -395,20 +414,24 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
 // --- Shutdown endpoint (called by the Close button in the UI) ---
 app.post('/api/shutdown', (req, res) => {
   res.json({ message: 'Server shutting down...' });
-  console.log('\nTileset Editor shutting down. Goodbye!');
+  console.log('\nTile-O-Matic shutting down. Goodbye!');
   setTimeout(() => process.exit(0), 500);
 });
 
 // --- Start server ---
 const server = app.listen(PORT, () => {
-  console.log(`\n  Particluar Tileset Editor`);
-  console.log(`  ========================`);
+  console.log(`\n  Tile-O-Matic`);
+  console.log(`  =============`);
   console.log(`  Tileset Configurator: ${BASE_URL}/tileset-configurator`);
   console.log(`  Level Editor:         ${BASE_URL}/level-editor`);
   console.log(`  Assets directory:     ${ASSETS_DIR}\n`);
 
-  // Auto-open browser
-  const openCmd = process.platform === 'win32' ? 'start' :
-                  process.platform === 'darwin' ? 'open' : 'xdg-open';
-  exec(`${openCmd} ${BASE_URL}/tileset-configurator`);
+  // Auto-open browser in a new window
+  if (process.platform === 'win32') {
+    exec(`start "" "${BASE_URL}/tileset-configurator"`);
+  } else if (process.platform === 'darwin') {
+    exec(`open "${BASE_URL}/tileset-configurator"`);
+  } else {
+    exec(`xdg-open "${BASE_URL}/tileset-configurator"`);
+  }
 });

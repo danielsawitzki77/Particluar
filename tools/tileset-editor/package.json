@@ -1,7 +1,7 @@
 {
-  "name": "particluar-tileset-editor",
+  "name": "tile-o-matic",
   "version": "1.0.0",
-  "description": "Web-based tileset configurator and level editor for the Particluar 2D Map System",
+  "description": "Tile-O-Matic — Web-based tileset configurator and level editor for the Particluar 2D Map System",
   "main": "src/server.ts",
   "scripts": {
     "start": "ts-node src/server.ts",
