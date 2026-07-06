@@ -10,23 +10,23 @@
     "color": { "r": 0.7, "g": 0.7, "b": 0.75 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 4, "child_face": 12, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 3, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "solar_panel_right",
-          "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 4 },
+          "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 12 },
           "color": { "r": 0.15, "g": 0.2, "b": 0.5 }
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 8, "child_face": 12, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 9, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "solar_panel_left",
-          "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 4 },
+          "shape": { "type": "cylinder", "radius": 1.2, "height": 0.03, "sides": 12 },
           "color": { "r": 0.15, "g": 0.2, "b": 0.5 }
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 12, "child_face": 13, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 12, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "antenna_dish",
           "shape": { "type": "sphere", "radius": 0.5, "slices": 12, "stacks": 6 },
