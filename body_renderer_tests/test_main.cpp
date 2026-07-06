@@ -10,6 +10,7 @@ void RunFaceGeneratorTests();
 void RunTriangulatorTests();
 void RunConnectionSolverTests();
 void RunModelSwitcherTests();
+void RunConnectionValidatorTests();
 
 int main()
 {
@@ -20,6 +21,7 @@ int main()
     RunTriangulatorTests();
     RunConnectionSolverTests();
     RunModelSwitcherTests();
+    RunConnectionValidatorTests();
 
     printf("\n=== All tests complete ===\n");
     return 0;

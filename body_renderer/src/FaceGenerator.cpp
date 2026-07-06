@@ -10,70 +10,12 @@ namespace BodyRenderer {
 std::vector<Face> FaceGenerator::Generate(const ShapeParams& shape) const
 {
     switch (shape.type) {
-    case ShapeType::Box:      return GenerateBox(shape);
     case ShapeType::Cone:     return GenerateCone(shape);
     case ShapeType::Cylinder: return GenerateCylinder(shape);
     case ShapeType::Sphere:   return GenerateSphere(shape);
     case ShapeType::Torus:    return GenerateTorus(shape);
-    case ShapeType::Frustum:  return GenerateFrustum(shape);
     }
     return {};
-}
-
-std::vector<Face> FaceGenerator::GenerateBox(const ShapeParams& s) const
-{
-    std::vector<Face> faces;
-    float hw = s.width * 0.5f;
-    float hh = s.height * 0.5f;
-    float hd = s.depth * 0.5f;
-
-    // 8 vertices
-    Vec3 v0(-hw, -hh, -hd);
-    Vec3 v1( hw, -hh, -hd);
-    Vec3 v2( hw,  hh, -hd);
-    Vec3 v3(-hw,  hh, -hd);
-    Vec3 v4(-hw, -hh,  hd);
-    Vec3 v5( hw, -hh,  hd);
-    Vec3 v6( hw,  hh,  hd);
-    Vec3 v7(-hw,  hh,  hd);
-
-    // Front face (z+) - CCW from outside
-    Face front;
-    front.vertices = {v4, v5, v6, v7};
-    front.normal = Vec3(0, 0, 1);
-    faces.push_back(front);
-
-    // Back face (z-) - CCW from outside
-    Face back;
-    back.vertices = {v1, v0, v3, v2};
-    back.normal = Vec3(0, 0, -1);
-    faces.push_back(back);
-
-    // Top face (y+) - CCW from outside
-    Face top;
-    top.vertices = {v3, v7, v6, v2};
-    top.normal = Vec3(0, 1, 0);
-    faces.push_back(top);
-
-    // Bottom face (y-) - CCW from outside
-    Face bottom;
-    bottom.vertices = {v0, v1, v5, v4};
-    bottom.normal = Vec3(0, -1, 0);
-    faces.push_back(bottom);
-
-    // Right face (x+) - CCW from outside
-    Face right;
-    right.vertices = {v5, v1, v2, v6};
-    right.normal = Vec3(1, 0, 0);
-    faces.push_back(right);
-
-    // Left face (x-) - CCW from outside
-    Face left;
-    left.vertices = {v0, v4, v7, v3};
-    left.normal = Vec3(-1, 0, 0);
-    faces.push_back(left);
-
-    return faces;
 }
 
 std::vector<Face> FaceGenerator::GenerateCone(const ShapeParams& s) const
@@ -279,70 +221,6 @@ std::vector<Face> FaceGenerator::GenerateTorus(const ShapeParams& s) const
             faces.push_back(f);
         }
     }
-
-    return faces;
-}
-
-std::vector<Face> FaceGenerator::GenerateFrustum(const ShapeParams& s) const
-{
-    std::vector<Face> faces;
-    int n = s.segments;
-    float rt = s.top_radius;
-    float rb = s.bottom_radius;
-    float hh = s.height * 0.5f;
-
-    // Generate circle vertices
-    std::vector<Vec3> top_verts(n), bot_verts(n);
-    for (int i = 0; i < n; ++i) {
-        float angle = 2.0f * static_cast<float>(M_PI) * i / n;
-        float ca = std::cos(angle);
-        float sa = std::sin(angle);
-        top_verts[i] = Vec3(rt * ca, hh, rt * sa);
-        bot_verts[i] = Vec3(rb * ca, -hh, rb * sa);
-    }
-
-    if (rt > 0.0f) {
-        // Lateral quad faces
-        for (int i = 0; i < n; ++i) {
-            int next = (i + 1) % n;
-            Face f;
-            f.vertices = {bot_verts[i], bot_verts[next], top_verts[next], top_verts[i]};
-
-            // Compute outward normal for frustum side
-            Vec3 e1 = bot_verts[next] - bot_verts[i];
-            Vec3 e2 = top_verts[i] - bot_verts[i];
-            f.normal = e1.Cross(e2).Normalized();
-            faces.push_back(f);
-        }
-
-        // Top cap (N-gon, normal +Y)
-        Face top_cap;
-        top_cap.normal = Vec3(0, 1, 0);
-        for (int i = 0; i < n; ++i) {
-            top_cap.vertices.push_back(top_verts[i]);
-        }
-        faces.push_back(top_cap);
-    } else {
-        // Degenerate to cone — triangular lateral faces
-        Vec3 tip(0, hh, 0);
-        for (int i = 0; i < n; ++i) {
-            int next = (i + 1) % n;
-            Face f;
-            f.vertices = {bot_verts[i], bot_verts[next], tip};
-            Vec3 e1 = bot_verts[next] - bot_verts[i];
-            Vec3 e2 = tip - bot_verts[i];
-            f.normal = e1.Cross(e2).Normalized();
-            faces.push_back(f);
-        }
-    }
-
-    // Bottom cap (N-gon, normal -Y)
-    Face bot_cap;
-    bot_cap.normal = Vec3(0, -1, 0);
-    for (int i = n - 1; i >= 0; --i) {
-        bot_cap.vertices.push_back(bot_verts[i]);
-    }
-    faces.push_back(bot_cap);
 
     return faces;
 }

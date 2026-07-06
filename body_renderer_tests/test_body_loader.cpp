@@ -14,11 +14,6 @@ static ShapeParams GenValidShape(ShapeType type)
     ShapeParams s;
     s.type = type;
     switch (type) {
-    case ShapeType::Box:
-        s.width = *rc::gen::inRange(1, 100) / 10.0f;
-        s.height = *rc::gen::inRange(1, 100) / 10.0f;
-        s.depth = *rc::gen::inRange(1, 100) / 10.0f;
-        break;
     case ShapeType::Cone:
         s.radius = *rc::gen::inRange(1, 50) / 10.0f;
         s.height = *rc::gen::inRange(1, 50) / 10.0f;
@@ -40,12 +35,6 @@ static ShapeParams GenValidShape(ShapeType type)
         s.ring_segments = *rc::gen::inRange(3, 32);
         s.side_segments = *rc::gen::inRange(3, 16);
         break;
-    case ShapeType::Frustum:
-        s.bottom_radius = *rc::gen::inRange(10, 50) / 10.0f;
-        s.top_radius = *rc::gen::inRange(1, 9) / 10.0f;
-        s.height = *rc::gen::inRange(1, 50) / 10.0f;
-        s.segments = *rc::gen::inRange(3, 32);
-        break;
     }
     return s;
 }
@@ -56,7 +45,7 @@ void RunBodyLoaderTests()
 
     // Property 1: JSON Round-Trip
     rc::check("Property 1: JSON round-trip preserves structure", []() {
-        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 6));
+        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 4));
         ShapeParams shape = GenValidShape(type);
 
         Body body;
@@ -77,11 +66,6 @@ void RunBodyLoaderTests()
         // Check float values within epsilon
         float eps = 1e-4f;
         switch (type) {
-        case ShapeType::Box:
-            RC_ASSERT(std::fabs(result.body.root.shape.width - body.root.shape.width) < eps);
-            RC_ASSERT(std::fabs(result.body.root.shape.height - body.root.shape.height) < eps);
-            RC_ASSERT(std::fabs(result.body.root.shape.depth - body.root.shape.depth) < eps);
-            break;
         case ShapeType::Cone:
         case ShapeType::Cylinder:
             RC_ASSERT(std::fabs(result.body.root.shape.radius - body.root.shape.radius) < eps);
@@ -99,12 +83,6 @@ void RunBodyLoaderTests()
             RC_ASSERT(result.body.root.shape.ring_segments == body.root.shape.ring_segments);
             RC_ASSERT(result.body.root.shape.side_segments == body.root.shape.side_segments);
             break;
-        case ShapeType::Frustum:
-            RC_ASSERT(std::fabs(result.body.root.shape.top_radius - body.root.shape.top_radius) < eps);
-            RC_ASSERT(std::fabs(result.body.root.shape.bottom_radius - body.root.shape.bottom_radius) < eps);
-            RC_ASSERT(std::fabs(result.body.root.shape.height - body.root.shape.height) < eps);
-            RC_ASSERT(result.body.root.shape.segments == body.root.shape.segments);
-            break;
         }
     });
 
@@ -121,15 +99,20 @@ void RunBodyLoaderTests()
         LoadResult r2 = loader.LoadFromString("{\"name\": \"test\"}");
         RC_ASSERT(!r2.success);
 
-        // Unknown shape type
+        // Unknown shape type (box is now invalid)
         LoadResult r3 = loader.LoadFromString(
-            "{\"name\":\"x\",\"shape\":{\"type\":\"hexagon\",\"width\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}");
+            "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"box\",\"width\":1,\"height\":1,\"depth\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
         RC_ASSERT(!r3.success);
 
-        // Missing dimension field
+        // Frustum is now invalid
         LoadResult r4 = loader.LoadFromString(
-            "{\"name\":\"x\",\"shape\":{\"type\":\"box\",\"width\":1,\"height\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}");
-        RC_ASSERT(!r4.success);  // missing depth
+            "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"frustum\",\"top_radius\":0.1,\"bottom_radius\":0.5,\"height\":1,\"sides\":8},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
+        RC_ASSERT(!r4.success);
+
+        // Missing dimension field for cylinder
+        LoadResult r5 = loader.LoadFromString(
+            "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"cylinder\",\"radius\":1,\"height\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
+        RC_ASSERT(!r5.success);  // missing sides
     });
 
     printf("  PASS\n");

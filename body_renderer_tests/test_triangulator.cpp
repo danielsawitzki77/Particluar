@@ -17,13 +17,10 @@ void RunTriangulatorTests()
         FaceGenerator faceGen;
         Triangulator tri;
 
-        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 6));
+        ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 4));
         ShapeParams s;
         s.type = type;
         switch (type) {
-        case ShapeType::Box:
-            s.width = 1.0f; s.height = 1.0f; s.depth = 1.0f;
-            break;
         case ShapeType::Cone:
             s.radius = 1.0f; s.height = 2.0f; s.segments = *rc::gen::inRange(3, 16);
             break;
@@ -36,10 +33,6 @@ void RunTriangulatorTests()
         case ShapeType::Torus:
             s.major_radius = 2.0f; s.minor_radius = 0.5f;
             s.ring_segments = *rc::gen::inRange(3, 12); s.side_segments = *rc::gen::inRange(3, 8);
-            break;
-        case ShapeType::Frustum:
-            s.bottom_radius = 2.0f; s.top_radius = 0.5f; s.height = 2.0f;
-            s.segments = *rc::gen::inRange(3, 16);
             break;
         }
 
