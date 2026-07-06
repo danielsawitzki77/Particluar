@@ -1,5 +1,5 @@
 // ============================================================
-// Particluar Tileset Editor — app.js
+// Tile-O-Matic — app.js
 // Tileset Configurator + Level Editor with zoom, labels, filters
 // ============================================================
 
@@ -33,7 +33,7 @@
 
   // --- Close Button ---
   document.getElementById('close-server-btn').addEventListener('click', async () => {
-    if (!confirm('Shut down the Tileset Editor server?')) return;
+    if (!confirm('Shut down the Tile-O-Matic server?')) return;
     try { await fetch('/api/shutdown', { method: 'POST' }); } catch(e) {}
     document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#e0e0e0;font-family:sans-serif"><h1>Editor closed.</h1></div>';
     setTimeout(() => window.close(), 1000);
@@ -56,9 +56,26 @@
         btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#e0e0e0;border:1px solid #4fc3f7;border-radius:3px;cursor:pointer;font-size:11px;';
       } else if (id === 'import-tmx-btn') {
         btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0f3460;color:#ff9800;border:1px solid #ff9800;border-radius:3px;cursor:pointer;font-size:11px;';
+      } else if (id === 'auto-neighbor-btn-global') {
+        btn.style.cssText = 'padding:5px 10px;background:#4caf50;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;';
       }
     } else {
-      btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;';
+      if (id === 'auto-neighbor-btn-global') {
+        btn.style.cssText = 'padding:5px 10px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;font-weight:600;';
+      } else {
+        btn.style.cssText = 'width:100%;margin-top:6px;padding:6px;background:#0a0a1a;color:#555;border:1px solid #333;border-radius:3px;cursor:not-allowed;font-size:11px;';
+      }
+    }
+  }
+
+  // Update Auto-Neighbor button enabled state based on current tileset
+  function updateAutoNeighborBtnState() {
+    const hasEnoughTiles = currentTilesetData && currentTilesetImage && currentTilesetData.tiles && currentTilesetData.tiles.length >= 2;
+    enableBtn('auto-neighbor-btn-global', !!hasEnoughTiles);
+    const thresholdInput = document.getElementById('auto-neighbor-threshold');
+    if (thresholdInput) {
+      thresholdInput.disabled = !hasEnoughTiles;
+      thresholdInput.style.opacity = hasEnoughTiles ? '1' : '0.4';
     }
   }
 
@@ -117,6 +134,117 @@
     return true;
   }
 
+  // --- Edge pixel helpers (for Auto-Neighbor) ---
+  // Extract a single pixel column (x offset within srcRect) as Uint8ClampedArray [r,g,b,a, r,g,b,a, ...]
+  function getEdgeColumn(srcRect, xOffset) {
+    if (!currentTilesetImage) return null;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 1;
+    offscreen.height = srcRect.h;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(currentTilesetImage, srcRect.x + xOffset, srcRect.y, 1, srcRect.h, 0, 0, 1, srcRect.h);
+    return octx.getImageData(0, 0, 1, srcRect.h).data;
+  }
+
+  // Extract a single pixel row (y offset within srcRect) as Uint8ClampedArray [r,g,b,a, r,g,b,a, ...]
+  function getEdgeRow(srcRect, yOffset) {
+    if (!currentTilesetImage) return null;
+    const offscreen = document.createElement('canvas');
+    offscreen.width = srcRect.w;
+    offscreen.height = 1;
+    const octx = offscreen.getContext('2d');
+    octx.drawImage(currentTilesetImage, srcRect.x, srcRect.y + yOffset, srcRect.w, 1, 0, 0, srcRect.w, 1);
+    return octx.getImageData(0, 0, srcRect.w, 1).data;
+  }
+
+  // Compare two edge pixel arrays using RGBA vector similarity.
+  // Returns the fraction of pixels that are "similar" (0.0 to 1.0).
+  // Two pixels are similar if their RGBA Euclidean distance is within threshold (max distance = 510 = sqrt(255^2*4)).
+  function edgeSimilarity(edgeA, edgeB) {
+    if (!edgeA || !edgeB || edgeA.length !== edgeB.length) return 0;
+    const pixelCount = edgeA.length / 4;
+    if (pixelCount === 0) return 0;
+    let matchingPixels = 0;
+    // Max distance for a single pixel: sqrt(255^2 + 255^2 + 255^2 + 255^2) â‰ˆ 510
+    const maxDist = 510;
+    // Per-pixel threshold: allow ~10% color deviation per channel
+    const pixelThreshold = maxDist * 0.1; // ~51 distance units
+    for (let i = 0; i < pixelCount; i++) {
+      const off = i * 4;
+      const dr = edgeA[off] - edgeB[off];
+      const dg = edgeA[off + 1] - edgeB[off + 1];
+      const db = edgeA[off + 2] - edgeB[off + 2];
+      const da = edgeA[off + 3] - edgeB[off + 3];
+      const dist = Math.sqrt(dr * dr + dg * dg + db * db + da * da);
+      if (dist <= pixelThreshold) matchingPixels++;
+    }
+    return matchingPixels / pixelCount;
+  }
+
+  // Auto-Neighbor: for all tile pairs, if they share an edge on the tileset image
+  // and their edge pixels are similar enough, add adjacency metadata to both.
+  function autoNeighborAll(similarityThreshold) {
+    if (!currentTilesetData || !currentTilesetImage) return 0;
+    const tiles = currentTilesetData.tiles;
+    let addedCount = 0;
+
+    for (let i = 0; i < tiles.length; i++) {
+      for (let j = i + 1; j < tiles.length; j++) {
+        const a = tiles[i], b = tiles[j];
+        const arect = a.source_rect, brect = b.source_rect;
+
+        // Ensure adjacency objects exist
+        if (!a.adjacency) a.adjacency = { up: [], down: [], left: [], right: [] };
+        if (!b.adjacency) b.adjacency = { up: [], down: [], left: [], right: [] };
+
+        // Check: A's right edge touches B's left edge (A is left of B)
+        if (arect.x + arect.w === brect.x && arect.h === brect.h && arect.y === brect.y) {
+          const edgeA = getEdgeColumn(arect, arect.w - 1); // rightmost column of A
+          const edgeB = getEdgeColumn(brect, 0);            // leftmost column of B
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            if (!a.adjacency.right.includes(b.id)) { a.adjacency.right.push(b.id); addedCount++; }
+            if (!b.adjacency.left.includes(a.id)) { b.adjacency.left.push(a.id); addedCount++; }
+          }
+        }
+
+        // Check: B's right edge touches A's left edge (B is left of A)
+        if (brect.x + brect.w === arect.x && arect.h === brect.h && arect.y === brect.y) {
+          const edgeB = getEdgeColumn(brect, brect.w - 1); // rightmost column of B
+          const edgeA = getEdgeColumn(arect, 0);            // leftmost column of A
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            if (!b.adjacency.right.includes(a.id)) { b.adjacency.right.push(a.id); addedCount++; }
+            if (!a.adjacency.left.includes(b.id)) { a.adjacency.left.push(b.id); addedCount++; }
+          }
+        }
+
+        // Check: A's bottom edge touches B's top edge (A is above B)
+        if (arect.y + arect.h === brect.y && arect.w === brect.w && arect.x === brect.x) {
+          const edgeA = getEdgeRow(arect, arect.h - 1); // bottom row of A
+          const edgeB = getEdgeRow(brect, 0);            // top row of B
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            if (!a.adjacency.down.includes(b.id)) { a.adjacency.down.push(b.id); addedCount++; }
+            if (!b.adjacency.up.includes(a.id)) { b.adjacency.up.push(a.id); addedCount++; }
+          }
+        }
+
+        // Check: B's bottom edge touches A's top edge (B is above A)
+        if (brect.y + brect.h === arect.y && arect.w === brect.w && arect.x === brect.x) {
+          const edgeB = getEdgeRow(brect, brect.h - 1); // bottom row of B
+          const edgeA = getEdgeRow(arect, 0);            // top row of A
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
+            if (!a.adjacency.up.includes(b.id)) { a.adjacency.up.push(b.id); addedCount++; }
+          }
+        }
+      }
+    }
+    return addedCount;
+  }
+
   // --- Tileset list ---
   async function loadTilesetList() {
     try {
@@ -130,12 +258,12 @@
         const parts = name.split('/');
         const folderName = parts[parts.length - 1];
         const pathPrefix = parts.length > 1 ? parts.slice(0, -1).join('/') + '/' : '';
-        div.innerHTML = `<span style="opacity:0.5;font-size:11px">${escapeHtml(pathPrefix)}</span>${escapeHtml(folderName)} 📁`;
+        div.innerHTML = `<span style="opacity:0.5;font-size:11px">${escapeHtml(pathPrefix)}</span>${escapeHtml(folderName)} &#x1F4C1;`;
         div.dataset.path = name;
         div.addEventListener('click', () => selectTileset(name));
         tilesetList.appendChild(div);
       });
-      populateLETilesetSelect(tilesets);
+      populateLEFolderList(tilesets);
     } catch (err) {
       setStatus('Error loading tileset list');
     }
@@ -153,6 +281,7 @@
     // Enable "Open in Explorer" now that a folder is picked
     enableBtn('open-explorer-btn', true);
     enableBtn('import-tmx-btn', false); // need a sheet first
+    enableBtn('auto-neighbor-btn-global', false); // need tiles first
     setStatus(`Loading tileset: ${name}...`);
     try {
       const res = await fetch(`/api/tilesets/${name}/sheets`);
@@ -364,8 +493,12 @@
   // --- Created Tiles list (persists across grid changes) ---
   function renderCreatedTilesList() {
     const container = document.getElementById('created-tiles-list');
-    if (!container || !currentTilesetData) return;
+    if (!container || !currentTilesetData) {
+      updateAutoNeighborBtnState();
+      return;
+    }
     const tiles = currentTilesetData.tiles;
+    updateAutoNeighborBtnState();
     let html = '';
 
     // Show "Create Tile" button if a cell is highlighted but no tile exists there
@@ -488,15 +621,19 @@
 
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
-      <br><strong>Src:</strong> (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}
-      <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">🗑 Remove Duplicates</button>
+      <div style="color:#a0a0a0;">Src: (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}</div>
+      <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">&#x1F5D1; Remove Duplicates</button>
     </div>`;
 
     // Labels assignment
     html += '<div class="adjacency-section"><h4>Labels</h4><div class="adjacency-list">';
-    tile.labels.forEach((l, i) => {
-      html += `<span class="adj-tag">${escapeHtml(l)} <span class="remove-tile-label" data-idx="${i}">&times;</span></span>`;
-    });
+    if (tile.labels.length === 0) {
+      html += '<span style="color:#a0a0a0;font-size:11px;font-style:italic;">- No Labels Set -</span>';
+    } else {
+      tile.labels.forEach((l, i) => {
+        html += `<span class="adj-tag">${escapeHtml(l)} <span class="remove-tile-label" data-idx="${i}">&times;</span></span>`;
+      });
+    }
     html += '</div>';
     if (allLabels.length > 0) {
       const available = allLabels.filter(l => !tile.labels.includes(l));
@@ -615,6 +752,38 @@
       });
     });
   }
+
+  // --- Global Auto-Neighbor button (tileset-level operation) ---
+  document.getElementById('auto-neighbor-btn-global').addEventListener('click', () => {
+    if (!currentTilesetData || !currentTilesetImage) {
+      setStatus('Load a tileset sheet first.');
+      return;
+    }
+    if (currentTilesetData.tiles.length < 2) {
+      setStatus('Need at least 2 tiles for auto-neighbor detection.');
+      return;
+    }
+    // Check if any tiles already have adjacency data
+    const tilesWithAdjacency = currentTilesetData.tiles.filter(t => t.adjacency &&
+      (t.adjacency.up?.length || t.adjacency.down?.length || t.adjacency.left?.length || t.adjacency.right?.length));
+    if (tilesWithAdjacency.length > 0) {
+      if (!confirm(`Warning: ${tilesWithAdjacency.length} tile(s) already have neighbor/adjacency data. Auto-Neighbor will add new links (existing links are preserved). Continue?`)) {
+        return;
+      }
+    }
+    const thresholdInput = document.getElementById('auto-neighbor-threshold');
+    const thresholdPct = Math.max(0, Math.min(100, parseInt(thresholdInput.value) || 90));
+    const threshold = thresholdPct / 100;
+    const added = autoNeighborAll(threshold);
+    if (added === 0) {
+      alert('Auto-Neighbor complete: no new adjacency links found at ' + thresholdPct + '% similarity.');
+      setStatus(`Auto-Neighbor: no new adjacency links found at ${thresholdPct}% similarity.`);
+    } else {
+      alert('Auto-Neighbor complete: added ' + added + ' adjacency link(s) at ' + thresholdPct + '% similarity.');
+      setStatus(`Auto-Neighbor: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+    }
+    renderTileInfo();
+  });
 
   // Save
   // Save with overwrite confirmation and feedback
@@ -803,7 +972,7 @@
       }
       // Browse button for native file picker
       const browseBtn = document.createElement('button');
-      browseBtn.textContent = '📂 Browse for .tmx file...';
+      browseBtn.textContent = '\u{1F4C2} Browse for .tmx file...';
       browseBtn.style.cssText = 'display:block;width:100%;padding:10px;margin-bottom:6px;background:#1a1a2e;color:#4fc3f7;border:1px solid #4fc3f7;border-radius:4px;cursor:pointer;font-size:12px';
       browseBtn.addEventListener('click', () => {
         document.body.removeChild(overlay);
@@ -902,7 +1071,7 @@
     if (input) input.addEventListener('input', renderTilesetCanvas);
   });
 
-  // Step buttons (▲▼ ±1, ▲▲▼▼ ±8, ▲▲▲▼▼▼ ±16)
+  // Step buttons (â–²â–¼ Â±1, â–²â–²â–¼â–¼ Â±8, â–²â–²â–²â–¼â–¼â–¼ Â±16)
   document.querySelectorAll('.step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = document.getElementById(btn.dataset.target);
@@ -930,7 +1099,7 @@
     if (blockerDrawMode) {
       drawBlockerBtn.style.background = '#ff6b6b';
       drawBlockerBtn.style.color = '#1a1a2e';
-      drawBlockerBtn.textContent = '■ Blocker ON';
+      drawBlockerBtn.textContent = 'â–  Blocker ON';
       tilesetCanvas.style.cursor = 'crosshair';
     } else {
       drawBlockerBtn.style.background = '#1a1a2e';
@@ -995,7 +1164,7 @@
     blockerRects.push(newRect);
     pushBlockerHistory();
     selectedBlockerIndex = blockerRects.length - 1;
-    setStatus(`Blocker added: (${x},${y}) ${w}×${h}`);
+    setStatus(`Blocker added: (${x},${y}) ${w}x${h}`);
     renderTilesetCanvas();
     renderBlockersList();
   });
@@ -1047,7 +1216,7 @@
     blockerRects.forEach((r, i) => {
       const active = (i === selectedBlockerIndex) ? ' active' : '';
       html += `<div class="blocker-item${active}" data-idx="${i}">
-        <span>(${r.x},${r.y}) ${r.w}×${r.h}</span>
+        <span>(${r.x},${r.y}) ${r.w}x${r.h}</span>
         <span class="del-blocker" data-idx="${i}">&times;</span>
       </div>`;
     });
@@ -1073,72 +1242,137 @@
         else if (selectedBlockerIndex > idx) selectedBlockerIndex--;
         renderTilesetCanvas();
         renderBlockersList();
-        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}×${removed.h}`);
+        setStatus(`Blocker removed: (${removed.x},${removed.y}) ${removed.w}x${removed.h}`);
       });
     });
   }
 
+
   // ============================================================
-  // LEVEL EDITOR (with label filter)
+  // LEVEL EDITOR — Redesigned with Selection Slot workflow
   // ============================================================
 
-  const leWidthInput = document.getElementById('le-width');
-  const leHeightInput = document.getElementById('le-height');
-  const leTilesetSelect = document.getElementById('le-tileset-select');
+  const leFolderList = document.getElementById('le-folder-list');
+  const leJsonSelect = document.getElementById('le-json-select');
   const leLoadBtn = document.getElementById('le-load-btn');
-  const leNewGridBtn = document.getElementById('le-new-grid-btn');
   const leExportBtn = document.getElementById('le-export-btn');
   const lePalette = document.getElementById('le-palette');
   const levelCanvas = document.getElementById('level-canvas');
   const lCtx = levelCanvas.getContext('2d');
   const leLabelFilter = document.getElementById('le-label-filter');
+  const leSlotEl = document.getElementById('le-selection-slot');
+  const leDetailPanel = document.getElementById('le-tile-detail');
 
-  let leGrid = [];
-  let leGridW = 16, leGridH = 16;
+  // State
   let leTilesetName = null;
   let leTilesetData = null;
   let leTilesetImage = null;
-  let leSelectedTileId = null;
-  let leCellW = 32, leCellH = 32;
+  let leSelectedPaletteId = null;
   let leActiveLabelFilter = '';
+  let leZoom = 1.0;
+  let leGridCellW = 16, leGridCellH = 16, leGridOffX = 0, leGridOffY = 0;
+  let leMapW = 20, leMapH = 15; // map size in cells
+  let leShowBlockers = false;
+  let leMode = 'free'; // 'free' | 'picking' | 'constrained'
+  let leSlottedTile = null; // { tile_id, x, y, w, h }
+  let lePlacedTiles = []; // Array of { tile_id, x, y, w, h }
+  let leHoveredPaletteId = null;
+  let leHoverWarningTile = null; // tile that would be removed on placement
+  let leSelectedFolder = null; // currently selected folder name
 
-  function populateLETilesetSelect(tilesets) {
-    leTilesetSelect.innerHTML = '<option value="">-- Select Tileset --</option>';
-    tilesets.forEach(name => {
-      const opt = document.createElement('option');
-      opt.value = name; opt.textContent = name;
-      leTilesetSelect.appendChild(opt);
+  // --- Folder list population (matching configurator style) ---
+  function populateLEFolderList(tilesets) {
+    if (!leFolderList) return;
+    leFolderList.innerHTML = '';
+    // Extract unique folder paths
+    const folders = [...new Set(tilesets.map(name => name.split('/')[0]))];
+    folders.forEach(folder => {
+      const div = document.createElement('div');
+      div.className = 'tileset-item';
+      div.textContent = folder;
+      div.dataset.folder = folder;
+      div.addEventListener('click', () => selectLEFolder(folder));
+      leFolderList.appendChild(div);
     });
   }
 
+  async function selectLEFolder(folder) {
+    // Highlight selected folder
+    if (leFolderList) {
+      leFolderList.querySelectorAll('.tileset-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.folder === folder);
+      });
+    }
+    leSelectedFolder = folder;
+    // Fetch JSON files in this folder
+    try {
+      const res = await fetch(`/api/tilesets/${folder}/jsons`);
+      const jsons = await res.json();
+      leJsonSelect.innerHTML = '';
+      leJsonSelect.disabled = false;
+      if (jsons.length === 0) {
+        leJsonSelect.innerHTML = '<option value="">No JSON files found</option>';
+        leJsonSelect.disabled = true;
+        return;
+      }
+      if (jsons.length === 1) {
+        const opt = document.createElement('option');
+        opt.value = jsons[0]; opt.textContent = jsons[0];
+        leJsonSelect.appendChild(opt);
+      } else {
+        jsons.forEach(jsonFile => {
+          const opt = document.createElement('option');
+          opt.value = jsonFile; opt.textContent = jsonFile;
+          leJsonSelect.appendChild(opt);
+        });
+      }
+    } catch (err) {
+      leJsonSelect.innerHTML = '<option value="">Error loading JSONs</option>';
+      leJsonSelect.disabled = true;
+    }
+  }
+
+  // --- Load tileset ---
   leLoadBtn.addEventListener('click', async () => {
-    const name = leTilesetSelect.value;
-    if (!name) { setStatus('Select a tileset first'); return; }
+    if (!leSelectedFolder) { setStatus('Select a tileset folder first'); return; }
+    const jsonFile = leJsonSelect.value;
+    if (!jsonFile) { setStatus('Select a JSON tileset file first'); return; }
+    const name = leSelectedFolder;
+    const sheetBase = jsonFile.replace(/\.json$/i, '');
     try {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       await new Promise((resolve, reject) => {
         img.onload = resolve; img.onerror = reject;
-        img.src = `/api/tilesets/${name}/image?t=${Date.now()}`;
+        img.src = `/api/tilesets/${name}/sheets/${sheetBase}.png?t=${Date.now()}`;
       });
       leTilesetImage = img;
-      const res = await fetch(`/api/tilesets/${name}/json`);
-      leTilesetData = res.ok ? await res.json() : { tiles: [], labels: [] };
+      const res = await fetch(`/api/tilesets/${name}/json/${sheetBase}`);
+      leTilesetData = res.ok ? await res.json() : { tiles: [], labels: [], blockers: [] };
       if (!leTilesetData.tiles) leTilesetData.tiles = [];
       if (!leTilesetData.labels) leTilesetData.labels = [];
+      if (!leTilesetData.blockers) leTilesetData.blockers = [];
       leTilesetName = name;
-      leSelectedTileId = null;
+      leSelectedPaletteId = null;
+      leSlottedTile = null;
+      leMode = 'free';
+      lePlacedTiles = [];
       if (leTilesetData.tiles.length > 0 && leTilesetData.tiles[0].source_rect) {
-        leCellW = leTilesetData.tiles[0].source_rect.w || 32;
-        leCellH = leTilesetData.tiles[0].source_rect.h || 32;
+        leGridCellW = leTilesetData.tiles[0].source_rect.w || 16;
+        leGridCellH = leTilesetData.tiles[0].source_rect.h || 16;
+        document.getElementById('le-cell-w').value = leGridCellW;
+        document.getElementById('le-cell-h').value = leGridCellH;
       }
       populateLELabelFilter();
+      updateSlotUI();
       renderLEPalette();
       renderLECanvas();
-      setStatus(`Level Editor: Loaded '${name}' (${leTilesetData.tiles.length} tiles)`);
+      renderLEDetail();
+      setStatus(`Level Editor: Loaded '${name}/${jsonFile}' (${leTilesetData.tiles.length} tiles)`);
     } catch (err) { setStatus(`Error: ${err.message}`); }
   });
 
+  // --- Label filter ---
   function populateLELabelFilter() {
     if (!leLabelFilter || !leTilesetData) return;
     leLabelFilter.innerHTML = '<option value="">All tiles</option>';
@@ -1148,232 +1382,311 @@
       leLabelFilter.appendChild(opt);
     });
   }
-
   if (leLabelFilter) {
     leLabelFilter.addEventListener('change', () => {
       leActiveLabelFilter = leLabelFilter.value;
-      if (leJigsawMode) renderLEPaletteJigsaw();
-      else renderLEPalette();
+      renderLEPalette();
     });
   }
 
-  leNewGridBtn.addEventListener('click', () => {
-    leGridW = Math.max(1, Math.min(256, parseInt(leWidthInput.value) || 16));
-    leGridH = Math.max(1, Math.min(256, parseInt(leHeightInput.value) || 16));
-    leWidthInput.value = leGridW; leHeightInput.value = leGridH;
-    leGrid = [];
-    for (let r = 0; r < leGridH; r++) leGrid.push(new Array(leGridW).fill(''));
+  // --- Zoom ---
+  const leZoomIn = document.getElementById('le-zoom-in');
+  const leZoomOut = document.getElementById('le-zoom-out');
+  const leZoomLabel = document.getElementById('le-zoom-label');
+  function updateLeZoom(delta) {
+    leZoom = Math.max(0.25, Math.min(4, +(leZoom + delta).toFixed(2)));
+    leZoomLabel.textContent = leZoom + 'x';
     renderLECanvas();
-    setStatus(`New grid: ${leGridW}x${leGridH}`);
+  }
+  leZoomIn.addEventListener('click', () => updateLeZoom(0.25));
+  leZoomOut.addEventListener('click', () => updateLeZoom(-0.25));
+
+  // --- Blocker toggle ---
+  const leBlockerMode = document.getElementById('le-blocker-mode');
+  leBlockerMode.addEventListener('change', () => {
+    leShowBlockers = leBlockerMode.value !== 'off';
+    renderLECanvas();
   });
 
-  function renderLEPalette() {
-    lePalette.innerHTML = '';
-    if (!leTilesetData || !leTilesetImage) return;
-    const tiles = leTilesetData.tiles.filter(t => {
-      if (!leActiveLabelFilter) return true;
-      return (t.labels || []).includes(leActiveLabelFilter);
+  // --- Grid param step buttons (reuse configurator pattern) ---
+  document.querySelectorAll('.le-controls-bar .step-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
+      const step = parseInt(btn.dataset.step) || 0;
+      target.value = Math.max(1, (parseInt(target.value) || 0) + step);
+      leGridCellW = Math.max(1, parseInt(document.getElementById('le-cell-w').value) || 16);
+      leGridCellH = Math.max(1, parseInt(document.getElementById('le-cell-h').value) || 16);
+      leGridOffX = Math.max(0, parseInt(document.getElementById('le-off-x').value) || 0);
+      leGridOffY = Math.max(0, parseInt(document.getElementById('le-off-y').value) || 0);
+      leMapW = Math.max(1, parseInt(document.getElementById('le-map-w').value) || 20);
+      leMapH = Math.max(1, parseInt(document.getElementById('le-map-h').value) || 15);
+      renderLECanvas();
     });
-    tiles.forEach(tile => {
-      const div = document.createElement('div');
-      div.className = 'palette-tile';
-      div.title = tile.id + (tile.labels && tile.labels.length ? ' [' + tile.labels.join(', ') + ']' : '');
-      const c = document.createElement('canvas');
-      c.width = tile.source_rect.w; c.height = tile.source_rect.h;
-      c.getContext('2d').drawImage(leTilesetImage,
-        tile.source_rect.x, tile.source_rect.y, tile.source_rect.w, tile.source_rect.h,
-        0, 0, tile.source_rect.w, tile.source_rect.h);
-      div.appendChild(c);
-      div.addEventListener('click', () => {
-        document.querySelectorAll('.palette-tile').forEach(el => el.classList.remove('selected'));
-        div.classList.add('selected');
-        leSelectedTileId = tile.id;
-        setStatus(`Selected: ${tile.id}`);
-      });
-      lePalette.appendChild(div);
+  });
+
+  // --- Map/grid size inputs: sync on direct typing ---
+  ['le-map-w', 'le-map-h', 'le-cell-w', 'le-cell-h', 'le-off-x', 'le-off-y'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => {
+      leGridCellW = Math.max(1, parseInt(document.getElementById('le-cell-w').value) || 16);
+      leGridCellH = Math.max(1, parseInt(document.getElementById('le-cell-h').value) || 16);
+      leGridOffX = Math.max(0, parseInt(document.getElementById('le-off-x').value) || 0);
+      leGridOffY = Math.max(0, parseInt(document.getElementById('le-off-y').value) || 0);
+      leMapW = Math.max(1, parseInt(document.getElementById('le-map-w').value) || 20);
+      leMapH = Math.max(1, parseInt(document.getElementById('le-map-h').value) || 15);
+      renderLECanvas();
     });
-    if (tiles.length === 0) {
-      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px">No tiles match filter</p>';
+  });
+
+  // --- Selection Slot ---
+  function updateSlotUI() {
+    if (leMode === 'picking') {
+      leSlotEl.className = 'le-slot picking';
+      leSlotEl.innerHTML = '<span class="le-slot-placeholder">&#x1F3AF; Click a tile on the map...</span>';
+    } else if (leSlottedTile && leTilesetData && leTilesetImage) {
+      leSlotEl.className = 'le-slot occupied';
+      const td = leTilesetData.tiles.find(t => t.id === leSlottedTile.tile_id);
+      let html = '<div class="le-slot-content">';
+      if (td) {
+        html += `<canvas width="${td.source_rect.w}" height="${td.source_rect.h}" style="width:48px;height:48px;image-rendering:pixelated;" id="le-slot-canvas"></canvas>`;
+        html += `<span style="font-size:11px;color:#e0e0e0;">${escapeHtml(td.id)}</span>`;
+      } else {
+        html += `<span style="font-size:11px;color:#ff6b6b;">Unknown: ${escapeHtml(leSlottedTile.tile_id)}</span>`;
+      }
+      html += '</div>';
+      leSlotEl.innerHTML = html;
+      // Draw thumbnail
+      const slotCanvas = document.getElementById('le-slot-canvas');
+      if (slotCanvas && td) {
+        const sctx = slotCanvas.getContext('2d');
+        sctx.drawImage(leTilesetImage, td.source_rect.x, td.source_rect.y, td.source_rect.w, td.source_rect.h, 0, 0, td.source_rect.w, td.source_rect.h);
+      }
+    } else {
+      leSlotEl.className = 'le-slot';
+      leSlotEl.innerHTML = '<span class="le-slot-placeholder">Click to pick from map</span>';
     }
   }
 
-  function renderLECanvas() {
-    if (leGrid.length === 0) {
-      leGridW = Math.max(1, Math.min(256, parseInt(leWidthInput.value) || 16));
-      leGridH = Math.max(1, Math.min(256, parseInt(leHeightInput.value) || 16));
-      leGrid = [];
-      for (let r = 0; r < leGridH; r++) leGrid.push(new Array(leGridW).fill(''));
+  leSlotEl.addEventListener('click', () => {
+    if (leMode === 'picking') {
+      // Cancel picking
+      leMode = 'free';
+      updateSlotUI();
+      renderLECanvas();
+      setStatus('Pick cancelled');
+    } else if (leSlottedTile) {
+      // Clear slot -> free mode
+      leSlottedTile = null;
+      leMode = 'free';
+      updateSlotUI();
+      renderLEPalette();
+      renderLECanvas();
+      setStatus('Slot cleared — free placement mode');
+    } else {
+      // Enter picking mode
+      leMode = 'picking';
+      updateSlotUI();
+      renderLECanvas();
+      setStatus('Click a placed tile on the map to select it');
     }
-    levelCanvas.width = leGridW * leCellW;
-    levelCanvas.height = leGridH * leCellH;
-    lCtx.imageSmoothingEnabled = false;
-    lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
-    for (let r = 0; r < leGridH; r++) {
-      for (let c = 0; c < leGridW; c++) {
-        const tileId = leGrid[r][c];
-        const dx = c * leCellW, dy = r * leCellH;
-        if (tileId && leTilesetData && leTilesetImage) {
-          const td = leTilesetData.tiles.find(t => t.id === tileId);
-          if (td) lCtx.drawImage(leTilesetImage, td.source_rect.x, td.source_rect.y, td.source_rect.w, td.source_rect.h, dx, dy, leCellW, leCellH);
-          else { lCtx.fillStyle = '#ff00ff'; lCtx.fillRect(dx, dy, leCellW, leCellH); }
+  });
+
+  // --- Adjacency filtering ---
+  function getCompatibleTiles(slottedTileDef) {
+    if (!slottedTileDef || !leTilesetData) return [];
+    const adj = slottedTileDef.adjacency || { up: [], down: [], left: [], right: [] };
+    const results = []; // { tileDef, direction }
+    const seen = new Set();
+    const directions = ['up', 'down', 'left', 'right'];
+    const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+    const arrows = { up: '\u2191', down: '\u2193', left: '\u2190', right: '\u2192' };
+
+    for (const dir of directions) {
+      const list = adj[dir] || [];
+      if (list.length === 0) continue; // unconstrained = skip
+      for (const neighborId of list) {
+        if (seen.has(neighborId)) continue;
+        const nDef = leTilesetData.tiles.find(t => t.id === neighborId);
+        if (!nDef) continue;
+        // Reciprocity check
+        const nAdj = nDef.adjacency || {};
+        const nOppList = nAdj[opposites[dir]] || [];
+        if (nOppList.length === 0 || nOppList.includes(slottedTileDef.id)) {
+          results.push({ tileDef: nDef, direction: dir, arrow: arrows[dir] });
+          seen.add(neighborId);
         }
       }
     }
-    lCtx.strokeStyle = 'rgba(79,195,247,0.3)'; lCtx.lineWidth = 1;
-    for (let x = 0; x <= levelCanvas.width; x += leCellW) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
-    for (let y = 0; y <= levelCanvas.height; y += leCellH) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
+    return results;
   }
 
-  // ============================================================
-  // JIGSAW MODE — snap-to-edge variable-size tile placement
-  // ============================================================
-
-  let leJigsawMode = false;
-  let leJigsawTiles = []; // Array of {tile_id, x, y, w, h}
-
-  const leJigsawToggle = document.getElementById('le-jigsaw-toggle');
-
-  leJigsawToggle.addEventListener('click', () => {
-    leJigsawMode = !leJigsawMode;
-    leJigsawToggle.textContent = leJigsawMode ? 'Jigsaw Mode: On' : 'Jigsaw Mode: Off';
-    leJigsawToggle.style.background = leJigsawMode ? '#ff9800' : '';
-    leJigsawToggle.style.color = leJigsawMode ? '#1a1a2e' : '';
-    if (leJigsawMode) {
-      renderLEPaletteJigsaw();
-      renderLECanvasJigsaw();
-    } else {
-      renderLEPalette();
-      renderLECanvas();
+  // --- Compute placement position ---
+  function computePlacement(slottedTile, candidateDef, direction) {
+    const cw = candidateDef.source_rect.w;
+    const ch = candidateDef.source_rect.h;
+    let x, y;
+    switch (direction) {
+      case 'right': x = slottedTile.x + slottedTile.w; y = slottedTile.y; break;
+      case 'left':  x = slottedTile.x - cw; y = slottedTile.y; break;
+      case 'down':  x = slottedTile.x; y = slottedTile.y + slottedTile.h; break;
+      case 'up':    x = slottedTile.x; y = slottedTile.y - ch; break;
     }
-  });
-
-  function findSnapPosition(candidate, mouseX, mouseY, existingTiles, threshold) {
-    // candidate = {w, h}
-    // Returns {x, y, valid}
-    if (existingTiles.length === 0) {
-      return { x: 0, y: 0, valid: true };
-    }
-    let bestX = mouseX, bestY = mouseY;
-    let bestDist = Infinity;
-    let found = false;
-
-    for (const t of existingTiles) {
-      // Snap to right edge of existing tile
-      const snapRightX = t.x + t.w;
-      // Align top edges
-      const snapRightY = t.y;
-      const dRightTop = Math.hypot(snapRightX - mouseX, snapRightY - mouseY);
-      if (dRightTop < threshold && dRightTop < bestDist) {
-        bestX = snapRightX; bestY = snapRightY; bestDist = dRightTop; found = true;
-      }
-      // Align bottom of existing with top of new
-      const snapRightYB = t.y + t.h - candidate.h;
-      const dRightBot = Math.hypot(snapRightX - mouseX, snapRightYB - mouseY);
-      if (dRightBot < threshold && dRightBot < bestDist) {
-        bestX = snapRightX; bestY = snapRightYB; bestDist = dRightBot; found = true;
-      }
-
-      // Snap to left edge of existing tile
-      const snapLeftX = t.x - candidate.w;
-      const dLeftTop = Math.hypot(snapLeftX - mouseX, t.y - mouseY);
-      if (dLeftTop < threshold && dLeftTop < bestDist) {
-        bestX = snapLeftX; bestY = t.y; bestDist = dLeftTop; found = true;
-      }
-
-      // Snap to bottom edge of existing tile
-      const snapBotY = t.y + t.h;
-      const dBotLeft = Math.hypot(t.x - mouseX, snapBotY - mouseY);
-      if (dBotLeft < threshold && dBotLeft < bestDist) {
-        bestX = t.x; bestY = snapBotY; bestDist = dBotLeft; found = true;
-      }
-      // Align right of existing with right of new
-      const snapBotXR = t.x + t.w - candidate.w;
-      const dBotRight = Math.hypot(snapBotXR - mouseX, snapBotY - mouseY);
-      if (dBotRight < threshold && dBotRight < bestDist) {
-        bestX = snapBotXR; bestY = snapBotY; bestDist = dBotRight; found = true;
-      }
-
-      // Snap to top edge of existing tile
-      const snapTopY = t.y - candidate.h;
-      const dTopLeft = Math.hypot(t.x - mouseX, snapTopY - mouseY);
-      if (dTopLeft < threshold && dTopLeft < bestDist) {
-        bestX = t.x; bestY = snapTopY; bestDist = dTopLeft; found = true;
-      }
-    }
-
-    if (!found) {
-      // Fall back to mouse position (no snap)
-      return { x: mouseX, y: mouseY, valid: false };
-    }
-    return { x: bestX, y: bestY, valid: true };
+    return { tile_id: candidateDef.id, x, y, w: cw, h: ch };
   }
 
-  function jigsawWouldOverlap(candidate, existingTiles) {
-    // candidate = {x, y, w, h}
-    for (const t of existingTiles) {
-      const overlapX = Math.max(0, Math.min(candidate.x + candidate.w, t.x + t.w) - Math.max(candidate.x, t.x));
-      const overlapY = Math.max(0, Math.min(candidate.y + candidate.h, t.y + t.h) - Math.max(candidate.y, t.y));
-      if (overlapX > 0 && overlapY > 0) return true;
+  // --- Find tile at position (overlap check) ---
+  function findTileAtRect(placement) {
+    for (let i = lePlacedTiles.length - 1; i >= 0; i--) {
+      const t = lePlacedTiles[i];
+      // AABB overlap
+      if (t.x < placement.x + placement.w && t.x + t.w > placement.x &&
+          t.y < placement.y + placement.h && t.y + t.h > placement.y) {
+        return i;
+      }
     }
-    return false;
+    return -1;
   }
 
-  function renderLEPaletteJigsaw() {
+  // --- Render palette ---
+  function renderLEPalette() {
     lePalette.innerHTML = '';
     if (!leTilesetData || !leTilesetImage) return;
-    const tiles = leTilesetData.tiles.filter(t => {
-      if (!leActiveLabelFilter) return true;
-      return (t.labels || []).includes(leActiveLabelFilter);
-    });
-    tiles.forEach(tile => {
+
+    let tilesToShow = [];
+    if (leMode === 'constrained' && leSlottedTile) {
+      const slottedDef = leTilesetData.tiles.find(t => t.id === leSlottedTile.tile_id);
+      if (slottedDef) {
+        tilesToShow = getCompatibleTiles(slottedDef);
+      }
+    } else {
+      // Free mode: show all (filtered by label)
+      tilesToShow = leTilesetData.tiles
+        .filter(t => !leActiveLabelFilter || (t.labels || []).includes(leActiveLabelFilter))
+        .map(t => ({ tileDef: t, direction: null, arrow: null }));
+    }
+
+    if (tilesToShow.length === 0) {
+      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">' +
+        (leMode === 'constrained' ? 'No compatible tiles found' : 'No tiles match filter') + '</p>';
+      return;
+    }
+
+    tilesToShow.forEach(({ tileDef, direction, arrow }) => {
       const div = document.createElement('div');
       div.className = 'palette-tile';
-      div.title = tile.id;
+      if (leSelectedPaletteId === tileDef.id) div.classList.add('selected');
+      div.title = tileDef.id + (arrow ? ` (${arrow} ${direction})` : '');
+      div.dataset.tileId = tileDef.id;
+      div.dataset.direction = direction || '';
+
       const c = document.createElement('canvas');
-      // Show at proportional size (capped for display)
-      const maxDim = 64;
-      const scale = Math.min(1, maxDim / Math.max(tile.source_rect.w, tile.source_rect.h));
-      c.width = Math.round(tile.source_rect.w * scale);
-      c.height = Math.round(tile.source_rect.h * scale);
-      c.style.width = c.width + 'px';
-      c.style.height = c.height + 'px';
+      c.width = tileDef.source_rect.w;
+      c.height = tileDef.source_rect.h;
       c.getContext('2d').drawImage(leTilesetImage,
-        tile.source_rect.x, tile.source_rect.y, tile.source_rect.w, tile.source_rect.h,
-        0, 0, c.width, c.height);
+        tileDef.source_rect.x, tileDef.source_rect.y, tileDef.source_rect.w, tileDef.source_rect.h,
+        0, 0, tileDef.source_rect.w, tileDef.source_rect.h);
       div.appendChild(c);
-      if (leSelectedTileId === tile.id) div.classList.add('selected');
+
+      // Direction arrow overlay
+      if (arrow) {
+        const arrowEl = document.createElement('span');
+        arrowEl.className = 'dir-arrow';
+        arrowEl.textContent = arrow;
+        div.appendChild(arrowEl);
+      }
+
+      // Click handler
       div.addEventListener('click', () => {
-        document.querySelectorAll('.palette-tile').forEach(el => el.classList.remove('selected'));
-        div.classList.add('selected');
-        leSelectedTileId = tile.id;
-        setStatus(`Selected: ${tile.id} (${tile.source_rect.w}x${tile.source_rect.h})`);
+        leSelectedPaletteId = tileDef.id;
+        if (leMode === 'constrained' && direction && leSlottedTile) {
+          // Auto-place
+          const placement = computePlacement(leSlottedTile, tileDef, direction);
+          const overlapIdx = findTileAtRect(placement);
+          if (overlapIdx >= 0) lePlacedTiles.splice(overlapIdx, 1);
+          lePlacedTiles.push(placement);
+          // Keep the slotted tile unchanged — user explicitly picks a new slot
+          renderLEPalette();
+          renderLECanvas();
+          setStatus(`Placed ${tileDef.id} ${arrow} of slotted tile`);
+        } else {
+          // Free mode: just select for manual placement
+          renderLEPalette();
+          renderLEDetail();
+          setStatus(`Selected: ${tileDef.id}`);
+        }
       });
+
+      // Hover warning (constrained mode)
+      if (leMode === 'constrained' && direction && leSlottedTile) {
+        div.addEventListener('mouseenter', () => {
+          const placement = computePlacement(leSlottedTile, tileDef, direction);
+          const overlapIdx = findTileAtRect(placement);
+          leHoverWarningTile = overlapIdx >= 0 ? lePlacedTiles[overlapIdx] : null;
+          renderLECanvas();
+        });
+        div.addEventListener('mouseleave', () => {
+          leHoverWarningTile = null;
+          renderLECanvas();
+        });
+      }
+
       lePalette.appendChild(div);
     });
-    if (tiles.length === 0) {
-      lePalette.innerHTML = '<p style="color:#a0a0a0;font-size:11px">No tiles match filter</p>';
-    }
   }
 
-  function renderLECanvasJigsaw() {
-    // Compute canvas size from placed tiles bounding box
-    let maxX = 320, maxY = 240;
-    for (const t of leJigsawTiles) {
-      maxX = Math.max(maxX, t.x + t.w + 32);
-      maxY = Math.max(maxY, t.y + t.h + 32);
+  // --- Tile detail panel (read-only) ---
+  function renderLEDetail() {
+    if (!leSelectedPaletteId || !leTilesetData) {
+      leDetailPanel.innerHTML = '<p style="color:#a0a0a0;font-size:11px;">Select a tile to see its data.</p>';
+      return;
     }
-    levelCanvas.width = maxX;
-    levelCanvas.height = maxY;
+    const td = leTilesetData.tiles.find(t => t.id === leSelectedPaletteId);
+    if (!td) { leDetailPanel.innerHTML = '<p style="color:#ff6b6b;font-size:11px;">Tile not found.</p>'; return; }
+    const adj = td.adjacency || { up: [], down: [], left: [], right: [] };
+    let html = `<div style="margin-bottom:4px;"><strong>${escapeHtml(td.id)}</strong></div>`;
+    html += `<div style="color:#a0a0a0;">Src: (${td.source_rect.x},${td.source_rect.y}) ${td.source_rect.w}x${td.source_rect.h}</div>`;
+    if (td.labels && td.labels.length > 0) {
+      html += `<div style="margin-top:3px;">Labels: ${td.labels.map(l => '<span class="adj-tag">' + escapeHtml(l) + '</span>').join(' ')}</div>`;
+    }
+    html += '<div class="adj-section"><h5>^ Up</h5><div class="adj-ids">' + (adj.up.length ? adj.up.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>v Down</h5><div class="adj-ids">' + (adj.down.length ? adj.down.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>&lt; Left</h5><div class="adj-ids">' + (adj.left.length ? adj.left.join(', ') : '<em>any</em>') + '</div></div>';
+    html += '<div class="adj-section"><h5>&gt; Right</h5><div class="adj-ids">' + (adj.right.length ? adj.right.join(', ') : '<em>any</em>') + '</div></div>';
+    leDetailPanel.innerHTML = html;
+  }
+
+  // --- Canvas rendering ---
+  function renderLECanvas() {
+    // Map size determines the full canvas area — zoom scales the entire area (like tileset configurator)
+    const mapPixelW = leMapW * leGridCellW;
+    const mapPixelH = leMapH * leGridCellH;
+    levelCanvas.width = Math.round(mapPixelW * leZoom);
+    levelCanvas.height = Math.round(mapPixelH * leZoom);
     lCtx.imageSmoothingEnabled = false;
     lCtx.clearRect(0, 0, levelCanvas.width, levelCanvas.height);
 
-    // Draw background grid hint
-    lCtx.strokeStyle = 'rgba(79,195,247,0.15)'; lCtx.lineWidth = 1;
-    for (let x = 0; x <= levelCanvas.width; x += 32) { lCtx.beginPath(); lCtx.moveTo(x+0.5,0); lCtx.lineTo(x+0.5,levelCanvas.height); lCtx.stroke(); }
-    for (let y = 0; y <= levelCanvas.height; y += 32) { lCtx.beginPath(); lCtx.moveTo(0,y+0.5); lCtx.lineTo(levelCanvas.width,y+0.5); lCtx.stroke(); }
+    // Fill map background so it's visually distinct from the outer dark area
+    lCtx.fillStyle = '#141428';
+    lCtx.fillRect(0, 0, levelCanvas.width, levelCanvas.height);
 
-    // Draw placed jigsaw tiles
-    for (const pt of leJigsawTiles) {
+    lCtx.save();
+    lCtx.scale(leZoom, leZoom);
+
+    // Grid (free mode only)
+    if (leMode === 'free') {
+      lCtx.strokeStyle = 'rgba(79,195,247,0.2)';
+      lCtx.lineWidth = 1 / leZoom;
+      for (let x = leGridOffX; x <= mapPixelW; x += leGridCellW) {
+        lCtx.beginPath(); lCtx.moveTo(x + 0.5, 0); lCtx.lineTo(x + 0.5, mapPixelH); lCtx.stroke();
+      }
+      for (let y = leGridOffY; y <= mapPixelH; y += leGridCellH) {
+        lCtx.beginPath(); lCtx.moveTo(0, y + 0.5); lCtx.lineTo(mapPixelW, y + 0.5); lCtx.stroke();
+      }
+    }
+
+    // Placed tiles
+    for (const pt of lePlacedTiles) {
       if (leTilesetData && leTilesetImage) {
         const td = leTilesetData.tiles.find(t => t.id === pt.tile_id);
         if (td) {
@@ -1385,121 +1698,171 @@
           lCtx.fillRect(pt.x, pt.y, pt.w, pt.h);
         }
       }
-      // Outline
-      lCtx.strokeStyle = 'rgba(79,195,247,0.6)'; lCtx.lineWidth = 1;
-      lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
-    }
-  }
-
-  // Jigsaw mode click handler
-  levelCanvas.addEventListener('click', (e) => {
-    if (!leJigsawMode) return;
-    if (e.button !== 0) return;
-    if (!leSelectedTileId || !leTilesetData) { setStatus('Select a tile first'); return; }
-
-    const td = leTilesetData.tiles.find(t => t.id === leSelectedTileId);
-    if (!td) return;
-    const candW = td.source_rect.w, candH = td.source_rect.h;
-
-    const rect = levelCanvas.getBoundingClientRect();
-    const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    const mouseX = (e.clientX - rect.left) * sx;
-    const mouseY = (e.clientY - rect.top) * sy;
-
-    const snap = findSnapPosition({ w: candW, h: candH }, mouseX, mouseY, leJigsawTiles, 16);
-    const placement = { tile_id: leSelectedTileId, x: snap.x, y: snap.y, w: candW, h: candH };
-
-    if (jigsawWouldOverlap(placement, leJigsawTiles)) {
-      setStatus('Cannot place: would overlap existing tile');
-      return;
     }
 
-    leJigsawTiles.push(placement);
-    renderLECanvasJigsaw();
-    setStatus(`Placed ${leSelectedTileId} at (${snap.x},${snap.y})`);
-  });
+    // Slotted tile highlight
+    if (leSlottedTile) {
+      lCtx.strokeStyle = '#ff9800';
+      lCtx.lineWidth = 3 / leZoom;
+      lCtx.strokeRect(leSlottedTile.x + 1, leSlottedTile.y + 1, leSlottedTile.w - 2, leSlottedTile.h - 2);
+    }
 
-  // Jigsaw mode right-click to remove
-  levelCanvas.addEventListener('contextmenu', (e) => {
-    if (!leJigsawMode) return;
-    e.preventDefault();
-    const rect = levelCanvas.getBoundingClientRect();
-    const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * sx;
-    const my = (e.clientY - rect.top) * sy;
+    // Hover warning (red highlight on tile that would be removed)
+    if (leHoverWarningTile) {
+      lCtx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+      lCtx.fillRect(leHoverWarningTile.x, leHoverWarningTile.y, leHoverWarningTile.w, leHoverWarningTile.h);
+      lCtx.strokeStyle = '#ff0000';
+      lCtx.lineWidth = 2 / leZoom;
+      lCtx.strokeRect(leHoverWarningTile.x, leHoverWarningTile.y, leHoverWarningTile.w, leHoverWarningTile.h);
+    }
 
-    // Find tile at cursor (last placed on top)
-    for (let i = leJigsawTiles.length - 1; i >= 0; i--) {
-      const t = leJigsawTiles[i];
-      if (mx >= t.x && mx < t.x + t.w && my >= t.y && my < t.y + t.h) {
-        leJigsawTiles.splice(i, 1);
-        renderLECanvasJigsaw();
-        setStatus('Removed tile');
-        return;
+    // Blocker overlay
+    if (leShowBlockers && leTilesetData && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
+      lCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+      lCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+      lCtx.lineWidth = 1 / leZoom;
+      for (const pt of lePlacedTiles) {
+        const td = leTilesetData.tiles.find(t => t.id === pt.tile_id);
+        if (!td) continue;
+        const scaleX = pt.w / td.source_rect.w;
+        const scaleY = pt.h / td.source_rect.h;
+        for (const b of leTilesetData.blockers) {
+          // Check if blocker intersects this tile's source_rect
+          if (b.x + b.w <= td.source_rect.x || b.x >= td.source_rect.x + td.source_rect.w) continue;
+          if (b.y + b.h <= td.source_rect.y || b.y >= td.source_rect.y + td.source_rect.h) continue;
+          // Clip blocker to tile's source_rect
+          const clippedX = Math.max(b.x, td.source_rect.x) - td.source_rect.x;
+          const clippedY = Math.max(b.y, td.source_rect.y) - td.source_rect.y;
+          const clippedW = Math.min(b.x + b.w, td.source_rect.x + td.source_rect.w) - Math.max(b.x, td.source_rect.x);
+          const clippedH = Math.min(b.y + b.h, td.source_rect.y + td.source_rect.h) - Math.max(b.y, td.source_rect.y);
+          const mapX = pt.x + clippedX * scaleX;
+          const mapY = pt.y + clippedY * scaleY;
+          const mapW = clippedW * scaleX;
+          const mapH = clippedH * scaleY;
+          lCtx.fillRect(mapX, mapY, mapW, mapH);
+          lCtx.strokeRect(mapX + 0.5, mapY + 0.5, mapW - 1, mapH - 1);
+        }
       }
     }
-  });
 
-  // Paint / Erase
-  let isDrawing = false;
-  function getLEGridPos(e) {
+    // Map border
+    lCtx.strokeStyle = 'rgba(79,195,247,0.5)';
+    lCtx.lineWidth = 2 / leZoom;
+    lCtx.strokeRect(0, 0, mapPixelW, mapPixelH);
+
+    lCtx.restore();
+  }
+
+  // --- Canvas mouse handlers ---
+  function getCanvasWorldPos(e) {
     const rect = levelCanvas.getBoundingClientRect();
     const sx = levelCanvas.width / rect.width, sy = levelCanvas.height / rect.height;
-    return { row: Math.floor((e.clientY-rect.top)*sy/leCellH), col: Math.floor((e.clientX-rect.left)*sx/leCellW) };
+    return {
+      x: (e.clientX - rect.left) * sx / leZoom,
+      y: (e.clientY - rect.top) * sy / leZoom
+    };
   }
-  function paintTile(e) {
-    if (leGrid.length === 0) return;
-    const {row, col} = getLEGridPos(e);
-    if (row < 0 || row >= leGridH || col < 0 || col >= leGridW) return;
-    if (e.buttons === 1) {
-      if (!leSelectedTileId) { setStatus('Select a tile first'); return; }
-      if (leGrid[row][col] !== leSelectedTileId) { leGrid[row][col] = leSelectedTileId; renderLECanvas(); }
-    } else if (e.buttons === 2) {
-      if (leGrid[row][col] !== '') { leGrid[row][col] = ''; renderLECanvas(); }
+
+  function findPlacedTileAt(wx, wy) {
+    for (let i = lePlacedTiles.length - 1; i >= 0; i--) {
+      const t = lePlacedTiles[i];
+      if (wx >= t.x && wx < t.x + t.w && wy >= t.y && wy < t.y + t.h) return i;
     }
+    return -1;
   }
-  levelCanvas.addEventListener('mousedown', (e) => { if (leJigsawMode) return; isDrawing = true; paintTile(e); });
-  levelCanvas.addEventListener('mousemove', (e) => { if (leJigsawMode) return; if (isDrawing) paintTile(e); });
-  levelCanvas.addEventListener('mouseup', () => { if (leJigsawMode) return; isDrawing = false; });
-  levelCanvas.addEventListener('mouseleave', () => { if (leJigsawMode) return; isDrawing = false; });
-  levelCanvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-  // Export
-  leExportBtn.addEventListener('click', () => {
-    if (!leTilesetName) { setStatus('No tileset loaded'); return; }
+  levelCanvas.addEventListener('click', (e) => {
+    if (e.button !== 0) return;
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
 
-    if (leJigsawMode) {
-      // Jigsaw export format
-      if (leJigsawTiles.length === 0) { setStatus('No jigsaw tiles placed'); return; }
-      const mapFile = {
-        format: 'jigsaw',
-        tileset_id: leTilesetName,
-        tiles: leJigsawTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
-      };
-      const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `jigsaw_map.json`;
-      a.click(); URL.revokeObjectURL(a.href);
-      setStatus(`Exported jigsaw map (${leJigsawTiles.length} tiles)`);
+    if (leMode === 'picking') {
+      // Pick tile from map
+      const idx = findPlacedTileAt(wx, wy);
+      if (idx >= 0) {
+        leSlottedTile = { ...lePlacedTiles[idx] };
+        leMode = 'constrained';
+        updateSlotUI();
+        renderLEPalette();
+        renderLECanvas();
+        setStatus(`Picked: ${leSlottedTile.tile_id} — palette filtered to compatible tiles`);
+      } else {
+        setStatus('No tile at that position — click a placed tile');
+      }
       return;
     }
 
-    // Grid export (original)
-    if (leGrid.length === 0) { setStatus('No grid'); return; }
-    const mapFile = { width: leGridW, height: leGridH, tileset: leTilesetName, grid: leGrid };
-    const blob = new Blob([JSON.stringify(mapFile, null, 2)], {type:'application/json'});
+    if (leMode === 'free') {
+      // Free placement: snap to grid, place selected tile
+      if (!leSelectedPaletteId || !leTilesetData) { setStatus('Select a tile from the palette first'); return; }
+      const td = leTilesetData.tiles.find(t => t.id === leSelectedPaletteId);
+      if (!td) return;
+      // Snap to grid
+      const col = Math.floor((wx - leGridOffX) / leGridCellW);
+      const row = Math.floor((wy - leGridOffY) / leGridCellH);
+      const px = leGridOffX + col * leGridCellW;
+      const py = leGridOffY + row * leGridCellH;
+      const placement = { tile_id: td.id, x: px, y: py, w: td.source_rect.w, h: td.source_rect.h };
+      // Remove existing at that position
+      const overlapIdx = findTileAtRect(placement);
+      if (overlapIdx >= 0) lePlacedTiles.splice(overlapIdx, 1);
+      lePlacedTiles.push(placement);
+      renderLECanvas();
+      setStatus(`Placed ${td.id} at (${px},${py})`);
+    }
+  });
+
+  // Right-click to remove
+  levelCanvas.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    const idx = findPlacedTileAt(wx, wy);
+    if (idx >= 0) {
+      const removed = lePlacedTiles.splice(idx, 1)[0];
+      renderLECanvas();
+      setStatus(`Removed: ${removed.tile_id}`);
+    }
+  });
+
+  // Mouse wheel zoom
+  levelCanvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    updateLeZoom(e.deltaY < 0 ? 0.25 : -0.25);
+  }, { passive: false });
+
+  // ESC to cancel picking
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && leMode === 'picking') {
+      leMode = 'free';
+      updateSlotUI();
+      renderLECanvas();
+      setStatus('Pick cancelled');
+    }
+  });
+
+  // --- Export ---
+  leExportBtn.addEventListener('click', () => {
+    if (!leTilesetName) { setStatus('No tileset loaded'); return; }
+    if (lePlacedTiles.length === 0) { setStatus('No tiles placed'); return; }
+    const mapFile = {
+      format: 'jigsaw',
+      tileset_id: leTilesetName,
+      map_width: leMapW,
+      map_height: leMapH,
+      cell_width: leGridCellW,
+      cell_height: leGridCellH,
+      tiles: lePlacedTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
+    };
+    const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `map_${leGridW}x${leGridH}.json`;
+    a.download = `map_${leTilesetName.replace(/[/\\]/g, '_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus(`Exported ${leGridW}x${leGridH}`);
+    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells)`);
   });
 
   // ============================================================
   // INIT
   // ============================================================
   loadTilesetList();
-  leNewGridBtn.click();
 
 })();
