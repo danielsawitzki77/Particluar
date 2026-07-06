@@ -99,20 +99,28 @@ Mat4 ConnectionSolver::ComputeFaceConnection(const Connection& conn, const Face&
         rot = Mat4::RotationAxis(axis, angle);
     }
 
-    // Apply rotation_position (additional rotation around parent face normal)
+    // Apply rotation around parent face normal
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Mat4 spin = Mat4::RotationAxis(parent_normal, rot_angle);
 
-    // Translation to parent face center
-    Mat4 trans = Mat4::Translation(parent_center.x, parent_center.y, parent_center.z);
+    // Compute the child's connection face center in child local space
+    Vec3 child_face_center = ComputeFaceCenter(child_face);
+
+    // After spin*rot is applied to the child, the connection face center moves to:
+    Mat4 orientation = spin * rot;
+    Vec3 rotated_child_center = orientation.TransformPoint(child_face_center);
+
+    // Offset translation so the child's connection face sits flush on the parent face,
+    // not the child's origin. This prevents volume intersection.
+    Vec3 final_pos = parent_center - rotated_child_center;
+    Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 
     return trans * spin * rot;
 }
 
-Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face& parent_face, const Face& /*child_face*/) const
+Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face& parent_face, const Face& child_face) const
 {
     Vec3 edge_point = ComputeEdgePoint(parent_face, conn.offset_u);
-    Mat4 trans = Mat4::Translation(edge_point.x, edge_point.y, edge_point.z);
 
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Vec3 edge_dir(0, 1, 0);
@@ -120,6 +128,12 @@ Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face&
         edge_dir = (parent_face.vertices[1] - parent_face.vertices[0]).Normalized();
     }
     Mat4 spin = Mat4::RotationAxis(edge_dir, rot_angle);
+
+    // Offset child so its connection face center lands on the edge point
+    Vec3 child_face_center = ComputeFaceCenter(child_face);
+    Vec3 rotated_child_center = spin.TransformPoint(child_face_center);
+    Vec3 final_pos = edge_point - rotated_child_center;
+    Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 
     return trans * spin;
 }
