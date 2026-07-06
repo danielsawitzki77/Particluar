@@ -1,4 +1,5 @@
 #include "BodyGenerator.h"
+#include "FaceGenerator.h"
 #include <cmath>
 #include <algorithm>
 
@@ -24,23 +25,6 @@ float BodyGenerator::RNG::FloatRange(float min_val, float max_val)
 {
     float t = static_cast<float>(Next() & 0xFFFF) / 65535.0f;
     return min_val + t * (max_val - min_val);
-}
-
-int BodyGenerator::EstimateFaceCount(const ShapeParams& shape) const
-{
-    switch (shape.type) {
-    case ShapeType::Cone:
-        // sides + 1 base face
-        return shape.segments + 1;
-    case ShapeType::Cylinder:
-        // sides + 2 cap faces
-        return shape.segments + 2;
-    case ShapeType::Sphere:
-        return shape.lon_segments * shape.lat_segments;
-    case ShapeType::Torus:
-        return shape.ring_segments * shape.side_segments;
-    }
-    return 8;
 }
 
 std::string BodyGenerator::GenerateName(RNG& rng, int depth) const
@@ -87,83 +71,118 @@ Vec3 BodyGenerator::RandomColor(RNG& rng) const
     return Vec3(r + m, g + m, b + m);
 }
 
-ShapeParams BodyGenerator::RandomShape(RNG& rng) const
+ShapeParams BodyGenerator::RandomShape(RNG& rng, int segments) const
 {
     ShapeParams s;
     int type_choice = rng.IntRange(0, 3);
 
+    // All shapes use the same segment count for lateral faces so that
+    // face topology (vertex count) matches when connected laterally.
     switch (type_choice) {
     case 0: // Cone
         s.type = ShapeType::Cone;
-        s.radius = rng.FloatRange(0.2f, 0.8f);
+        s.radius = rng.FloatRange(0.3f, 0.8f);
         s.height = rng.FloatRange(0.5f, 1.5f);
-        s.segments = rng.IntRange(6, 20);
+        s.segments = segments;
         break;
     case 1: // Cylinder
         s.type = ShapeType::Cylinder;
-        s.radius = rng.FloatRange(0.15f, 0.7f);
+        s.radius = rng.FloatRange(0.2f, 0.7f);
         s.height = rng.FloatRange(0.4f, 2.0f);
-        s.segments = rng.IntRange(6, 20);
+        s.segments = segments;
         break;
     case 2: // Sphere
         s.type = ShapeType::Sphere;
-        s.radius = rng.FloatRange(0.2f, 0.8f);
-        s.lon_segments = rng.IntRange(8, 20);
-        s.lat_segments = rng.IntRange(6, 14);
+        s.radius = rng.FloatRange(0.3f, 0.8f);
+        s.lon_segments = segments;
+        s.lat_segments = segments;
         break;
     case 3: // Torus
         s.type = ShapeType::Torus;
-        s.major_radius = rng.FloatRange(0.5f, 1.2f);
-        s.minor_radius = rng.FloatRange(0.1f, s.major_radius * 0.4f);
-        s.ring_segments = rng.IntRange(8, 20);
-        s.side_segments = rng.IntRange(6, 12);
+        s.major_radius = rng.FloatRange(0.5f, 1.0f);
+        s.minor_radius = rng.FloatRange(0.1f, 0.3f);
+        s.ring_segments = segments;
+        s.side_segments = segments;
         break;
     }
     return s;
 }
 
-Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_shape) const
+Connection BodyGenerator::FindCompatibleConnection(
+    RNG& rng,
+    const ShapeParams& parent_shape,
+    const ShapeParams& child_shape) const
 {
     Connection conn;
+    conn.type = ConnectionType::Face_Connection;
+    conn.rotation = 0.0f;
+    conn.offset_u = 0.5f;
+    conn.offset_v = 0.5f;
 
-    // Prefer face connections — they ensure shapes share faces without intersecting
-    int type_choice = rng.IntRange(0, 4);
-    if (type_choice <= 2) {
-        conn.type = ConnectionType::Face_Connection;
-    } else if (type_choice == 3) {
-        conn.type = ConnectionType::Point_Connection;
-    } else {
-        conn.type = ConnectionType::Edge_Connection;
+    // Generate faces for both shapes to find compatible pairs
+    FaceGenerator faceGen;
+    std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
+    std::vector<Face> child_faces = faceGen.Generate(child_shape);
+
+    if (parent_faces.empty() || child_faces.empty()) {
+        conn.parent_face_index = 0;
+        conn.child_face_index = 0;
+        return conn;
     }
 
-    int face_count = EstimateFaceCount(parent_shape);
-    if (face_count < 1) face_count = 1;
+    // Build a list of compatible face pairs (same vertex count = same topology)
+    struct FacePair {
+        int parent_idx;
+        int child_idx;
+    };
+    std::vector<FacePair> compatible;
 
-    conn.parent_face_index = rng.IntRange(0, face_count - 1);
-    conn.child_face_index = rng.IntRange(0, 3); // usually low index for child alignment
-    conn.offset_u = rng.FloatRange(0.3f, 0.7f);
-    conn.offset_v = rng.FloatRange(0.3f, 0.7f);
-    conn.rotation = static_cast<float>(rng.IntRange(0, 7)) * 45.0f;
+    for (int pi = 0; pi < static_cast<int>(parent_faces.size()); ++pi) {
+        size_t pv = parent_faces[pi].vertices.size();
+        for (int ci = 0; ci < static_cast<int>(child_faces.size()); ++ci) {
+            if (child_faces[ci].vertices.size() == pv && pv >= 3) {
+                compatible.push_back({pi, ci});
+            }
+        }
+    }
+
+    if (compatible.empty()) {
+        // Fallback: pick any face (will still work but won't be perfect topology match)
+        conn.parent_face_index = rng.IntRange(0, static_cast<int>(parent_faces.size()) - 1);
+        conn.child_face_index = rng.IntRange(0, static_cast<int>(child_faces.size()) - 1);
+    } else {
+        // Prefer lateral faces (not caps) for more interesting geometry.
+        // Lateral faces are typically the first N faces for cone/cylinder (before caps).
+        // Pick a random compatible pair.
+        int idx = rng.IntRange(0, static_cast<int>(compatible.size()) - 1);
+        conn.parent_face_index = compatible[idx].parent_idx;
+        conn.child_face_index = compatible[idx].child_idx;
+    }
+
+    // Small random rotation increment aligned to face subdivisions
+    // This keeps the geometry on-grid with the subdivision faces
+    int rot_steps = rng.IntRange(0, 3);
+    conn.rotation = static_cast<float>(rot_steps) * 90.0f;
 
     return conn;
 }
 
-BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
+BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth, int segments) const
 {
     BodyNode node;
     node.name = GenerateName(rng, depth);
-    node.shape = RandomShape(rng);
+    node.shape = RandomShape(rng, segments);
     node.color = RandomColor(rng);
 
     if (depth < max_depth) {
         // Number of children decreases with depth
         int max_children = (max_depth - depth);
-        if (max_children > 4) max_children = 4;
-        int num_children = rng.IntRange(0, max_children);
+        if (max_children > 3) max_children = 3;
+        int num_children = rng.IntRange(1, max_children);
 
         for (int i = 0; i < num_children; ++i) {
-            BodyNode child = GenerateNode(rng, depth + 1, max_depth);
-            child.connection = RandomConnection(rng, node.shape);
+            BodyNode child = GenerateNode(rng, depth + 1, max_depth, segments);
+            child.connection = FindCompatibleConnection(rng, node.shape, child.shape);
             node.children.push_back(child);
         }
     }
@@ -184,7 +203,11 @@ Body BodyGenerator::Generate(unsigned int seed, int depth_limit) const
         rng.FloatRange(0.05f, 0.2f)
     );
 
-    body.root = GenerateNode(rng, 0, depth_limit);
+    // Use a consistent segment count for all shapes in this body.
+    // This ensures lateral faces have compatible topology (same vertex count).
+    int segments = rng.IntRange(8, 12);
+
+    body.root = GenerateNode(rng, 0, depth_limit, segments);
 
     return body;
 }

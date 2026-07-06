@@ -66,6 +66,18 @@ Vec3 ConnectionSolver::ComputeFaceCenter(const Face& face) const
     return center * inv;
 }
 
+float ConnectionSolver::ComputeFaceRadius(const Face& face) const
+{
+    if (face.vertices.size() < 2) return 0.0f;
+    Vec3 center = ComputeFaceCenter(face);
+    float max_dist = 0.0f;
+    for (const Vec3& v : face.vertices) {
+        float d = (v - center).Length();
+        if (d > max_dist) max_dist = d;
+    }
+    return max_dist;
+}
+
 Vec3 ConnectionSolver::ComputeEdgePoint(const Face& face, float t) const
 {
     if (face.vertices.size() < 2) return Vec3(0, 0, 0);
@@ -76,19 +88,43 @@ Vec3 ConnectionSolver::ComputeEdgePoint(const Face& face, float t) const
 
 Mat4 ConnectionSolver::ComputeFaceConnection(const Connection& conn, const Face& parent_face, const Face& child_face) const
 {
-    Vec3 parent_center = ComputeFaceCenter(parent_face);
-    Vec3 parent_normal = parent_face.normal;
-    Vec3 child_normal = child_face.normal;
+    // Goal: Position and orient the child so that its connection face polygon
+    // is EXACTLY coincident with the parent's connection face polygon.
+    // This means:
+    //  1. The faces share the same center point in world space
+    //  2. The child's connection face normal points OPPOSITE to the parent's face normal
+    //     (the two faces are back-to-back, sharing the polygon boundary)
+    //  3. The child is scaled uniformly so its connection face radius matches the parent face radius
+    //  4. After transform, the child's connection face vertices land on the parent face vertices
 
-    // Rotate child so its connection face normal points opposite to parent face normal
-    Vec3 from = child_normal.Normalized();
-    Vec3 to = (parent_normal * (-1.0f)).Normalized();
+    Vec3 parent_center = ComputeFaceCenter(parent_face);
+    Vec3 parent_normal = parent_face.normal.Normalized();
+    Vec3 child_normal = child_face.normal.Normalized();
+
+    // Step 1: Compute uniform scale so child face matches parent face size
+    float parent_radius = ComputeFaceRadius(parent_face);
+    float child_radius = ComputeFaceRadius(child_face);
+    float scale_factor = 1.0f;
+    if (child_radius > 1e-6f) {
+        scale_factor = parent_radius / child_radius;
+    }
+    Mat4 scale_mat;
+    scale_mat.m[0] = scale_factor;
+    scale_mat.m[5] = scale_factor;
+    scale_mat.m[10] = scale_factor;
+
+    // Step 2: Rotation to align child's connection face normal opposite to parent's normal.
+    // The child's face normal should point INTO the parent (i.e., opposite to parent's outward normal)
+    // after rotation, so the two faces are coplanar and back-to-back.
+    Vec3 from = child_normal;
+    Vec3 to = parent_normal * (-1.0f); // child normal points toward parent interior
 
     Mat4 rot;
     float dot = from.Dot(to);
     if (dot > 0.9999f) {
         rot.Identity();
     } else if (dot < -0.9999f) {
+        // 180-degree rotation around any perpendicular axis
         Vec3 perp(1, 0, 0);
         if (std::fabs(from.Dot(perp)) > 0.9f) perp = Vec3(0, 1, 0);
         Vec3 axis = from.Cross(perp).Normalized();
@@ -99,28 +135,46 @@ Mat4 ConnectionSolver::ComputeFaceConnection(const Connection& conn, const Face&
         rot = Mat4::RotationAxis(axis, angle);
     }
 
-    // Apply rotation around parent face normal
+    // Step 3: Spin around parent normal for extra rotation parameter
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Mat4 spin = Mat4::RotationAxis(parent_normal, rot_angle);
 
-    // Compute the child's connection face center in child local space
+    // Step 4: Compute composite orientation+scale
+    // Order: first scale the child, then rotate it, then spin
+    Mat4 orientation = spin * rot * scale_mat;
+
+    // Step 5: Compute where the child's connection face center ends up after orientation
     Vec3 child_face_center = ComputeFaceCenter(child_face);
+    Vec3 transformed_child_face_center = orientation.TransformPoint(child_face_center);
 
-    // After spin*rot is applied to the child, the connection face center moves to:
-    Mat4 orientation = spin * rot;
-    Vec3 rotated_child_center = orientation.TransformPoint(child_face_center);
+    // Step 6: Translate so the transformed child face center lands exactly on parent face center
+    Vec3 offset = parent_center - transformed_child_face_center;
+    Mat4 trans = Mat4::Translation(offset.x, offset.y, offset.z);
 
-    // Offset translation so the child's connection face sits flush on the parent face,
-    // not the child's origin. This prevents volume intersection.
-    Vec3 final_pos = parent_center - rotated_child_center;
-    Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
-
-    return trans * spin * rot;
+    return trans * spin * rot * scale_mat;
 }
 
 Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face& parent_face, const Face& child_face) const
 {
     Vec3 edge_point = ComputeEdgePoint(parent_face, conn.offset_u);
+
+    // Scale child to match parent edge length (use first edge of each face)
+    float parent_edge_len = 0.0f;
+    float child_edge_len = 0.0f;
+    if (parent_face.vertices.size() >= 2) {
+        parent_edge_len = (parent_face.vertices[1] - parent_face.vertices[0]).Length();
+    }
+    if (child_face.vertices.size() >= 2) {
+        child_edge_len = (child_face.vertices[1] - child_face.vertices[0]).Length();
+    }
+    float scale_factor = 1.0f;
+    if (child_edge_len > 1e-6f && parent_edge_len > 1e-6f) {
+        scale_factor = parent_edge_len / child_edge_len;
+    }
+    Mat4 scale_mat;
+    scale_mat.m[0] = scale_factor;
+    scale_mat.m[5] = scale_factor;
+    scale_mat.m[10] = scale_factor;
 
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Vec3 edge_dir(0, 1, 0);
@@ -129,13 +183,16 @@ Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face&
     }
     Mat4 spin = Mat4::RotationAxis(edge_dir, rot_angle);
 
+    // Combined orientation
+    Mat4 orientation = spin * scale_mat;
+
     // Offset child so its connection face center lands on the edge point
     Vec3 child_face_center = ComputeFaceCenter(child_face);
-    Vec3 rotated_child_center = spin.TransformPoint(child_face_center);
+    Vec3 rotated_child_center = orientation.TransformPoint(child_face_center);
     Vec3 final_pos = edge_point - rotated_child_center;
     Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 
-    return trans * spin;
+    return trans * spin * scale_mat;
 }
 
 Mat4 ConnectionSolver::ComputePointConnection(const Connection& conn, const std::vector<Face>& parent_faces) const

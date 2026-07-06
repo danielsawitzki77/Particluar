@@ -23,6 +23,7 @@ private:
     Mat4 ComputePointConnection(const Connection& conn, const std::vector<Face>& parent_faces) const;
 
     Vec3 ComputeFaceCenter(const Face& face) const;
+    float ComputeFaceRadius(const Face& face) const;
     Vec3 ComputeEdgePoint(const Face& face, float t) const;
 };
 
