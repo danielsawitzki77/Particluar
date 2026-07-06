@@ -10,7 +10,7 @@
     "color": { "r": 0.3, "g": 0.5, "b": 0.7 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 12, "child_face": 13, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 12, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "head",
           "shape": { "type": "sphere", "radius": 0.25, "slices": 12, "stacks": 10 },
@@ -18,7 +18,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 3, "child_face": 12, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 3, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "arm_right",
           "shape": { "type": "cylinder", "radius": 0.1, "height": 0.8, "sides": 8 },
@@ -36,7 +36,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 9, "child_face": 12, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 9, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "arm_left",
           "shape": { "type": "cylinder", "radius": 0.1, "height": 0.8, "sides": 8 },
@@ -57,14 +57,14 @@
         "connection": { "type": "Face_Connection", "parent_face": 13, "child_face": 12, "rotation": 30.0 },
         "node": {
           "name": "leg_right",
-          "shape": { "type": "cylinder", "radius": 0.12, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.12, "height": 1.0, "sides": 12 },
           "color": { "r": 0.25, "g": 0.25, "b": 0.4 },
           "children": [
             {
-              "connection": { "type": "Face_Connection", "parent_face": 8, "child_face": 8, "rotation": 0.0 },
+              "connection": { "type": "Face_Connection", "parent_face": 13, "child_face": 12, "rotation": 0.0 },
               "node": {
                 "name": "foot_right",
-                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 12 },
                 "color": { "r": 0.4, "g": 0.2, "b": 0.15 }
               }
             }
@@ -75,14 +75,14 @@
         "connection": { "type": "Face_Connection", "parent_face": 13, "child_face": 12, "rotation": -30.0 },
         "node": {
           "name": "leg_left",
-          "shape": { "type": "cylinder", "radius": 0.12, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.12, "height": 1.0, "sides": 12 },
           "color": { "r": 0.25, "g": 0.25, "b": 0.4 },
           "children": [
             {
-              "connection": { "type": "Face_Connection", "parent_face": 8, "child_face": 8, "rotation": 0.0 },
+              "connection": { "type": "Face_Connection", "parent_face": 13, "child_face": 12, "rotation": 0.0 },
               "node": {
                 "name": "foot_left",
-                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 12 },
                 "color": { "r": 0.4, "g": 0.2, "b": 0.15 }
               }
             }

@@ -10,7 +10,7 @@
     "color": { "r": 0.6, "g": 0.55, "b": 0.45 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 3, "child_face": 8, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 3, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "hub",
           "shape": { "type": "sphere", "radius": 0.2, "slices": 10, "stacks": 8 },

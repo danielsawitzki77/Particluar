@@ -10,7 +10,7 @@
     "color": { "r": 0.3, "g": 0.3, "b": 0.35 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 20, "child_face": 14, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 20, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "leg_front_right",
           "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
@@ -28,7 +28,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 30, "child_face": 14, "rotation": 90.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 30, "child_face": 0, "rotation": 90.0 },
         "node": {
           "name": "leg_back_right",
           "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
@@ -46,7 +46,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 50, "child_face": 14, "rotation": 180.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 50, "child_face": 0, "rotation": 180.0 },
         "node": {
           "name": "leg_front_left",
           "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
@@ -64,7 +64,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 60, "child_face": 14, "rotation": 270.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 60, "child_face": 0, "rotation": 270.0 },
         "node": {
           "name": "leg_back_left",
           "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
@@ -82,7 +82,7 @@
         }
       },
       {
-        "connection": { "type": "Face_Connection", "parent_face": 5, "child_face": 10, "rotation": 0.0 },
+        "connection": { "type": "Point_Connection", "parent_face": 5, "child_face": 0, "rotation": 0.0 },
         "node": {
           "name": "head",
           "shape": { "type": "sphere", "radius": 0.3, "slices": 10, "stacks": 8 },

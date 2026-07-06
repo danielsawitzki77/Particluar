@@ -1,8 +1,10 @@
-// Property 8: Connection Validator rejects mismatched face topology
-// Property 9: Connection Validator accepts compatible N-gon faces
+// Property: Volume Overlap Validation
+// Tests that bodies connect via shared faces without overlapping volumes
 
 #include <rapidcheck.h>
 #include "ConnectionValidator.h"
+#include "ConnectionSolver.h"
+#include "FaceGenerator.h"
 #include "BodyLoader.h"
 #include <cstdio>
 #include <cmath>
@@ -159,6 +161,337 @@ void RunConnectionValidatorTests()
 
         auto result = validator.ValidateBody(body);
         RC_ASSERT(!result.valid);
+    });
+
+    // =========================================================================
+    // Volume Overlap Tests
+    // =========================================================================
+
+    // Property: Valid face connection (cap-to-cap) has no volume overlap
+    rc::check("Property: Cap-to-cap cylinder connection has no volume overlap", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        int n = *rc::gen::inRange(4, 24);
+
+        // Parent: cylinder
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = n;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        // Child: smaller cylinder connecting bottom cap to parent's top cap
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Cylinder;
+        child_shape.radius = 0.5f;
+        child_shape.height = 1.0f;
+        child_shape.segments = n;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        // Connect parent top cap (face N) to child bottom cap (face N+1)
+        Connection conn;
+        conn.type = ConnectionType::Face_Connection;
+        conn.parent_face_index = n;     // parent top cap
+        conn.child_face_index = n + 1;  // child bottom cap
+        conn.rotation = 0.0f;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        RC_ASSERT(result.valid);
+    });
+
+    // Property: Connecting top-cap-to-top-cap also works (solver flips child)
+    rc::check("Property: Top-cap-to-top-cap also valid (solver flips child correctly)", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        int n = *rc::gen::inRange(4, 24);
+
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = n;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Cylinder;
+        child_shape.radius = 0.5f;
+        child_shape.height = 1.0f;
+        child_shape.segments = n;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        // Connect parent top cap to child top cap — solver flips child upside down
+        // so it extends outward (upward). This should be valid.
+        Connection conn;
+        conn.type = ConnectionType::Face_Connection;
+        conn.parent_face_index = n;  // parent top cap
+        conn.child_face_index = n;   // child top cap
+        conn.rotation = 0.0f;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        RC_ASSERT(result.valid);
+    });
+
+    // Property: Torus connected via a lateral face causes overlap (wraps around both sides)
+    rc::check("Property: Torus lateral face connection causes volume overlap", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        // Parent: cylinder
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = 8;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        // Child: torus — geometry wraps around in a ring. When connecting via
+        // one of its lateral quad faces, the torus extends on BOTH sides of that face.
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Torus;
+        child_shape.major_radius = 1.0f;
+        child_shape.minor_radius = 0.4f;
+        child_shape.ring_segments = 8;
+        child_shape.side_segments = 8;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        // Connect parent top cap (face 8, N=8-gon) to torus face 0 (a quad)
+        // The torus face is a quad but the parent top cap is an 8-gon — topology mismatch.
+        // Use a lateral parent face (quad) to a torus face (quad) instead.
+        Connection conn;
+        conn.type = ConnectionType::Face_Connection;
+        conn.parent_face_index = 0;  // parent lateral quad face
+        conn.child_face_index = 0;   // torus quad face
+        conn.rotation = 0.0f;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        // Torus wraps around — some geometry will be behind the connection face
+        RC_ASSERT(!result.valid);
+        RC_ASSERT(result.error.find("volume overlap") != std::string::npos);
+    });
+
+    // Property: Cone on cylinder top cap is valid (cone base matches cylinder cap)
+    rc::check("Property: Cone on cylinder top cap has no overlap", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        int n = *rc::gen::inRange(4, 24);
+
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = n;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Cone;
+        child_shape.radius = 0.8f;
+        child_shape.height = 1.5f;
+        child_shape.segments = n;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        // Cone base (face N, last face) connects to cylinder top cap (face N)
+        Connection conn;
+        conn.type = ConnectionType::Face_Connection;
+        conn.parent_face_index = n;  // cylinder top cap
+        conn.child_face_index = n;   // cone base
+        conn.rotation = 0.0f;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        RC_ASSERT(result.valid);
+    });
+
+    // Property: Point_Connection skips volume overlap check
+    rc::check("Property: Point_Connection skips volume overlap check", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = 8;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Sphere;
+        child_shape.radius = 0.5f;
+        child_shape.lon_segments = 8;
+        child_shape.lat_segments = 6;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        Connection conn;
+        conn.type = ConnectionType::Point_Connection;
+        conn.parent_face_index = 8;
+        conn.child_face_index = 0;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        RC_ASSERT(result.valid); // skipped, always valid for Point_Connection
+    });
+
+    // Property: ValidateBody passes for correctly defined bodies
+    rc::check("Property: Correctly defined body passes full validation", []() {
+        ConnectionValidator validator;
+
+        Body body;
+        body.name = "valid_robot";
+        body.root.name = "torso";
+        body.root.shape.type = ShapeType::Cylinder;
+        body.root.shape.radius = 0.5f;
+        body.root.shape.height = 2.0f;
+        body.root.shape.segments = 12;
+
+        // Head on top (parent top cap → child bottom cap)
+        BodyNode head;
+        head.name = "head";
+        head.shape.type = ShapeType::Cylinder;
+        head.shape.radius = 0.3f;
+        head.shape.height = 0.6f;
+        head.shape.segments = 12;
+        head.connection.type = ConnectionType::Face_Connection;
+        head.connection.parent_face_index = 12;  // torso top cap
+        head.connection.child_face_index = 13;   // head bottom cap
+        head.connection.rotation = 0.0f;
+
+        body.root.children.push_back(head);
+
+        auto result = validator.ValidateBody(body);
+        RC_ASSERT(result.valid);
+    });
+
+    // Property: ValidateBody catches torus overlap in nested bodies
+    rc::check("Property: ValidateBody catches torus volume overlap", []() {
+        ConnectionValidator validator;
+
+        Body body;
+        body.name = "test_overlap";
+        body.root.name = "base";
+        body.root.shape.type = ShapeType::Cylinder;
+        body.root.shape.radius = 1.0f;
+        body.root.shape.height = 2.0f;
+        body.root.shape.segments = 8;
+
+        // Attach torus via lateral face connection — torus wraps and overlaps
+        BodyNode child;
+        child.name = "overlapping_torus";
+        child.shape.type = ShapeType::Torus;
+        child.shape.major_radius = 1.0f;
+        child.shape.minor_radius = 0.4f;
+        child.shape.ring_segments = 8;
+        child.shape.side_segments = 8;
+
+        // Connect cylinder lateral quad (face 0) to torus quad (face 0)
+        child.connection.type = ConnectionType::Face_Connection;
+        child.connection.parent_face_index = 0;  // lateral quad
+        child.connection.child_face_index = 0;   // torus face
+        child.connection.rotation = 0.0f;
+
+        body.root.children.push_back(child);
+
+        auto result = validator.ValidateBody(body);
+        RC_ASSERT(!result.valid);
+        RC_ASSERT(result.error.find("volume overlap") != std::string::npos);
+    });
+
+    // Property: Lateral face connections with correctly oriented children pass
+    rc::check("Property: Lateral connection with correct child face passes", []() {
+        ConnectionValidator validator;
+        ConnectionSolver solver;
+        FaceGenerator faceGen;
+
+        int n = 12;
+
+        // Parent: cylinder
+        ShapeParams parent_shape;
+        parent_shape.type = ShapeType::Cylinder;
+        parent_shape.radius = 1.0f;
+        parent_shape.height = 2.0f;
+        parent_shape.segments = n;
+        auto parent_faces = faceGen.Generate(parent_shape);
+
+        // Child: small cylinder connecting via its top cap to a lateral face
+        ShapeParams child_shape;
+        child_shape.type = ShapeType::Cylinder;
+        child_shape.radius = 0.15f;
+        child_shape.height = 0.8f;
+        child_shape.segments = n;
+        auto child_faces = faceGen.Generate(child_shape);
+
+        // Connect parent lateral face 3 (quad) to child top cap (N-gon)
+        // Note: topology mismatch (quad vs N-gon) — this would fail topology check.
+        // Use lateral-to-lateral instead (both are quads for same N).
+        Connection conn;
+        conn.type = ConnectionType::Face_Connection;
+        conn.parent_face_index = 3;  // parent lateral quad
+        conn.child_face_index = 3;   // child lateral quad
+        conn.rotation = 0.0f;
+
+        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+
+        auto result = validator.ValidateNoVolumeOverlap(
+            conn, parent_faces, child_faces, transform, "parent", "child");
+        RC_ASSERT(result.valid);
+    });
+
+    // Property: Valid body JSON files pass full validation including overlap check
+    rc::check("Property: Rocket body file passes full validation including overlap check", []() {
+        BodyLoader loader;
+
+        // Test with the rocket body (cap-to-cap face connections throughout)
+        LoadResult result = loader.LoadFromFile(
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\06_rocket.json");
+        RC_ASSERT(result.success);
+    });
+
+    // Property: All body files in assets/bodies/ load and validate successfully
+    rc::check("Property: All asset body files pass validation", []() {
+        BodyLoader loader;
+
+        const char* files[] = {
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\01_unit_cube.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\02_snowman.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\03_robot_arm.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\04_space_station.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\05_chess_pawn.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\06_rocket.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\07_dumbbell.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\08_table.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\09_spider_bot.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\10_satellite.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\11_humanoid.json",
+            "c:\\Users\\Daniel Sawitzki\\Desktop\\github\\Particluar\\assets\\bodies\\12_windmill.json"
+        };
+
+        for (const char* f : files) {
+            LoadResult result = loader.LoadFromFile(f);
+            if (!result.success) {
+                printf("\n  LOAD FAIL: %s\n  Error: %s\n", f, result.error.c_str());
+            }
+            RC_ASSERT(result.success);
+        }
     });
 
     printf("  PASS\n");
