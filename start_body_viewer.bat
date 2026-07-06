@@ -10,9 +10,13 @@ echo     bodies_directory  - Path to folder containing .json body files
 echo                         Default: assets/bodies/
 echo.
 echo Controls:
-echo   Left/Right arrows  - Cycle through models
-echo   W/A/S/D            - Rotate current model
-echo   Close window       - Quit
+echo   Left/Right arrows  - Cycle through models (generates random past end)
+echo   W/A/S/D            - Orbit camera
+echo   Mouse scroll       - Zoom in/out
+echo   +/-                - Increase/decrease subdivision resolution
+echo   Space              - Toggle joint animation
+echo   G                  - Generate new random body
+echo   Escape             - Quit
 echo.
 echo ============================================
 echo.

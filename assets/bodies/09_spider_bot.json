@@ -1,0 +1,94 @@
+{
+  "name": "Spider Bot",
+  "material": {
+    "shininess": 48.0,
+    "ambient": { "r": 0.1, "g": 0.08, "b": 0.12 }
+  },
+  "root": {
+    "name": "body_core",
+    "shape": { "type": "sphere", "radius": 0.6, "slices": 14, "stacks": 10 },
+    "color": { "r": 0.3, "g": 0.3, "b": 0.35 },
+    "children": [
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 20, "child_face": 14, "rotation": 0.0 },
+        "node": {
+          "name": "leg_front_right",
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
+          "children": [
+            {
+              "connection": { "type": "Point_Connection", "parent_face": 8, "child_face": 0, "rotation": 30.0 },
+              "node": {
+                "name": "lower_leg_fr",
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 30, "child_face": 14, "rotation": 90.0 },
+        "node": {
+          "name": "leg_back_right",
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
+          "children": [
+            {
+              "connection": { "type": "Point_Connection", "parent_face": 8, "child_face": 0, "rotation": -30.0 },
+              "node": {
+                "name": "lower_leg_br",
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 50, "child_face": 14, "rotation": 180.0 },
+        "node": {
+          "name": "leg_front_left",
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
+          "children": [
+            {
+              "connection": { "type": "Point_Connection", "parent_face": 8, "child_face": 0, "rotation": 30.0 },
+              "node": {
+                "name": "lower_leg_fl",
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 60, "child_face": 14, "rotation": 270.0 },
+        "node": {
+          "name": "leg_back_left",
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
+          "children": [
+            {
+              "connection": { "type": "Point_Connection", "parent_face": 8, "child_face": 0, "rotation": -30.0 },
+              "node": {
+                "name": "lower_leg_bl",
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "connection": { "type": "Face_Connection", "parent_face": 5, "child_face": 10, "rotation": 0.0 },
+        "node": {
+          "name": "head",
+          "shape": { "type": "sphere", "radius": 0.3, "slices": 10, "stacks": 8 },
+          "color": { "r": 0.8, "g": 0.2, "b": 0.1 }
+        }
+      }
+    ]
+  }
+}

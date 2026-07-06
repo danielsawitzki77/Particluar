@@ -103,6 +103,7 @@
 
   <ItemGroup>
     <ClCompile Include="src\BodyLoader.cpp" />
+    <ClCompile Include="src\BodyGenerator.cpp" />
     <ClCompile Include="src\FaceGenerator.cpp" />
     <ClCompile Include="src\Triangulator.cpp" />
     <ClCompile Include="src\ConnectionSolver.cpp" />
@@ -110,11 +111,13 @@
     <ClCompile Include="src\LightManager.cpp" />
     <ClCompile Include="src\BodyRenderer.cpp" />
     <ClCompile Include="src\ModelSwitcher.cpp" />
+    <ClCompile Include="src\JointAnimator.cpp" />
   </ItemGroup>
 
   <ItemGroup>
     <ClInclude Include="include\BodyTypes.h" />
     <ClInclude Include="include\BodyLoader.h" />
+    <ClInclude Include="include\BodyGenerator.h" />
     <ClInclude Include="include\FaceGenerator.h" />
     <ClInclude Include="include\Triangulator.h" />
     <ClInclude Include="include\ConnectionSolver.h" />
@@ -122,6 +125,7 @@
     <ClInclude Include="include\LightManager.h" />
     <ClInclude Include="include\BodyRenderer.h" />
     <ClInclude Include="include\ModelSwitcher.h" />
+    <ClInclude Include="include\JointAnimator.h" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
