@@ -2,6 +2,7 @@
 
 #include "BodyTypes.h"
 #include "FaceGenerator.h"
+#include "ConnectionFaceMatcher.h"
 #include "Triangulator.h"
 #include "LightManager.h"
 #include <vector>
@@ -27,10 +28,18 @@ public:
 
 private:
     void RenderNode(const BodyNode* node, const Mat4& parent_world) const;
+    void RenderChild(const BodyNode* child, const BodyNode* parent, const Mat4& parent_world) const;
     void SubmitTriangles(const std::vector<Triangle>& tris, const Vec3& color, const Mat4& world) const;
     void SetupLighting(const RenderParams& params) const;
 
+    // Build connection rings for a node (describing where its children connect to it)
+    std::vector<ConnectionRing> BuildParentRings(const BodyNode* node) const;
+
+    // Build the child-side ring (the face on the child that connects to its parent)
+    ConnectionRing BuildChildRing(const BodyNode* child, const BodyNode* parent) const;
+
     FaceGenerator m_faceGen;
+    ConnectionFaceMatcher m_faceMatcher;
     Triangulator m_triangulator;
 };
 

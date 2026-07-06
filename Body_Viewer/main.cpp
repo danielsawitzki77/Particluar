@@ -419,6 +419,9 @@ int main(int argc, char* argv[])
                         LoadModel(switcher.GetCurrentPath(), state);
                         viewing_generated = false;
                     }
+                    // Reset animation state on model switch
+                    state.animator.SetEnabled(false);
+                    state.scale_animator.SetEnabled(false);
                     total_models = switcher.GetCount() + 1; // +1 for potential generated
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -440,6 +443,9 @@ int main(int argc, char* argv[])
                         viewing_generated = true;
                         current_index = switcher.GetCount();
                     }
+                    // Reset animation state on model switch
+                    state.animator.SetEnabled(false);
+                    state.scale_animator.SetEnabled(false);
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -482,6 +488,9 @@ int main(int argc, char* argv[])
                     LoadGeneratedBody(state);
                     viewing_generated = true;
                     current_index = switcher.GetCount();
+                    // Reset animation state on model switch
+                    state.animator.SetEnabled(false);
+                    state.scale_animator.SetEnabled(false);
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
