@@ -67,34 +67,44 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
     int n = s.segments;
     float r = s.radius;
     float hh = s.height * 0.5f;
+    int h_segs = s.height_segments;
+    if (h_segs < 1) h_segs = 1;
 
-    // Generate circle vertices
-    std::vector<Vec3> top_verts(n), bot_verts(n);
-    for (int i = 0; i < n; ++i) {
-        float angle = 2.0f * static_cast<float>(M_PI) * i / n;
-        float cx = r * std::cos(angle);
-        float cz = r * std::sin(angle);
-        top_verts[i] = Vec3(cx, hh, cz);
-        bot_verts[i] = Vec3(cx, -hh, cz);
+    // Generate ring vertices: (h_segs + 1) rings from bottom to top
+    // ring_verts[row][col], row 0 = bottom, row h_segs = top
+    std::vector<std::vector<Vec3>> ring_verts(h_segs + 1, std::vector<Vec3>(n));
+    for (int row = 0; row <= h_segs; ++row) {
+        float t = static_cast<float>(row) / h_segs; // 0 at bottom, 1 at top
+        float y = -hh + t * s.height;
+        for (int col = 0; col < n; ++col) {
+            float angle = 2.0f * static_cast<float>(M_PI) * col / n;
+            ring_verts[row][col] = Vec3(r * std::cos(angle), y, r * std::sin(angle));
+        }
     }
 
-    // Lateral quad faces
-    for (int i = 0; i < n; ++i) {
-        int next = (i + 1) % n;
-        Face f;
-        f.vertices = {bot_verts[i], bot_verts[next], top_verts[next], top_verts[i]};
-
-        // Normal: outward radial direction at midpoint
-        Vec3 mid = (bot_verts[i] + bot_verts[next]) * 0.5f;
-        f.normal = Vec3(mid.x, 0, mid.z).Normalized();
-        faces.push_back(f);
+    // Lateral quad faces (one quad per segment per height section)
+    for (int row = 0; row < h_segs; ++row) {
+        for (int col = 0; col < n; ++col) {
+            int next_col = (col + 1) % n;
+            Face f;
+            f.vertices = {
+                ring_verts[row][col],
+                ring_verts[row][next_col],
+                ring_verts[row + 1][next_col],
+                ring_verts[row + 1][col]
+            };
+            // Normal: outward radial direction at midpoint
+            Vec3 mid = (ring_verts[row][col] + ring_verts[row][next_col]) * 0.5f;
+            f.normal = Vec3(mid.x, 0, mid.z).Normalized();
+            faces.push_back(f);
+        }
     }
 
     // Top cap (N-gon, normal +Y, CCW from above)
     Face top_cap;
     top_cap.normal = Vec3(0, 1, 0);
     for (int i = 0; i < n; ++i) {
-        top_cap.vertices.push_back(top_verts[i]);
+        top_cap.vertices.push_back(ring_verts[h_segs][i]);
     }
     faces.push_back(top_cap);
 
@@ -102,7 +112,7 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
     Face bot_cap;
     bot_cap.normal = Vec3(0, -1, 0);
     for (int i = n - 1; i >= 0; --i) {
-        bot_cap.vertices.push_back(bot_verts[i]);
+        bot_cap.vertices.push_back(ring_verts[0][i]);
     }
     faces.push_back(bot_cap);
 
@@ -288,22 +298,34 @@ std::vector<Face> FaceGenerator::GenerateCapsule(const ShapeParams& s) const
 
     // --- Cylinder middle ---
     if (cyl_h > 0.0f) {
-        std::vector<Vec3> top_ring(n), bot_ring(n);
-        for (int i = 0; i < n; ++i) {
-            float angle = 2.0f * static_cast<float>(M_PI) * i / n;
-            float cx = r * std::cos(angle);
-            float cz = r * std::sin(angle);
-            top_ring[i] = Vec3(cx, hh, cz);
-            bot_ring[i] = Vec3(cx, -hh, cz);
+        int h_segs = s.height_segments;
+        if (h_segs < 1) h_segs = 1;
+
+        // Generate ring vertices for the cylinder section
+        std::vector<std::vector<Vec3>> ring_verts(h_segs + 1, std::vector<Vec3>(n));
+        for (int row = 0; row <= h_segs; ++row) {
+            float t = static_cast<float>(row) / h_segs; // 0 = bottom, 1 = top
+            float y = -hh + t * cyl_h;
+            for (int col = 0; col < n; ++col) {
+                float angle = 2.0f * static_cast<float>(M_PI) * col / n;
+                ring_verts[row][col] = Vec3(r * std::cos(angle), y, r * std::sin(angle));
+            }
         }
 
-        for (int i = 0; i < n; ++i) {
-            int next = (i + 1) % n;
-            Face f;
-            f.vertices = {bot_ring[i], bot_ring[next], top_ring[next], top_ring[i]};
-            Vec3 mid = (bot_ring[i] + bot_ring[next]) * 0.5f;
-            f.normal = Vec3(mid.x, 0, mid.z).Normalized();
-            faces.push_back(f);
+        for (int row = 0; row < h_segs; ++row) {
+            for (int col = 0; col < n; ++col) {
+                int next_col = (col + 1) % n;
+                Face f;
+                f.vertices = {
+                    ring_verts[row][col],
+                    ring_verts[row][next_col],
+                    ring_verts[row + 1][next_col],
+                    ring_verts[row + 1][col]
+                };
+                Vec3 mid = (ring_verts[row][col] + ring_verts[row][next_col]) * 0.5f;
+                f.normal = Vec3(mid.x, 0, mid.z).Normalized();
+                faces.push_back(f);
+            }
         }
     }
 

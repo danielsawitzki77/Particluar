@@ -127,7 +127,7 @@ void RunConnectionFaceMatcherTests()
         RC_ASSERT(static_cast<int>(ring_face.vertices.size()) == ring.segments);
     });
 
-    // Test: Cylinder connection radius matches cylinder radius for cap
+    // Test: Cylinder top/bottom connection radius matches cylinder radius for cap
     rc::check("Cylinder top/bottom connection radius equals cylinder radius", []() {
         ConnectionFaceMatcher matcher;
 
@@ -144,6 +144,72 @@ void RunConnectionFaceMatcherTests()
         AttachmentPoint bot_attach(AttachRegion::Bottom, 0.5f, 0.5f);
         r = matcher.ComputeConnectionRadius(cyl, bot_attach);
         RC_ASSERT(std::fabs(r - cyl.radius) < 0.001f);
+    });
+
+    // Test: Tapering produces outward-pointing normals (no inverted faces)
+    rc::check("Tapered faces have outward-pointing normals", []() {
+        ConnectionFaceMatcher matcher;
+
+        BodyNode node;
+        node.name = "test_cylinder_tapered";
+        node.shape.type = ShapeType::Cylinder;
+        node.shape.radius = 1.0f;
+        node.shape.height = 3.0f;
+        node.shape.segments = 12;
+        node.shape.height_segments = 4; // subdivided for tapering
+
+        // Add a ring at the top cap with half the cylinder radius — triggers tapering
+        ConnectionRing ring;
+        ring.center = Vec3(0, 1.5f, 0); // top of cylinder
+        ring.normal = Vec3(0, 1, 0);
+        ring.radius = 0.4f; // much smaller than cylinder radius
+        ring.segments = 8;
+        ring.child_index = 0;
+
+        MatchedFaces result = matcher.GenerateWithConnections(node, {ring});
+        RC_ASSERT(!result.faces.empty());
+
+        // Verify all face normals point outward (dot product with face center from origin > 0)
+        // For lateral faces, the normal should point away from the Y axis
+        for (const auto& face : result.faces) {
+            Vec3 face_center(0, 0, 0);
+            for (const auto& v : face.vertices) face_center = face_center + v;
+            face_center = face_center * (1.0f / face.vertices.size());
+
+            // For top/bottom cap faces, check normal vs Y axis
+            if (std::fabs(face.normal.y) > 0.8f) {
+                // Cap face: normal should point up for top cap, down for bottom cap
+                if (face_center.y > 0) {
+                    RC_ASSERT(face.normal.y > 0); // top cap normal points up
+                } else {
+                    RC_ASSERT(face.normal.y < 0); // bottom cap normal points down
+                }
+            } else {
+                // Lateral face: normal should point outward from Y axis
+                Vec3 radial(face_center.x, 0, face_center.z);
+                if (radial.Length() > 0.01f) {
+                    float dot = face.normal.Dot(radial.Normalized());
+                    RC_ASSERT(dot > -0.1f); // allow slight tolerance but not inverted
+                }
+            }
+        }
+    });
+
+    // Test: Height-segmented cylinder produces correct face count
+    rc::check("Cylinder with height_segments produces correct face count", []() {
+        FaceGenerator gen;
+
+        ShapeParams s;
+        s.type = ShapeType::Cylinder;
+        s.radius = 1.0f;
+        s.height = 2.0f;
+        s.segments = *rc::gen::inRange(3, 20);
+        s.height_segments = *rc::gen::inRange(1, 8);
+
+        auto faces = gen.Generate(s);
+        // Expected: segments * height_segments lateral quads + 2 caps
+        int expected = s.segments * s.height_segments + 2;
+        RC_ASSERT(static_cast<int>(faces.size()) == expected);
     });
 
     printf("  PASS\n");

@@ -34,6 +34,7 @@ struct ShapeParams {
     float radius;
     float height;
     int segments;
+    int height_segments; // vertical rings for cylinder/capsule (1 = no subdivision)
 
     // Sphere: radius, lat_segments, lon_segments
     int lat_segments, lon_segments;
@@ -44,7 +45,7 @@ struct ShapeParams {
 
     ShapeParams()
         : type(ShapeType::Cylinder)
-        , radius(0.5f), height(1.0f), segments(16)
+        , radius(0.5f), height(1.0f), segments(16), height_segments(1)
         , lat_segments(12), lon_segments(16)
         , major_radius(1.0f), minor_radius(0.25f)
         , ring_segments(16), side_segments(8)

@@ -26,32 +26,28 @@ struct MatchedFaces {
 
 // Computes matching connection face sizes between parent and child shapes.
 // At each connection point, both shapes produce an N-gon face of the same size.
+// When the matched radius is smaller than the shape's natural radius,
+// the shape geometry is deformed (tapered) toward the connection point.
 class ConnectionFaceMatcher {
 public:
     // Compute the effective connection radius for a shape at a given attachment point.
-    // This is the "natural" face size at that location — for cylinder top/bottom it's
-    // the cylinder radius; for sphere surface it's computed from the local face size
-    // at that latitude.
     float ComputeConnectionRadius(const ShapeParams& shape, const AttachmentPoint& attach) const;
 
     // Compute the matched connection radius between parent and child.
-    // Strategy: use the SMALLER of the two natural radii so neither shape
-    // needs to expand beyond its natural bounds (only contract).
     float ComputeMatchedRadius(
         const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
         const ShapeParams& child_shape, const AttachmentPoint& child_attach
     ) const;
 
     // Compute connection segment count (N of the N-gon).
-    // Uses the minimum segments of both shapes at their connection regions.
     int ComputeMatchedSegments(
         const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
         const ShapeParams& child_shape, const AttachmentPoint& child_attach
     ) const;
 
     // Generate faces for a node with connection ring modifications.
-    // For each connection (parent side or child side), a matching ring is
-    // inserted into the geometry, deforming nearby faces to blend smoothly.
+    // For each connection, the shape geometry is tapered toward the connection
+    // point so that the face at the junction matches the required size.
     MatchedFaces GenerateWithConnections(
         const BodyNode& node,
         const std::vector<ConnectionRing>& rings
@@ -64,33 +60,26 @@ private:
     // Compute the natural face radius at a sphere surface point
     float ComputeSphereLocalRadius(const ShapeParams& shape, const AttachmentPoint& attach) const;
 
-    // Insert a connection ring into cylinder geometry (modifies top/bottom cap)
-    void InsertCylinderRing(
+    // Taper cylinder geometry toward a connection ring at top or bottom
+    void TaperCylinderEnd(
         std::vector<Face>& faces, const ShapeParams& shape,
         const ConnectionRing& ring, int& out_ring_face_index
     ) const;
 
-    // Insert a connection ring into sphere geometry (splits faces around the attachment)
-    void InsertSphereRing(
+    // Taper sphere geometry toward a connection ring
+    void TaperSphereRegion(
         std::vector<Face>& faces, const ShapeParams& shape,
         const ConnectionRing& ring, int& out_ring_face_index
     ) const;
 
-    // Insert a connection ring into capsule geometry
-    void InsertCapsuleRing(
+    // Taper capsule geometry toward a connection ring
+    void TaperCapsuleRegion(
         std::vector<Face>& faces, const ShapeParams& shape,
         const ConnectionRing& ring, int& out_ring_face_index
     ) const;
 
     // Generate an N-gon face centered at a point with given normal and radius
     Face GenerateRingFace(const Vec3& center, const Vec3& normal, float radius, int segments) const;
-
-    // Generate bridging quads between an inner ring and surrounding geometry
-    std::vector<Face> GenerateBridgeFaces(
-        const std::vector<Vec3>& inner_ring,  // connection ring vertices
-        const std::vector<Vec3>& outer_ring,  // surrounding shape boundary
-        const Vec3& normal
-    ) const;
 
     ParametricResolver m_resolver;
     FaceGenerator m_faceGen;

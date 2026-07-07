@@ -17,6 +17,7 @@
 
 #include <string>
 #include <cmath>
+#include <algorithm>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -115,6 +116,9 @@ static void ApplySubdivision(BodyRenderer::Body& body, int level)
                 s.segments = base * level;
                 if (s.segments < 3) s.segments = 3;
                 if (s.segments > 128) s.segments = 128;
+                // Height segments scale with level for tapering support
+                s.height_segments = (std::max)(1, level * 2);
+                if (s.height_segments > 16) s.height_segments = 16;
                 break;
             }
             case BodyRenderer::ShapeType::Sphere: {
