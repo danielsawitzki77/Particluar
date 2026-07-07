@@ -196,6 +196,9 @@ void ConnectionFaceMatcher::TaperCylinderEnd(
 
     // Walk all faces and deform vertices near the cap
     for (auto& face : faces) {
+        // Save original normal before deformation
+        Vec3 original_normal = face.normal;
+
         for (auto& v : face.vertices) {
             // Check if this vertex is on the taper side
             float dist_from_cap;
@@ -254,15 +257,10 @@ void ConnectionFaceMatcher::TaperCylinderEnd(
                 }
                 if (computed.Length() > 0.0001f) {
                     computed = computed.Normalized();
-                    // Ensure outward: radial direction from Y axis
-                    Vec3 face_center(0, 0, 0);
-                    for (const auto& fv : face.vertices) face_center = face_center + fv;
-                    face_center = face_center * (1.0f / face.vertices.size());
-                    Vec3 radial_out(face_center.x, 0, face_center.z);
-                    if (radial_out.Length() > 0.01f) {
-                        if (computed.Dot(radial_out) < 0) {
-                            computed = computed * (-1.0f);
-                        }
+                    // Preserve original normal orientation — the taper deformation
+                    // should not flip faces.
+                    if (computed.Dot(original_normal) < 0) {
+                        computed = computed * (-1.0f);
                     }
                     face.normal = computed;
                 }
@@ -444,6 +442,9 @@ void ConnectionFaceMatcher::TaperSphereRegion(
 
     // Walk all faces and deform vertices within the influence zone
     for (auto& face : faces) {
+        // Save original normal before deformation — used to determine orientation
+        Vec3 original_normal = face.normal;
+
         for (auto& v : face.vertices) {
             // Distance from vertex to ring center (on the surface, using arc-like metric)
             Vec3 to_v = v - ring_center;
@@ -476,7 +477,9 @@ void ConnectionFaceMatcher::TaperSphereRegion(
             }
         }
 
-        // Recompute face normal after deformation using Newell's method
+        // Recompute face normal after deformation using Newell's method.
+        // Use the ORIGINAL normal to determine correct orientation rather than
+        // assuming outward-from-origin (which fails for torus and offset shapes).
         if (face.vertices.size() >= 3) {
             Vec3 computed(0, 0, 0);
             int nv = static_cast<int>(face.vertices.size());
@@ -489,11 +492,9 @@ void ConnectionFaceMatcher::TaperSphereRegion(
             }
             if (computed.Length() > 0.0001f) {
                 computed = computed.Normalized();
-                // Ensure outward from shape center (origin)
-                Vec3 face_center(0, 0, 0);
-                for (const auto& fv : face.vertices) face_center = face_center + fv;
-                face_center = face_center * (1.0f / face.vertices.size());
-                if (computed.Dot(face_center) < 0) {
+                // Preserve original normal orientation: the taper deformation should
+                // not flip the face. Check against the pre-deformation normal.
+                if (computed.Dot(original_normal) < 0) {
                     computed = computed * (-1.0f);
                 }
                 face.normal = computed;
@@ -599,6 +600,9 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
         (void)cap_pole_y; // may be used for future refinement
 
         for (auto& face : faces) {
+            // Save original normal before deformation
+            Vec3 original_normal = face.normal;
+
             for (auto& v : face.vertices) {
                 float dist_from_pole;
                 if (is_top) {
@@ -628,7 +632,7 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
                 }
             }
 
-            // Recompute normal using Newell's method
+            // Recompute normal using Newell's method, preserving original orientation
             if (face.vertices.size() >= 3) {
                 Vec3 computed(0, 0, 0);
                 int nv = static_cast<int>(face.vertices.size());
@@ -641,10 +645,8 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
                 }
                 if (computed.Length() > 0.0001f) {
                     computed = computed.Normalized();
-                    Vec3 face_center(0, 0, 0);
-                    for (const auto& fv : face.vertices) face_center = face_center + fv;
-                    face_center = face_center * (1.0f / face.vertices.size());
-                    if (computed.Dot(face_center) < 0) {
+                    // Preserve original normal orientation
+                    if (computed.Dot(original_normal) < 0) {
                         computed = computed * (-1.0f);
                     }
                     face.normal = computed;

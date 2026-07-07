@@ -59,6 +59,7 @@
       <AdditionalIncludeDirectories>
         $(SolutionDir)renderer\include;
         $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
         $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -70,11 +71,13 @@
       <AdditionalLibraryDirectories>
         $(SolutionDir)bin\$(Configuration);
         $(SolutionDir)vendor\SDL\lib\$(Configuration);
+        $(SolutionDir)vendor\SDL_image\lib\$(Configuration);
         %(AdditionalLibraryDirectories)
       </AdditionalLibraryDirectories>
       <AdditionalDependencies>
         Renderer.lib;
         SDL3_static.lib;
+        SDL3_image_static.lib;
         winmm.lib;
         imm32.lib;
         version.lib;
@@ -111,6 +114,7 @@
       <AdditionalIncludeDirectories>
         $(SolutionDir)renderer\include;
         $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
         $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
@@ -124,11 +128,13 @@
       <AdditionalLibraryDirectories>
         $(SolutionDir)bin\$(Configuration);
         $(SolutionDir)vendor\SDL\lib\$(Configuration);
+        $(SolutionDir)vendor\SDL_image\lib\$(Configuration);
         %(AdditionalLibraryDirectories)
       </AdditionalLibraryDirectories>
       <AdditionalDependencies>
         Renderer.lib;
         SDL3_static.lib;
+        SDL3_image_static.lib;
         winmm.lib;
         imm32.lib;
         version.lib;
@@ -157,6 +163,9 @@
     </ProjectReference>
     <ProjectReference Include="..\..\vendor\SDL\SDL3_static.vcxproj">
       <Project>{B2C3D4E5-F6A7-8901-BCDE-F12345678901}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\..\vendor\SDL_image\SDL3_image_static.vcxproj">
+      <Project>{F1E2D3C4-B5A6-7890-1234-567890ABCDEF}</Project>
     </ProjectReference>
   </ItemGroup>
 
