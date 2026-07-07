@@ -44,7 +44,7 @@ void RunBodyLoaderTests()
     printf("--- BodyLoader Tests ---\n");
 
     // Property 1: JSON Round-Trip
-    rc::check("Property 1: JSON round-trip preserves structure", []() {
+    rc::check("Property 1: JSON round-trip preserves geometric parameters", []() {
         ShapeType type = static_cast<ShapeType>(*rc::gen::inRange(0, 4));
         ShapeParams shape = GenValidShape(type);
 
@@ -63,25 +63,21 @@ void RunBodyLoaderTests()
         RC_ASSERT(result.body.name == body.name);
         RC_ASSERT(result.body.root.shape.type == body.root.shape.type);
 
-        // Check float values within epsilon
+        // Check geometric parameters (not subdivision — those are runtime-determined)
         float eps = 1e-4f;
         switch (type) {
         case ShapeType::Cone:
         case ShapeType::Cylinder:
+        case ShapeType::Capsule:
             RC_ASSERT(std::fabs(result.body.root.shape.radius - body.root.shape.radius) < eps);
             RC_ASSERT(std::fabs(result.body.root.shape.height - body.root.shape.height) < eps);
-            RC_ASSERT(result.body.root.shape.segments == body.root.shape.segments);
             break;
         case ShapeType::Sphere:
             RC_ASSERT(std::fabs(result.body.root.shape.radius - body.root.shape.radius) < eps);
-            RC_ASSERT(result.body.root.shape.lon_segments == body.root.shape.lon_segments);
-            RC_ASSERT(result.body.root.shape.lat_segments == body.root.shape.lat_segments);
             break;
         case ShapeType::Torus:
             RC_ASSERT(std::fabs(result.body.root.shape.major_radius - body.root.shape.major_radius) < eps);
             RC_ASSERT(std::fabs(result.body.root.shape.minor_radius - body.root.shape.minor_radius) < eps);
-            RC_ASSERT(result.body.root.shape.ring_segments == body.root.shape.ring_segments);
-            RC_ASSERT(result.body.root.shape.side_segments == body.root.shape.side_segments);
             break;
         }
     });
@@ -109,10 +105,11 @@ void RunBodyLoaderTests()
             "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"frustum\",\"top_radius\":0.1,\"bottom_radius\":0.5,\"height\":1,\"sides\":8},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
         RC_ASSERT(!r4.success);
 
-        // Missing dimension field for cylinder
+        // Missing dimension field for cylinder — sides is now optional (runtime-determined)
+        // but radius and height are still required
         LoadResult r5 = loader.LoadFromString(
-            "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"cylinder\",\"radius\":1,\"height\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
-        RC_ASSERT(!r5.success);  // missing sides
+            "{\"name\":\"x\",\"root\":{\"name\":\"n\",\"shape\":{\"type\":\"cylinder\",\"radius\":1},\"color\":{\"r\":1,\"g\":1,\"b\":1}}}");
+        RC_ASSERT(!r5.success);  // missing height (required geometric param)
     });
 
     printf("  PASS\n");

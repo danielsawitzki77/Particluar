@@ -43,6 +43,13 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
 
     const picojson::object& obj = root.get<picojson::object>();
 
+    // Detect format version
+    int format_version = 1; // default to legacy
+    if (obj.count("format_version") && obj.at("format_version").is<double>()) {
+        format_version = static_cast<int>(obj.at("format_version").get<double>());
+    }
+    result.body.format_version = format_version;
+
     // Parse name
     if (obj.count("name") && obj.at("name").is<std::string>()) {
         result.body.name = obj.at("name").get<std::string>();
@@ -68,12 +75,11 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
         }
     }
 
-    // Parse root node - it can be the object itself if it has "shape", or nested under "root"
+    // Parse root node
     const picojson::object* node_obj = nullptr;
     if (obj.count("root") && obj.at("root").is<picojson::object>()) {
         node_obj = &obj.at("root").get<picojson::object>();
     } else if (obj.count("shape")) {
-        // The root object IS the node (flat format from design doc)
         node_obj = &obj;
     }
 
@@ -84,7 +90,7 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     }
 
     std::string parse_err;
-    if (!ParseNode(static_cast<const void*>(node_obj), &result.body.root, 0, parse_err)) {
+    if (!ParseNode(static_cast<const void*>(node_obj), &result.body.root, 0, format_version, parse_err)) {
         result.success = false;
         result.error = parse_err;
         return result;
@@ -103,7 +109,7 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     return result;
 }
 
-bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, std::string& error)
+bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, int format_version, std::string& error)
 {
     if (depth > MAX_DEPTH) {
         error = "Maximum nesting depth exceeded (32 levels)";
@@ -137,7 +143,7 @@ bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, s
         return false;
     }
 
-    // Parse color (required)
+    // Parse color (optional with default)
     if (obj.count("color") && obj.at("color").is<picojson::object>()) {
         const picojson::object& col = obj.at("color").get<picojson::object>();
         if (col.count("r") && col.at("r").is<double>()) {
@@ -176,8 +182,14 @@ bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, s
             // Parse connection for this child
             if (child_obj.count("connection") && child_obj.at("connection").is<picojson::object>()) {
                 const picojson::object& conn_obj = child_obj.at("connection").get<picojson::object>();
-                if (!ParseConnection(static_cast<const void*>(&conn_obj), &child_node.connection, error)) {
-                    return false;
+                if (format_version >= 2) {
+                    if (!ParseConnectionV2(static_cast<const void*>(&conn_obj), &child_node.connection, error)) {
+                        return false;
+                    }
+                } else {
+                    if (!ParseConnectionV1(static_cast<const void*>(&conn_obj), &child_node.connection, error)) {
+                        return false;
+                    }
                 }
             }
 
@@ -192,7 +204,7 @@ bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, s
                 return false;
             }
 
-            if (!ParseNode(static_cast<const void*>(child_node_obj), &child_node, depth + 1, error)) {
+            if (!ParseNode(static_cast<const void*>(child_node_obj), &child_node, depth + 1, format_version, error)) {
                 return false;
             }
 
@@ -216,12 +228,14 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         out->type = ShapeType::Sphere;
     } else if (type_str == "torus") {
         out->type = ShapeType::Torus;
+    } else if (type_str == "capsule") {
+        out->type = ShapeType::Capsule;
     } else {
-        error = "Unknown shape type: '" + type_str + "'. Valid types: cone, cylinder, sphere, torus";
+        error = "Unknown shape type: '" + type_str + "'. Valid types: cone, cylinder, sphere, torus, capsule";
         return false;
     }
 
-    // Helper to read a positive float
+    // Helper to read a positive float (required)
     auto readFloat = [&](const std::string& field, float& target, bool allow_zero = false) -> bool {
         if (!obj.count(field) || !obj.at(field).is<double>()) {
             error = "Missing field '" + field + "' in shape";
@@ -236,10 +250,11 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         return true;
     };
 
-    auto readInt = [&](const std::string& field, int& target, int min_val, int max_val) -> bool {
+    // Helper to read an optional int — returns false only if present but invalid.
+    // If absent, leaves target unchanged (uses ShapeParams default).
+    auto readOptionalInt = [&](const std::string& field, int& target, int min_val, int max_val) -> bool {
         if (!obj.count(field) || !obj.at(field).is<double>()) {
-            error = "Missing field '" + field + "' in shape";
-            return false;
+            return true; // absent = use default
         }
         int v = static_cast<int>(obj.at(field).get<double>());
         if (v < min_val || v > max_val) {
@@ -254,28 +269,39 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     case ShapeType::Cone:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
+        // Subdivision is optional — defaults come from ShapeParams constructor
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
         break;
 
     case ShapeType::Cylinder:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
         break;
 
     case ShapeType::Sphere:
         if (!readFloat("radius", out->radius)) return false;
-        if (!readInt("slices", out->lon_segments, 4, 128)) return false;
-        if (!readInt("stacks", out->lat_segments, 3, 64)) return false;
+        if (!readOptionalInt("slices", out->lon_segments, 4, 128)) return false;
+        if (!readOptionalInt("stacks", out->lat_segments, 3, 64)) return false;
         break;
 
     case ShapeType::Torus:
         if (!readFloat("major_radius", out->major_radius)) return false;
         if (!readFloat("minor_radius", out->minor_radius)) return false;
-        if (!readInt("ring_segments", out->ring_segments, 3, 128)) return false;
-        if (!readInt("tube_segments", out->side_segments, 3, 64)) return false;
+        if (!readOptionalInt("ring_segments", out->ring_segments, 3, 128)) return false;
+        if (!readOptionalInt("tube_segments", out->side_segments, 3, 64)) return false;
         if (out->minor_radius >= out->major_radius) {
             error = "'minor_radius' must be less than 'major_radius'";
+            return false;
+        }
+        break;
+
+    case ShapeType::Capsule:
+        if (!readFloat("radius", out->radius)) return false;
+        if (!readFloat("height", out->height)) return false;
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
+        if (out->height < 2.0f * out->radius) {
+            error = "Capsule 'height' must be >= 2 * radius (need room for hemispherical caps)";
             return false;
         }
         break;
@@ -284,9 +310,10 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     return true;
 }
 
-bool BodyLoader::ParseConnection(const void* conn_ptr, Connection* out, std::string& error)
+bool BodyLoader::ParseConnectionV1(const void* conn_ptr, Connection* out, std::string& error)
 {
     const picojson::object& obj = *static_cast<const picojson::object*>(conn_ptr);
+    out->is_legacy = true;
 
     // Parse type
     if (obj.count("type") && obj.at("type").is<std::string>()) {
@@ -327,42 +354,140 @@ bool BodyLoader::ParseConnection(const void* conn_ptr, Connection* out, std::str
     return true;
 }
 
+bool BodyLoader::ParseConnectionV2(const void* conn_ptr, Connection* out, std::string& error)
+{
+    const picojson::object& obj = *static_cast<const picojson::object*>(conn_ptr);
+    out->is_legacy = false;
+
+    // Parse parent_attach
+    if (obj.count("parent_attach") && obj.at("parent_attach").is<picojson::object>()) {
+        const picojson::object& pa = obj.at("parent_attach").get<picojson::object>();
+        if (!ParseAttachmentPoint(static_cast<const void*>(&pa), &out->parent_attach, error)) {
+            return false;
+        }
+    } else {
+        error = "Missing 'parent_attach' in v2 connection";
+        return false;
+    }
+
+    // Parse child_attach
+    if (obj.count("child_attach") && obj.at("child_attach").is<picojson::object>()) {
+        const picojson::object& ca = obj.at("child_attach").get<picojson::object>();
+        if (!ParseAttachmentPoint(static_cast<const void*>(&ca), &out->child_attach, error)) {
+            return false;
+        }
+    } else {
+        error = "Missing 'child_attach' in v2 connection";
+        return false;
+    }
+
+    // Parse rotation
+    if (obj.count("rotation") && obj.at("rotation").is<double>()) {
+        out->rotation = static_cast<float>(obj.at("rotation").get<double>());
+    }
+
+    return true;
+}
+
+bool BodyLoader::ParseAttachmentPoint(const void* attach_ptr, AttachmentPoint* out, std::string& error)
+{
+    const picojson::object& obj = *static_cast<const picojson::object*>(attach_ptr);
+
+    // Parse region
+    if (obj.count("region") && obj.at("region").is<std::string>()) {
+        std::string r = obj.at("region").get<std::string>();
+        if (r == "surface") out->region = AttachRegion::Surface;
+        else if (r == "top") out->region = AttachRegion::Top;
+        else if (r == "bottom") out->region = AttachRegion::Bottom;
+        else if (r == "side") out->region = AttachRegion::Side;
+        else if (r == "base") out->region = AttachRegion::Base;
+        else if (r == "top_cap") out->region = AttachRegion::TopCap;
+        else if (r == "bottom_cap") out->region = AttachRegion::BottomCap;
+        else {
+            error = "Unknown attachment region: '" + r + "'";
+            return false;
+        }
+    } else {
+        error = "Missing 'region' in attachment point";
+        return false;
+    }
+
+    // Parse u (default 0.5)
+    if (obj.count("u") && obj.at("u").is<double>()) {
+        out->u = static_cast<float>(obj.at("u").get<double>());
+        if (out->u < 0.0f) out->u = 0.0f;
+        if (out->u > 1.0f) out->u = 1.0f;
+    }
+
+    // Parse v (default 0.5)
+    if (obj.count("v") && obj.at("v").is<double>()) {
+        out->v = static_cast<float>(obj.at("v").get<double>());
+        if (out->v < 0.0f) out->v = 0.0f;
+        if (out->v > 1.0f) out->v = 1.0f;
+    }
+
+    return true;
+}
+
 // ============================================================================
-// Serialization
+// Serialization (always emits v2 format)
 // ============================================================================
+
+static std::string RegionToString(AttachRegion r)
+{
+    switch (r) {
+    case AttachRegion::Surface:   return "surface";
+    case AttachRegion::Top:       return "top";
+    case AttachRegion::Bottom:    return "bottom";
+    case AttachRegion::Side:      return "side";
+    case AttachRegion::Base:      return "base";
+    case AttachRegion::TopCap:    return "top_cap";
+    case AttachRegion::BottomCap: return "bottom_cap";
+    }
+    return "surface";
+}
+
+static picojson::value SerializeAttachmentPoint(const AttachmentPoint& a)
+{
+    picojson::object obj;
+    obj["region"] = picojson::value(RegionToString(a.region));
+    obj["u"] = picojson::value(static_cast<double>(a.u));
+    obj["v"] = picojson::value(static_cast<double>(a.v));
+    return picojson::value(obj);
+}
 
 static picojson::value SerializeNode(const BodyNode& node)
 {
     picojson::object obj;
     obj["name"] = picojson::value(node.name);
 
-    // Shape
+    // Shape — only emit geometric parameters, not subdivision counts.
+    // Subdivision is a runtime concern (ApplySubdivision in the viewer).
     picojson::object shape;
     switch (node.shape.type) {
     case ShapeType::Cone:
         shape["type"] = picojson::value(std::string("cone"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
         shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     case ShapeType::Cylinder:
         shape["type"] = picojson::value(std::string("cylinder"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
         shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     case ShapeType::Sphere:
         shape["type"] = picojson::value(std::string("sphere"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
-        shape["slices"] = picojson::value(static_cast<double>(node.shape.lon_segments));
-        shape["stacks"] = picojson::value(static_cast<double>(node.shape.lat_segments));
         break;
     case ShapeType::Torus:
         shape["type"] = picojson::value(std::string("torus"));
         shape["major_radius"] = picojson::value(static_cast<double>(node.shape.major_radius));
         shape["minor_radius"] = picojson::value(static_cast<double>(node.shape.minor_radius));
-        shape["ring_segments"] = picojson::value(static_cast<double>(node.shape.ring_segments));
-        shape["tube_segments"] = picojson::value(static_cast<double>(node.shape.side_segments));
+        break;
+    case ShapeType::Capsule:
+        shape["type"] = picojson::value(std::string("capsule"));
+        shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
+        shape["height"] = picojson::value(static_cast<double>(node.shape.height));
         break;
     }
     obj["shape"] = picojson::value(shape);
@@ -380,23 +505,10 @@ static picojson::value SerializeNode(const BodyNode& node)
         for (const auto& child : node.children) {
             picojson::object child_conn_obj;
 
-            // Connection
+            // Connection (v2 parametric)
             picojson::object conn;
-            switch (child.connection.type) {
-            case ConnectionType::Face_Connection:
-                conn["type"] = picojson::value(std::string("Face_Connection"));
-                break;
-            case ConnectionType::Edge_Connection:
-                conn["type"] = picojson::value(std::string("Edge_Connection"));
-                break;
-            case ConnectionType::Point_Connection:
-                conn["type"] = picojson::value(std::string("Point_Connection"));
-                break;
-            }
-            conn["parent_face"] = picojson::value(static_cast<double>(child.connection.parent_face_index));
-            conn["child_face"] = picojson::value(static_cast<double>(child.connection.child_face_index));
-            conn["offset_u"] = picojson::value(static_cast<double>(child.connection.offset_u));
-            conn["offset_v"] = picojson::value(static_cast<double>(child.connection.offset_v));
+            conn["parent_attach"] = SerializeAttachmentPoint(child.connection.parent_attach);
+            conn["child_attach"] = SerializeAttachmentPoint(child.connection.child_attach);
             conn["rotation"] = picojson::value(static_cast<double>(child.connection.rotation));
 
             child_conn_obj["connection"] = picojson::value(conn);
@@ -413,6 +525,7 @@ static picojson::value SerializeNode(const BodyNode& node)
 std::string BodyLoader::Serialize(const Body& body) const
 {
     picojson::object root;
+    root["format_version"] = picojson::value(2.0);
     root["name"] = picojson::value(body.name);
 
     // Material

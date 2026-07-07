@@ -1,22 +1,31 @@
 {
+  "format_version": 2,
   "name": "Rocket",
   "root": {
     "name": "nosecone",
-    "shape": { "type": "cone", "radius": 0.4, "height": 1.0, "sides": 20 },
+    "shape": { "type": "cone", "radius": 0.4, "height": 1.0 },
     "color": { "r": 0.9, "g": 0.2, "b": 0.15 },
     "children": [
       {
-        "connection": { "type": "Face_Connection", "parent_face": 20, "child_face": 20, "rotation": 0.0 },
+        "connection": {
+          "parent_attach": { "region": "base", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+          "rotation": 0.0
+        },
         "node": {
           "name": "fuselage",
-          "shape": { "type": "cylinder", "radius": 0.4, "height": 2.5, "sides": 20 },
+          "shape": { "type": "cylinder", "radius": 0.4, "height": 2.5 },
           "color": { "r": 0.9, "g": 0.9, "b": 0.92 },
           "children": [
             {
-              "connection": { "type": "Face_Connection", "parent_face": 21, "child_face": 20, "rotation": 0.0 },
+              "connection": {
+                "parent_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+                "child_attach": { "region": "base", "u": 0.5, "v": 0.5 },
+                "rotation": 0.0
+              },
               "node": {
                 "name": "engine_bell",
-                "shape": { "type": "cone", "radius": 0.6, "height": 0.5, "sides": 20 },
+                "shape": { "type": "cone", "radius": 0.6, "height": 0.5 },
                 "color": { "r": 0.7, "g": 0.7, "b": 0.75 }
               }
             }

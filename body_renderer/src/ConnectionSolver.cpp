@@ -9,10 +9,16 @@ namespace BodyRenderer {
 
 static void ResolveChildrenRecursive(BodyNode* node, const FaceGenerator& faceGen, const ConnectionSolver& solver)
 {
-    std::vector<Face> node_faces = faceGen.Generate(node->shape);
     for (auto& child : node->children) {
-        std::vector<Face> child_faces = faceGen.Generate(child.shape);
-        child.local_transform = solver.ComputeTransform(child.connection, node_faces, child_faces);
+        if (child.connection.is_legacy) {
+            // Legacy v1: use face indices
+            std::vector<Face> node_faces = faceGen.Generate(node->shape);
+            std::vector<Face> child_faces = faceGen.Generate(child.shape);
+            child.local_transform = solver.ComputeLegacyTransform(child.connection, node_faces, child_faces);
+        } else {
+            // v2 parametric
+            child.local_transform = solver.ComputeParametricTransform(child.connection, node->shape, child.shape);
+        }
         ResolveChildrenRecursive(&child, faceGen, solver);
     }
 }
@@ -28,7 +34,62 @@ void ConnectionSolver::ResolveTree(BodyNode* root) const
     ResolveChildrenRecursive(root, faceGen, *this);
 }
 
-Mat4 ConnectionSolver::ComputeTransform(
+// ============================================================================
+// Parametric (v2) transform computation
+// ============================================================================
+
+Mat4 ConnectionSolver::ComputeParametricTransform(
+    const Connection& conn,
+    const ShapeParams& parent_shape,
+    const ShapeParams& child_shape) const
+{
+    // Resolve parent attachment point
+    SurfacePoint parent_pt = m_resolver.Resolve(parent_shape, conn.parent_attach);
+    // Resolve child attachment point
+    SurfacePoint child_pt = m_resolver.Resolve(child_shape, conn.child_attach);
+
+    // The child's attachment normal should face opposite to parent's attachment normal
+    Vec3 from = child_pt.normal.Normalized();
+    Vec3 to = (parent_pt.normal * (-1.0f)).Normalized();
+
+    Mat4 rot;
+    float dot = from.Dot(to);
+    if (dot > 0.9999f) {
+        rot.Identity();
+    } else if (dot < -0.9999f) {
+        // 180-degree rotation around any perpendicular axis
+        Vec3 perp(1, 0, 0);
+        if (std::fabs(from.Dot(perp)) > 0.9f) perp = Vec3(0, 1, 0);
+        Vec3 axis = from.Cross(perp).Normalized();
+        rot = Mat4::RotationAxis(axis, static_cast<float>(M_PI));
+    } else {
+        Vec3 axis = from.Cross(to).Normalized();
+        float angle = std::acos(dot);
+        rot = Mat4::RotationAxis(axis, angle);
+    }
+
+    // Apply spin rotation around parent normal
+    float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
+    Mat4 spin = Mat4::RotationAxis(parent_pt.normal, rot_angle);
+
+    // Orientation = spin * rot
+    Mat4 orientation = spin * rot;
+
+    // After rotating the child, its attachment point moves
+    Vec3 rotated_child_attach = orientation.TransformPoint(child_pt.position);
+
+    // Translate so the child's attachment point lands on the parent's attachment point
+    Vec3 final_pos = parent_pt.position - rotated_child_attach;
+    Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
+
+    return trans * spin * rot;
+}
+
+// ============================================================================
+// Legacy (v1) transform computation
+// ============================================================================
+
+Mat4 ConnectionSolver::ComputeLegacyTransform(
     const Connection& conn,
     const std::vector<Face>& parent_faces,
     const std::vector<Face>& child_faces) const
@@ -110,8 +171,7 @@ Mat4 ConnectionSolver::ComputeFaceConnection(const Connection& conn, const Face&
     Mat4 orientation = spin * rot;
     Vec3 rotated_child_center = orientation.TransformPoint(child_face_center);
 
-    // Offset translation so the child's connection face sits flush on the parent face,
-    // not the child's origin. This prevents volume intersection.
+    // Offset translation so the child's connection face sits flush on the parent face
     Vec3 final_pos = parent_center - rotated_child_center;
     Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 

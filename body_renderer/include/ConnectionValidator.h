@@ -2,6 +2,7 @@
 
 #include "BodyTypes.h"
 #include "FaceGenerator.h"
+#include "ParametricResolver.h"
 #include <string>
 #include <vector>
 
@@ -17,7 +18,7 @@ struct ValidationResult {
 
 class ConnectionValidator {
 public:
-    // Validate a single connection between parent and child faces
+    // Validate a single legacy connection between parent and child faces
     ValidationResult ValidateConnection(
         const Connection& conn,
         const std::vector<Face>& parent_faces,
@@ -26,8 +27,7 @@ public:
         const std::string& child_name) const;
 
     // Validate that child geometry does not penetrate through the shared face
-    // into the parent's volume. All child vertices (in parent-local space) must
-    // lie in the outward half-space of the parent's connection face.
+    // into the parent's volume.
     ValidationResult ValidateNoVolumeOverlap(
         const Connection& conn,
         const std::vector<Face>& parent_faces,
@@ -36,11 +36,25 @@ public:
         const std::string& parent_name,
         const std::string& child_name) const;
 
+    // Validate a parametric connection (v2)
+    ValidationResult ValidateParametricConnection(
+        const Connection& conn,
+        const ShapeParams& parent_shape,
+        const ShapeParams& child_shape,
+        const std::string& parent_name,
+        const std::string& child_name) const;
+
     // Validate an entire body tree recursively
     ValidationResult ValidateBody(const Body& body) const;
 
 private:
     ValidationResult ValidateNode(const BodyNode& node, const FaceGenerator& faceGen) const;
+    ValidationResult ValidateNodeParametric(const BodyNode& node) const;
+
+    // Check if an AttachRegion is valid for a given shape type
+    bool IsRegionValidForShape(AttachRegion region, ShapeType shape_type) const;
+
+    ParametricResolver m_resolver;
 };
 
 } // namespace BodyRenderer

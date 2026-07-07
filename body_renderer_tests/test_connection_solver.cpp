@@ -47,7 +47,7 @@ void RunConnectionSolverTests()
         conn.offset_v = 0.5f;
         conn.rotation = 0.0f;
 
-        Mat4 transform = solver.ComputeTransform(conn, parent_faces, child_faces);
+        Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         // The child's connection face center should end up on the parent face center.
         // This ensures bodies share the face without intersecting volumes.

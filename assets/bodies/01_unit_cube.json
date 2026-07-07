@@ -1,8 +1,9 @@
 {
-  "name": "Unit Cylinder",
+  "format_version": 2,
+  "name": "Unit Cube Approximation",
   "root": {
-    "name": "cylinder",
-    "shape": { "type": "cylinder", "radius": 0.5, "height": 1.0, "sides": 16 },
-    "color": { "r": 0.2, "g": 0.6, "b": 0.9 }
+    "name": "body",
+    "shape": { "type": "cylinder", "radius": 0.5, "height": 1.0, "sides": 4 },
+    "color": { "r": 0.8, "g": 0.2, "b": 0.2 }
   }
 }

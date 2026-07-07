@@ -108,6 +108,9 @@
     <ClCompile Include="src\Triangulator.cpp" />
     <ClCompile Include="src\ConnectionSolver.cpp" />
     <ClCompile Include="src\ConnectionValidator.cpp" />
+    <ClCompile Include="src\ConnectionFaceMatcher.cpp" />
+    <ClCompile Include="src\ParametricResolver.cpp" />
+    <ClCompile Include="src\ShapeScaleAnimator.cpp" />
     <ClCompile Include="src\LightManager.cpp" />
     <ClCompile Include="src\BodyRenderer.cpp" />
     <ClCompile Include="src\ModelSwitcher.cpp" />
@@ -122,6 +125,9 @@
     <ClInclude Include="include\Triangulator.h" />
     <ClInclude Include="include\ConnectionSolver.h" />
     <ClInclude Include="include\ConnectionValidator.h" />
+    <ClInclude Include="include\ConnectionFaceMatcher.h" />
+    <ClInclude Include="include\ParametricResolver.h" />
+    <ClInclude Include="include\ShapeScaleAnimator.h" />
     <ClInclude Include="include\LightManager.h" />
     <ClInclude Include="include\BodyRenderer.h" />
     <ClInclude Include="include\ModelSwitcher.h" />
