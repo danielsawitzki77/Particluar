@@ -229,28 +229,43 @@ void ConnectionFaceMatcher::TaperCylinderEnd(
             }
         }
 
-        // Recompute face normal after deformation (for lateral faces)
+        // Recompute face normal after deformation (for lateral faces only — skip caps)
         if (face.vertices.size() >= 3 && face.vertices.size() <= 4) {
-            // Compute normal from cross product of two edges
-            Vec3 e1 = face.vertices[1] - face.vertices[0];
-            Vec3 e2 = face.vertices[face.vertices.size() - 1] - face.vertices[0];
-            Vec3 computed = e1.Cross(e2).Normalized();
-            
-            // Ensure normal points outward (away from local Y axis for lateral faces)
-            Vec3 face_center(0, 0, 0);
-            for (const auto& fv : face.vertices) face_center = face_center + fv;
-            face_center = face_center * (1.0f / face.vertices.size());
-            Vec3 radial_out(face_center.x, 0, face_center.z);
-            
-            // For lateral faces, check radial direction
-            if (radial_out.Length() > 0.01f) {
-                if (computed.Dot(radial_out) < 0) {
-                    computed = computed * (-1.0f);
-                }
+            // Skip cap/polygon faces (N-gons > 4 are handled separately)
+            // Determine if this face was originally a lateral face by checking if
+            // vertices span multiple Y levels (caps have all vertices at same Y).
+            float min_y = face.vertices[0].y, max_y = face.vertices[0].y;
+            for (const auto& fv : face.vertices) {
+                if (fv.y < min_y) min_y = fv.y;
+                if (fv.y > max_y) max_y = fv.y;
             }
-            // For cap faces, keep original normal
-            if (std::fabs(face.normal.y) < 0.9f) {
-                face.normal = computed;
+            bool is_lateral = (max_y - min_y) > 0.001f;
+
+            if (is_lateral) {
+                // Use Newell's method for robust normal on possibly non-planar quads
+                Vec3 computed(0, 0, 0);
+                int nv = static_cast<int>(face.vertices.size());
+                for (int vi = 0; vi < nv; ++vi) {
+                    const Vec3& cur = face.vertices[vi];
+                    const Vec3& nxt = face.vertices[(vi + 1) % nv];
+                    computed.x += (cur.y - nxt.y) * (cur.z + nxt.z);
+                    computed.y += (cur.z - nxt.z) * (cur.x + nxt.x);
+                    computed.z += (cur.x - nxt.x) * (cur.y + nxt.y);
+                }
+                if (computed.Length() > 0.0001f) {
+                    computed = computed.Normalized();
+                    // Ensure outward: radial direction from Y axis
+                    Vec3 face_center(0, 0, 0);
+                    for (const auto& fv : face.vertices) face_center = face_center + fv;
+                    face_center = face_center * (1.0f / face.vertices.size());
+                    Vec3 radial_out(face_center.x, 0, face_center.z);
+                    if (radial_out.Length() > 0.01f) {
+                        if (computed.Dot(radial_out) < 0) {
+                            computed = computed * (-1.0f);
+                        }
+                    }
+                    face.normal = computed;
+                }
             }
         }
     }
@@ -270,22 +285,144 @@ void ConnectionFaceMatcher::TaperCylinderEnd(
     }
 
     if (cap_index >= 0) {
-        // The cap vertices have already been tapered, so they now form the connection ring.
-        // The cap face IS the connection face.
-        // Regenerate it with the correct segment count for the connection.
-        Vec3 cap_center(ring.center.x, cap_y, ring.center.z);
-        Vec3 cap_normal = is_top ? Vec3(0, 1, 0) : Vec3(0, -1, 0);
-        
-        Face new_cap = GenerateRingFace(cap_center, cap_normal, ring.radius, ring.segments);
-        
-        // For bottom cap, reverse winding to maintain CCW from below
-        if (!is_top) {
-            std::reverse(new_cap.vertices.begin(), new_cap.vertices.end());
-            new_cap.normal = Vec3(0, -1, 0);
+        // Two cases:
+        // 1. ring.segments == shape.segments: The tapered lateral vertices at the cap level
+        //    directly form the connection face. Use them for watertight geometry.
+        // 2. ring.segments != shape.segments: Generate the ring face at the matched segment
+        //    count, then add bridge triangles between the outer lateral ring and the inner
+        //    connection ring.
+
+        float cap_y_actual = cap_y; // may slightly differ from ring.center.y
+
+        // Collect the lateral vertices at the cap edge (y ≈ cap_y)
+        std::vector<Vec3> outer_ring;
+        for (const auto& face : faces) {
+            if (face.vertices.size() == 3 || face.vertices.size() == 4) {
+                for (const auto& v : face.vertices) {
+                    if (std::fabs(v.y - cap_y_actual) < 0.001f) {
+                        bool found = false;
+                        for (const auto& rv : outer_ring) {
+                            float dx = rv.x - v.x, dz = rv.z - v.z;
+                            if (dx * dx + dz * dz < 0.0001f) {
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) {
+                            outer_ring.push_back(v);
+                        }
+                    }
+                }
+            }
         }
-        
-        faces[cap_index] = new_cap;
-        out_ring_face_index = cap_index;
+
+        // Sort outer ring by angle
+        Vec3 centroid(0, cap_y_actual, 0);
+        for (const auto& v : outer_ring) {
+            centroid.x += v.x;
+            centroid.z += v.z;
+        }
+        if (!outer_ring.empty()) {
+            centroid.x /= outer_ring.size();
+            centroid.z /= outer_ring.size();
+        }
+        std::sort(outer_ring.begin(), outer_ring.end(),
+            [&centroid](const Vec3& a, const Vec3& b) {
+                float angle_a = std::atan2(a.z - centroid.z, a.x - centroid.x);
+                float angle_b = std::atan2(b.z - centroid.z, b.x - centroid.x);
+                return angle_a < angle_b;
+            });
+
+        if (ring.segments == static_cast<int>(outer_ring.size())) {
+            // Case 1: segments match — use lateral vertices directly as the cap
+            Face new_cap;
+            new_cap.normal = is_top ? Vec3(0, 1, 0) : Vec3(0, -1, 0);
+            if (is_top) {
+                new_cap.vertices = outer_ring;
+            } else {
+                new_cap.vertices.assign(outer_ring.rbegin(), outer_ring.rend());
+            }
+            faces[cap_index] = new_cap;
+            out_ring_face_index = cap_index;
+        } else if (!outer_ring.empty()) {
+            // Case 2: segments differ — generate inner ring at matched count,
+            // replace cap with inner ring face, add bridge annular faces.
+            Vec3 cap_center(0, cap_y_actual, 0);
+            Vec3 cap_normal = is_top ? Vec3(0, 1, 0) : Vec3(0, -1, 0);
+            Face inner_ring = GenerateRingFace(cap_center, cap_normal, ring.radius, ring.segments);
+            if (!is_top) {
+                std::reverse(inner_ring.vertices.begin(), inner_ring.vertices.end());
+                inner_ring.normal = Vec3(0, -1, 0);
+            }
+
+            // Replace the old cap with the inner ring face
+            faces[cap_index] = inner_ring;
+            out_ring_face_index = cap_index;
+
+            // Add bridge triangles between outer_ring (N_outer) and inner_ring (N_inner).
+            // Use a stitching algorithm to connect two rings with different vertex counts.
+            int n_outer = static_cast<int>(outer_ring.size());
+            int n_inner = ring.segments;
+            // IMPORTANT: Copy inner vertices — do NOT take a reference to faces[cap_index].vertices
+            // because faces.push_back() below can reallocate and invalidate references.
+            const std::vector<Vec3> inner_verts = faces[cap_index].vertices;
+
+            // Stitch the two rings using proportional advancement.
+            // Total triangles needed = n_outer + n_inner (each edge becomes a tri).
+            // We advance around each ring proportionally so triangles stay well-shaped.
+            int total_steps = n_outer + n_inner;
+            int io = 0, ii = 0;
+            int outer_steps = 0, inner_steps = 0;
+
+            for (int step = 0; step < total_steps; ++step) {
+                // Decide whether to advance outer or inner ring next.
+                // Advance the ring that is proportionally "behind" the other.
+                bool advance_outer;
+                if (outer_steps >= n_outer) {
+                    advance_outer = false;
+                } else if (inner_steps >= n_inner) {
+                    advance_outer = true;
+                } else {
+                    // Compare progress ratios: advance whichever is more behind
+                    advance_outer = (static_cast<float>(outer_steps) / n_outer <=
+                                     static_cast<float>(inner_steps) / n_inner);
+                }
+
+                Face bridge;
+                bridge.normal = cap_normal;
+                if (advance_outer) {
+                    int next_o = (io + 1) % n_outer;
+                    if (is_top) {
+                        bridge.vertices = {outer_ring[io], outer_ring[next_o], inner_verts[ii]};
+                    } else {
+                        bridge.vertices = {inner_verts[ii], outer_ring[next_o], outer_ring[io]};
+                    }
+                    io = next_o;
+                    outer_steps++;
+                } else {
+                    int next_i = (ii + 1) % n_inner;
+                    if (is_top) {
+                        bridge.vertices = {outer_ring[io], inner_verts[next_i], inner_verts[ii]};
+                    } else {
+                        bridge.vertices = {inner_verts[ii], inner_verts[next_i], outer_ring[io]};
+                    }
+                    ii = next_i;
+                    inner_steps++;
+                }
+                faces.push_back(bridge);
+            }
+        } else {
+            // Fallback: generate analytically
+            Vec3 cap_center(ring.center.x, cap_y_actual, ring.center.z);
+            Vec3 cap_normal = is_top ? Vec3(0, 1, 0) : Vec3(0, -1, 0);
+            Face new_cap = GenerateRingFace(cap_center, cap_normal, ring.radius, ring.segments);
+            if (!is_top) {
+                std::reverse(new_cap.vertices.begin(), new_cap.vertices.end());
+                new_cap.normal = Vec3(0, -1, 0);
+            }
+            faces[cap_index] = new_cap;
+            out_ring_face_index = cap_index;
+        }
     } else {
         out_ring_face_index = -1;
     }
@@ -336,18 +473,23 @@ void ConnectionFaceMatcher::TaperSphereRegion(
             }
         }
 
-        // Recompute face normal after deformation
+        // Recompute face normal after deformation using Newell's method
         if (face.vertices.size() >= 3) {
-            Vec3 face_center(0, 0, 0);
-            for (const auto& fv : face.vertices) face_center = face_center + fv;
-            face_center = face_center * (1.0f / face.vertices.size());
-            
-            Vec3 e1 = face.vertices[1] - face.vertices[0];
-            Vec3 e2 = face.vertices[face.vertices.size() - 1] - face.vertices[0];
-            Vec3 computed = e1.Cross(e2);
+            Vec3 computed(0, 0, 0);
+            int nv = static_cast<int>(face.vertices.size());
+            for (int vi = 0; vi < nv; ++vi) {
+                const Vec3& cur = face.vertices[vi];
+                const Vec3& nxt = face.vertices[(vi + 1) % nv];
+                computed.x += (cur.y - nxt.y) * (cur.z + nxt.z);
+                computed.y += (cur.z - nxt.z) * (cur.x + nxt.x);
+                computed.z += (cur.x - nxt.x) * (cur.y + nxt.y);
+            }
             if (computed.Length() > 0.0001f) {
                 computed = computed.Normalized();
                 // Ensure outward from shape center (origin)
+                Vec3 face_center(0, 0, 0);
+                for (const auto& fv : face.vertices) face_center = face_center + fv;
+                face_center = face_center * (1.0f / face.vertices.size());
                 if (computed.Dot(face_center) < 0) {
                     computed = computed * (-1.0f);
                 }
@@ -373,10 +515,54 @@ void ConnectionFaceMatcher::TaperSphereRegion(
     }
 
     if (closest_face >= 0) {
-        // Replace the closest face with the connection ring N-gon
-        Face ring_face = GenerateRingFace(ring_center, ring_dir, ring.radius, ring.segments);
-        faces[closest_face] = ring_face;
-        out_ring_face_index = closest_face;
+        // Instead of generating a brand new ring face (which disconnects from neighbors),
+        // deform the existing closest face to become the connection ring.
+        // If the face vertex count doesn't match ring.segments, replace it but
+        // snap its vertices to neighboring deformed vertices for continuity.
+
+        Face& target_face = faces[closest_face];
+        
+        // If the existing face has enough vertices, just reshape it in-place
+        if (static_cast<int>(target_face.vertices.size()) == ring.segments) {
+            // Redistribute vertices around the ring at the matched radius
+            Vec3 up = (std::fabs(ring_dir.y) < 0.9f) ? Vec3(0, 1, 0) : Vec3(1, 0, 0);
+            Vec3 tangent = ring_dir.Cross(up).Normalized();
+            Vec3 bitangent = ring_dir.Cross(tangent).Normalized();
+            for (int i = 0; i < ring.segments; ++i) {
+                float angle = 2.0f * static_cast<float>(M_PI) * i / ring.segments;
+                target_face.vertices[i] = ring_center
+                    + tangent * (ring.radius * std::cos(angle))
+                    + bitangent * (ring.radius * std::sin(angle));
+            }
+            target_face.normal = ring_dir;
+            out_ring_face_index = closest_face;
+        } else {
+            // Replace with a new ring face — snap each vertex to the nearest
+            // existing deformed neighbor vertex for continuity
+            Face ring_face = GenerateRingFace(ring_center, ring_dir, ring.radius, ring.segments);
+            
+            // For each ring vertex, find the closest vertex in adjacent faces and snap
+            for (auto& rv : ring_face.vertices) {
+                float best_dist = 1e9f;
+                Vec3 best_v = rv;
+                for (int fi = 0; fi < static_cast<int>(faces.size()); ++fi) {
+                    if (fi == closest_face) continue;
+                    for (const auto& fv : faces[fi].vertices) {
+                        float d = (fv - rv).Length();
+                        if (d < best_dist && d < ring.radius * 0.3f) {
+                            best_dist = d;
+                            best_v = fv;
+                        }
+                    }
+                }
+                if (best_dist < ring.radius * 0.3f) {
+                    rv = best_v; // snap to neighbor
+                }
+            }
+            
+            faces[closest_face] = ring_face;
+            out_ring_face_index = closest_face;
+        }
     } else {
         out_ring_face_index = -1;
     }
@@ -439,17 +625,22 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
                 }
             }
 
-            // Recompute normal
+            // Recompute normal using Newell's method
             if (face.vertices.size() >= 3) {
-                Vec3 face_center(0, 0, 0);
-                for (const auto& fv : face.vertices) face_center = face_center + fv;
-                face_center = face_center * (1.0f / face.vertices.size());
-                
-                Vec3 e1 = face.vertices[1] - face.vertices[0];
-                Vec3 e2 = face.vertices[face.vertices.size() - 1] - face.vertices[0];
-                Vec3 computed = e1.Cross(e2);
+                Vec3 computed(0, 0, 0);
+                int nv = static_cast<int>(face.vertices.size());
+                for (int vi = 0; vi < nv; ++vi) {
+                    const Vec3& cur = face.vertices[vi];
+                    const Vec3& nxt = face.vertices[(vi + 1) % nv];
+                    computed.x += (cur.y - nxt.y) * (cur.z + nxt.z);
+                    computed.y += (cur.z - nxt.z) * (cur.x + nxt.x);
+                    computed.z += (cur.x - nxt.x) * (cur.y + nxt.y);
+                }
                 if (computed.Length() > 0.0001f) {
                     computed = computed.Normalized();
+                    Vec3 face_center(0, 0, 0);
+                    for (const auto& fv : face.vertices) face_center = face_center + fv;
+                    face_center = face_center * (1.0f / face.vertices.size());
                     if (computed.Dot(face_center) < 0) {
                         computed = computed * (-1.0f);
                     }
@@ -458,7 +649,8 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
             }
         }
 
-        // Replace the pole triangle(s) with a connection ring face
+        // Replace the pole triangle(s) with a connection ring face.
+        // Snap ring vertices to nearby deformed vertices for continuity.
         Vec3 pole_pos = ring.center;
         int closest_face = -1;
         float closest_dist = 1e9f;
@@ -475,6 +667,24 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
 
         if (closest_face >= 0) {
             Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
+            // Snap ring vertices to nearby mesh vertices for watertight connections
+            for (auto& rv : ring_face.vertices) {
+                float best_d = 1e9f;
+                Vec3 best_v = rv;
+                for (int fi = 0; fi < static_cast<int>(faces.size()); ++fi) {
+                    if (fi == closest_face) continue;
+                    for (const auto& fv : faces[fi].vertices) {
+                        float d = (fv - rv).Length();
+                        if (d < best_d && d < ring.radius * 0.3f) {
+                            best_d = d;
+                            best_v = fv;
+                        }
+                    }
+                }
+                if (best_d < ring.radius * 0.3f) {
+                    rv = best_v;
+                }
+            }
             faces[closest_face] = ring_face;
             out_ring_face_index = closest_face;
         } else {
