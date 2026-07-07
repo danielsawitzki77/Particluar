@@ -370,46 +370,49 @@ void ConnectionFaceMatcher::TaperCylinderEnd(
             // Stitch the two rings using proportional advancement.
             // Total triangles needed = n_outer + n_inner (each edge becomes a tri).
             // We advance around each ring proportionally so triangles stay well-shaped.
-            int total_steps = n_outer + n_inner;
-            int io = 0, ii = 0;
-            int outer_steps = 0, inner_steps = 0;
+            if (n_outer >= 3 && n_inner >= 3 &&
+                static_cast<int>(inner_verts.size()) == n_inner) {
+                int total_steps = n_outer + n_inner;
+                int io = 0, ii = 0;
+                int outer_steps = 0, inner_steps = 0;
 
-            for (int step = 0; step < total_steps; ++step) {
-                // Decide whether to advance outer or inner ring next.
-                // Advance the ring that is proportionally "behind" the other.
-                bool advance_outer;
-                if (outer_steps >= n_outer) {
-                    advance_outer = false;
-                } else if (inner_steps >= n_inner) {
-                    advance_outer = true;
-                } else {
-                    // Compare progress ratios: advance whichever is more behind
-                    advance_outer = (static_cast<float>(outer_steps) / n_outer <=
-                                     static_cast<float>(inner_steps) / n_inner);
-                }
+                for (int step = 0; step < total_steps; ++step) {
+                    // Decide whether to advance outer or inner ring next.
+                    // Advance the ring that is proportionally "behind" the other.
+                    bool advance_outer;
+                    if (outer_steps >= n_outer) {
+                        advance_outer = false;
+                    } else if (inner_steps >= n_inner) {
+                        advance_outer = true;
+                    } else {
+                        // Compare progress ratios: advance whichever is more behind
+                        advance_outer = (static_cast<float>(outer_steps) / n_outer <=
+                                         static_cast<float>(inner_steps) / n_inner);
+                    }
 
-                Face bridge;
-                bridge.normal = cap_normal;
-                if (advance_outer) {
-                    int next_o = (io + 1) % n_outer;
-                    if (is_top) {
-                        bridge.vertices = {outer_ring[io], outer_ring[next_o], inner_verts[ii]};
+                    Face bridge;
+                    bridge.normal = cap_normal;
+                    if (advance_outer) {
+                        int next_o = (io + 1) % n_outer;
+                        if (is_top) {
+                            bridge.vertices = {outer_ring[io], outer_ring[next_o], inner_verts[ii]};
+                        } else {
+                            bridge.vertices = {inner_verts[ii], outer_ring[next_o], outer_ring[io]};
+                        }
+                        io = next_o;
+                        outer_steps++;
                     } else {
-                        bridge.vertices = {inner_verts[ii], outer_ring[next_o], outer_ring[io]};
+                        int next_i = (ii + 1) % n_inner;
+                        if (is_top) {
+                            bridge.vertices = {outer_ring[io], inner_verts[next_i], inner_verts[ii]};
+                        } else {
+                            bridge.vertices = {inner_verts[ii], inner_verts[next_i], outer_ring[io]};
+                        }
+                        ii = next_i;
+                        inner_steps++;
                     }
-                    io = next_o;
-                    outer_steps++;
-                } else {
-                    int next_i = (ii + 1) % n_inner;
-                    if (is_top) {
-                        bridge.vertices = {outer_ring[io], inner_verts[next_i], inner_verts[ii]};
-                    } else {
-                        bridge.vertices = {inner_verts[ii], inner_verts[next_i], outer_ring[io]};
-                    }
-                    ii = next_i;
-                    inner_steps++;
+                    faces.push_back(bridge);
                 }
-                faces.push_back(bridge);
             }
         } else {
             // Fallback: generate analytically
