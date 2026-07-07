@@ -3,7 +3,7 @@
   "name": "Snowman",
   "root": {
     "name": "body",
-    "shape": { "type": "sphere", "radius": 1.0, "slices": 16, "stacks": 12 },
+    "shape": { "type": "sphere", "radius": 1.0 },
     "color": { "r": 0.95, "g": 0.95, "b": 0.98 },
     "children": [
       {
@@ -14,7 +14,7 @@
         },
         "node": {
           "name": "torso",
-          "shape": { "type": "sphere", "radius": 0.7, "slices": 16, "stacks": 12 },
+          "shape": { "type": "sphere", "radius": 0.7 },
           "color": { "r": 0.93, "g": 0.93, "b": 0.96 },
           "children": [
             {
@@ -25,7 +25,7 @@
               },
               "node": {
                 "name": "head",
-                "shape": { "type": "sphere", "radius": 0.5, "slices": 16, "stacks": 12 },
+                "shape": { "type": "sphere", "radius": 0.5 },
                 "color": { "r": 0.9, "g": 0.9, "b": 0.95 }
               }
             }

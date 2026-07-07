@@ -7,7 +7,7 @@
   },
   "root": {
     "name": "torso",
-    "shape": { "type": "capsule", "radius": 0.35, "height": 1.2, "sides": 12 },
+    "shape": { "type": "capsule", "radius": 0.35, "height": 1.2 },
     "color": { "r": 0.3, "g": 0.5, "b": 0.7 },
     "children": [
       {
@@ -18,7 +18,7 @@
         },
         "node": {
           "name": "head",
-          "shape": { "type": "sphere", "radius": 0.25, "slices": 12, "stacks": 10 },
+          "shape": { "type": "sphere", "radius": 0.25 },
           "color": { "r": 0.85, "g": 0.7, "b": 0.6 }
         }
       },
@@ -30,7 +30,7 @@
         },
         "node": {
           "name": "arm_right",
-          "shape": { "type": "capsule", "radius": 0.1, "height": 0.8, "sides": 8 },
+          "shape": { "type": "capsule", "radius": 0.1, "height": 0.8 },
           "color": { "r": 0.3, "g": 0.5, "b": 0.7 },
           "children": [
             {
@@ -41,7 +41,7 @@
               },
               "node": {
                 "name": "hand_right",
-                "shape": { "type": "sphere", "radius": 0.12, "slices": 8, "stacks": 6 },
+                "shape": { "type": "sphere", "radius": 0.12 },
                 "color": { "r": 0.85, "g": 0.7, "b": 0.6 }
               }
             }
@@ -56,7 +56,7 @@
         },
         "node": {
           "name": "arm_left",
-          "shape": { "type": "capsule", "radius": 0.1, "height": 0.8, "sides": 8 },
+          "shape": { "type": "capsule", "radius": 0.1, "height": 0.8 },
           "color": { "r": 0.3, "g": 0.5, "b": 0.7 },
           "children": [
             {
@@ -67,7 +67,7 @@
               },
               "node": {
                 "name": "hand_left",
-                "shape": { "type": "sphere", "radius": 0.12, "slices": 8, "stacks": 6 },
+                "shape": { "type": "sphere", "radius": 0.12 },
                 "color": { "r": 0.85, "g": 0.7, "b": 0.6 }
               }
             }
@@ -82,7 +82,7 @@
         },
         "node": {
           "name": "leg_right",
-          "shape": { "type": "capsule", "radius": 0.12, "height": 1.0, "sides": 12 },
+          "shape": { "type": "capsule", "radius": 0.12, "height": 1.0 },
           "color": { "r": 0.25, "g": 0.25, "b": 0.4 },
           "children": [
             {
@@ -93,7 +93,7 @@
               },
               "node": {
                 "name": "foot_right",
-                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 12 },
+                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1 },
                 "color": { "r": 0.4, "g": 0.2, "b": 0.15 }
               }
             }
@@ -108,7 +108,7 @@
         },
         "node": {
           "name": "leg_left",
-          "shape": { "type": "capsule", "radius": 0.12, "height": 1.0, "sides": 12 },
+          "shape": { "type": "capsule", "radius": 0.12, "height": 1.0 },
           "color": { "r": 0.25, "g": 0.25, "b": 0.4 },
           "children": [
             {
@@ -119,7 +119,7 @@
               },
               "node": {
                 "name": "foot_left",
-                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1, "sides": 12 },
+                "shape": { "type": "cylinder", "radius": 0.15, "height": 0.1 },
                 "color": { "r": 0.4, "g": 0.2, "b": 0.15 }
               }
             }

@@ -14,7 +14,7 @@
         },
         "node": {
           "name": "leg1",
-          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0 },
           "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
         }
       },
@@ -26,7 +26,7 @@
         },
         "node": {
           "name": "leg2",
-          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0 },
           "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
         }
       },
@@ -38,7 +38,7 @@
         },
         "node": {
           "name": "leg3",
-          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0 },
           "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
         }
       },
@@ -50,7 +50,7 @@
         },
         "node": {
           "name": "leg4",
-          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.06, "height": 1.0 },
           "color": { "r": 0.5, "g": 0.3, "b": 0.12 }
         }
       }

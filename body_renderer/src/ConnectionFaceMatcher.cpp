@@ -1,6 +1,7 @@
 #include "ConnectionFaceMatcher.h"
 #include <cmath>
 #include <algorithm>
+#include <SDL3/SDL.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -715,7 +716,6 @@ void ConnectionFaceMatcher::TaperTorusRegion(
     int sides_count = shape.side_segments;
 
     // Find the torus face closest to the connection ring center.
-    // This identifies the (ring_index, side_index) of the connection on the torus grid.
     int closest_face = -1;
     float closest_dist = 1e9f;
     for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
@@ -737,50 +737,26 @@ void ConnectionFaceMatcher::TaperTorusRegion(
     }
 
     // Determine the ring_index and side_index from the closest face index.
-    // Faces are generated in order: ring_index * sides_count + side_index.
     int ring_idx = closest_face / sides_count;
     int side_idx = closest_face % sides_count;
 
-    // Compute the tube center at this ring position (center of the tube cross-section)
-    float theta_mid = 2.0f * static_cast<float>(M_PI) * (ring_idx + 0.5f) / rings_count;
-    Vec3 tube_center(R * std::cos(theta_mid), 0.0f, R * std::sin(theta_mid));
-
-    // The connection normal points outward from the tube surface.
-    // The ring should be centered at the connection point on the tube.
-    Vec3 connection_point = ring.center;
-    Vec3 outward_from_tube = (connection_point - tube_center);
-    float tube_dist = outward_from_tube.Length();
-    if (tube_dist < 0.001f) {
-        out_ring_face_index = -1;
-        return;
-    }
-    Vec3 tube_outward = outward_from_tube * (1.0f / tube_dist);
-
-    // Determine how much the tube faces need to be deformed.
-    // If ring.radius >= minor_radius, no tapering — the connection is as large as the tube.
+    // If ring.radius >= minor_radius, no tapering needed.
     if (ring.radius >= r * 0.95f) {
-        // The connection face is approximately the whole tube cross-section at this point.
-        // Replace the closest face with a ring face.
         Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
         faces[closest_face] = ring_face;
         out_ring_face_index = closest_face;
         return;
     }
 
-    // Taper: deform faces near the connection point so they converge toward
-    // the matched ring radius. Use geodesic distance on the torus surface
-    // (approximated by face-grid distance) as the influence metric.
+    // Taper: deform vertices near the connection point so they converge toward
+    // the matched ring radius. Each vertex is deformed independently based on
+    // its own position relative to its own tube center (derived from the vertex's
+    // actual theta angle on the torus), not an approximated face center.
     
-    // Influence zone: deform faces within a few grid cells of the connection face.
-    // The influence radius is proportional to the connection radius vs tube radius.
-    float influence_cells = 2.5f; // how many grid cells out the taper extends
-    
-    float taper_ratio = ring.radius / r; // < 1.0 since ring.radius < minor_radius
+    float influence_cells = 2.5f;
+    float taper_ratio = ring.radius / r;
 
-    // For each face, compute its grid distance from the connection face
-    // and apply radial deformation toward the connection point.
     for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
-        // Determine this face's (ri, si) grid position
         int ri = i / sides_count;
         int si = i % sides_count;
 
@@ -800,29 +776,28 @@ void ConnectionFaceMatcher::TaperTorusRegion(
         // Save original normal before deformation
         Vec3 original_normal = faces[i].normal;
 
-        // Compute deformation strength: max at connection face (grid_dist=0), zero at edge
+        // Compute deformation strength
         float t = grid_dist / influence_cells;
         if (t > 1.0f) t = 1.0f;
-        float smooth_t = t * t * (3.0f - 2.0f * t); // smoothstep
-
-        // Scale factor: at center (t=0) we want taper_ratio, at influence edge (t=1) we want 1.0
+        float smooth_t = t * t * (3.0f - 2.0f * t);
         float scale = taper_ratio + (1.0f - taper_ratio) * smooth_t;
 
-        // Deform each vertex: move it radially (relative to tube center) by the scale factor
-        // This shrinks the tube toward the connection point
-        float this_theta = 2.0f * static_cast<float>(M_PI) * (ri + 0.5f) / rings_count;
-        Vec3 this_tube_center(R * std::cos(this_theta), 0.0f, R * std::sin(this_theta));
-
+        // Deform each vertex using its OWN tube center computed from the vertex's
+        // actual angular position. This prevents asymmetric deformation at face
+        // boundaries that causes face inversions.
         for (auto& v : faces[i].vertices) {
-            Vec3 from_tube = v - this_tube_center;
+            // Compute this vertex's theta (ring angle) from its xz position
+            float v_theta = std::atan2(v.z, v.x);
+
+            // The tube center for this vertex is at (R*cos(theta), 0, R*sin(theta))
+            Vec3 vertex_tube_center(R * std::cos(v_theta), 0.0f, R * std::sin(v_theta));
+
+            Vec3 from_tube = v - vertex_tube_center;
             float from_tube_len = from_tube.Length();
             if (from_tube_len > 0.001f) {
-                // At the connection face, the tube radius should be ring.radius
-                // At the influence edge, it stays at minor_radius
                 float desired_len = from_tube_len * scale;
                 float factor = desired_len / from_tube_len;
-                Vec3 new_pos = this_tube_center + from_tube * factor;
-                v = new_pos;
+                v = vertex_tube_center + from_tube * factor;
             }
         }
 
@@ -839,7 +814,6 @@ void ConnectionFaceMatcher::TaperTorusRegion(
             }
             if (computed.Length() > 0.0001f) {
                 computed = computed.Normalized();
-                // Preserve original normal orientation
                 if (computed.Dot(original_normal) < 0) {
                     computed = computed * (-1.0f);
                 }
@@ -848,8 +822,7 @@ void ConnectionFaceMatcher::TaperTorusRegion(
         }
     }
 
-    // Now replace the closest face with the connection ring N-gon.
-    // The ring face vertices should snap to neighboring deformed vertices for watertight geometry.
+    // Replace the closest face with the connection ring N-gon.
     Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
 
     // Snap ring vertices to nearby deformed mesh vertices for continuity
@@ -867,7 +840,7 @@ void ConnectionFaceMatcher::TaperTorusRegion(
             }
         }
         if (best_dist < ring.radius * 0.5f) {
-            rv = best_v; // snap to neighbor for watertight join
+            rv = best_v;
         }
     }
 
@@ -893,9 +866,19 @@ MatchedFaces ConnectionFaceMatcher::GenerateWithConnections(
     // Generate base faces first
     result.faces = m_faceGen.Generate(node.shape);
 
+    SDL_Log("[ConnectionFaceMatcher] Node '%s': %d base faces, %d connection rings",
+            node.name.c_str(), static_cast<int>(result.faces.size()), static_cast<int>(rings.size()));
+
     // Apply tapering for each connection ring
-    for (const auto& ring : rings) {
+    for (size_t ri = 0; ri < rings.size(); ++ri) {
+        const auto& ring = rings[ri];
         int ring_face_index = -1;
+
+        SDL_Log("[ConnectionFaceMatcher]   Ring %d: center=(%.2f,%.2f,%.2f) normal=(%.2f,%.2f,%.2f) radius=%.3f segments=%d",
+                static_cast<int>(ri),
+                ring.center.x, ring.center.y, ring.center.z,
+                ring.normal.x, ring.normal.y, ring.normal.z,
+                ring.radius, ring.segments);
 
         switch (node.shape.type) {
         case ShapeType::Cylinder:
@@ -908,13 +891,15 @@ MatchedFaces ConnectionFaceMatcher::GenerateWithConnections(
             TaperCapsuleRegion(result.faces, node.shape, ring, ring_face_index);
             break;
         case ShapeType::Cone:
-            // Cones already taper naturally — just find/replace the nearest face
             TaperSphereRegion(result.faces, node.shape, ring, ring_face_index);
             break;
         case ShapeType::Torus:
             TaperTorusRegion(result.faces, node.shape, ring, ring_face_index);
             break;
         }
+
+        SDL_Log("[ConnectionFaceMatcher]   -> ring_face_index=%d, total faces now=%d",
+                ring_face_index, static_cast<int>(result.faces.size()));
 
         result.connection_face_indices.push_back(ring_face_index);
     }

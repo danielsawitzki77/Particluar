@@ -3,7 +3,7 @@
   "name": "Dumbbell",
   "root": {
     "name": "weight_a",
-    "shape": { "type": "sphere", "radius": 0.6, "slices": 16, "stacks": 12 },
+    "shape": { "type": "sphere", "radius": 0.6 },
     "color": { "r": 0.2, "g": 0.2, "b": 0.2 },
     "children": [
       {
@@ -14,7 +14,7 @@
         },
         "node": {
           "name": "bar",
-          "shape": { "type": "cylinder", "radius": 0.12, "height": 2.0, "sides": 12 },
+          "shape": { "type": "cylinder", "radius": 0.12, "height": 2.0 },
           "color": { "r": 0.7, "g": 0.7, "b": 0.72 },
           "children": [
             {
@@ -25,7 +25,7 @@
               },
               "node": {
                 "name": "weight_b",
-                "shape": { "type": "sphere", "radius": 0.6, "slices": 16, "stacks": 12 },
+                "shape": { "type": "sphere", "radius": 0.6 },
                 "color": { "r": 0.2, "g": 0.2, "b": 0.2 }
               }
             }

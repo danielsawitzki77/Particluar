@@ -7,7 +7,7 @@
   },
   "root": {
     "name": "tower",
-    "shape": { "type": "cone", "radius": 0.5, "height": 2.5, "sides": 12 },
+    "shape": { "type": "cone", "radius": 0.5, "height": 2.5 },
     "color": { "r": 0.6, "g": 0.55, "b": 0.45 },
     "children": [
       {
@@ -18,7 +18,7 @@
         },
         "node": {
           "name": "hub",
-          "shape": { "type": "sphere", "radius": 0.2, "slices": 10, "stacks": 8 },
+          "shape": { "type": "sphere", "radius": 0.2 },
           "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
           "children": [
             {
@@ -29,7 +29,7 @@
               },
               "node": {
                 "name": "blade_1",
-                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5, "sides": 6 },
+                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5 },
                 "color": { "r": 0.9, "g": 0.9, "b": 0.92 }
               }
             },
@@ -41,7 +41,7 @@
               },
               "node": {
                 "name": "blade_2",
-                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5, "sides": 6 },
+                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5 },
                 "color": { "r": 0.9, "g": 0.9, "b": 0.92 }
               }
             },
@@ -53,7 +53,7 @@
               },
               "node": {
                 "name": "blade_3",
-                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5, "sides": 6 },
+                "shape": { "type": "cylinder", "radius": 0.04, "height": 1.5 },
                 "color": { "r": 0.9, "g": 0.9, "b": 0.92 }
               }
             }

@@ -3,7 +3,7 @@
   "name": "Robot Arm",
   "root": {
     "name": "base_cylinder",
-    "shape": { "type": "cylinder", "radius": 0.4, "height": 2.0, "sides": 16 },
+    "shape": { "type": "cylinder", "radius": 0.4, "height": 2.0 },
     "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
     "children": [
       {
@@ -14,7 +14,7 @@
         },
         "node": {
           "name": "joint",
-          "shape": { "type": "sphere", "radius": 0.5, "slices": 12, "stacks": 8 },
+          "shape": { "type": "sphere", "radius": 0.5 },
           "color": { "r": 0.7, "g": 0.3, "b": 0.2 },
           "children": [
             {
@@ -25,7 +25,7 @@
               },
               "node": {
                 "name": "forearm",
-                "shape": { "type": "cylinder", "radius": 0.3, "height": 1.5, "sides": 16 },
+                "shape": { "type": "cylinder", "radius": 0.3, "height": 1.5 },
                 "color": { "r": 0.5, "g": 0.5, "b": 0.55 },
                 "children": [
                   {
@@ -36,7 +36,7 @@
                     },
                     "node": {
                       "name": "hand",
-                      "shape": { "type": "cone", "radius": 0.35, "height": 0.8, "sides": 16 },
+                      "shape": { "type": "cone", "radius": 0.35, "height": 0.8 },
                       "color": { "r": 0.9, "g": 0.7, "b": 0.1 }
                     }
                   }

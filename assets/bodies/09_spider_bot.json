@@ -7,7 +7,7 @@
   },
   "root": {
     "name": "body_core",
-    "shape": { "type": "sphere", "radius": 0.6, "slices": 14, "stacks": 10 },
+    "shape": { "type": "sphere", "radius": 0.6 },
     "color": { "r": 0.3, "g": 0.3, "b": 0.35 },
     "children": [
       {
@@ -18,7 +18,7 @@
         },
         "node": {
           "name": "leg_front_right",
-          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2 },
           "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
           "children": [
             {
@@ -29,7 +29,7 @@
               },
               "node": {
                 "name": "lower_leg_fr",
-                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9 },
                 "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
               }
             }
@@ -44,7 +44,7 @@
         },
         "node": {
           "name": "leg_back_right",
-          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2 },
           "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
           "children": [
             {
@@ -55,7 +55,7 @@
               },
               "node": {
                 "name": "lower_leg_br",
-                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9 },
                 "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
               }
             }
@@ -70,7 +70,7 @@
         },
         "node": {
           "name": "leg_front_left",
-          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2 },
           "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
           "children": [
             {
@@ -81,7 +81,7 @@
               },
               "node": {
                 "name": "lower_leg_fl",
-                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9 },
                 "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
               }
             }
@@ -96,7 +96,7 @@
         },
         "node": {
           "name": "leg_back_left",
-          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2, "sides": 8 },
+          "shape": { "type": "cylinder", "radius": 0.08, "height": 1.2 },
           "color": { "r": 0.5, "g": 0.2, "b": 0.2 },
           "children": [
             {
@@ -107,7 +107,7 @@
               },
               "node": {
                 "name": "lower_leg_bl",
-                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9, "sides": 8 },
+                "shape": { "type": "cylinder", "radius": 0.05, "height": 0.9 },
                 "color": { "r": 0.6, "g": 0.25, "b": 0.2 }
               }
             }
@@ -122,7 +122,7 @@
         },
         "node": {
           "name": "head",
-          "shape": { "type": "sphere", "radius": 0.3, "slices": 10, "stacks": 8 },
+          "shape": { "type": "sphere", "radius": 0.3 },
           "color": { "r": 0.8, "g": 0.2, "b": 0.1 }
         }
       }

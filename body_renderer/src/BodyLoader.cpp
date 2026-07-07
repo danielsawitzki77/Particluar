@@ -235,7 +235,7 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         return false;
     }
 
-    // Helper to read a positive float
+    // Helper to read a positive float (required)
     auto readFloat = [&](const std::string& field, float& target, bool allow_zero = false) -> bool {
         if (!obj.count(field) || !obj.at(field).is<double>()) {
             error = "Missing field '" + field + "' in shape";
@@ -250,10 +250,11 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
         return true;
     };
 
-    auto readInt = [&](const std::string& field, int& target, int min_val, int max_val) -> bool {
+    // Helper to read an optional int — returns false only if present but invalid.
+    // If absent, leaves target unchanged (uses ShapeParams default).
+    auto readOptionalInt = [&](const std::string& field, int& target, int min_val, int max_val) -> bool {
         if (!obj.count(field) || !obj.at(field).is<double>()) {
-            error = "Missing field '" + field + "' in shape";
-            return false;
+            return true; // absent = use default
         }
         int v = static_cast<int>(obj.at(field).get<double>());
         if (v < min_val || v > max_val) {
@@ -268,26 +269,27 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     case ShapeType::Cone:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
+        // Subdivision is optional — defaults come from ShapeParams constructor
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
         break;
 
     case ShapeType::Cylinder:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
         break;
 
     case ShapeType::Sphere:
         if (!readFloat("radius", out->radius)) return false;
-        if (!readInt("slices", out->lon_segments, 4, 128)) return false;
-        if (!readInt("stacks", out->lat_segments, 3, 64)) return false;
+        if (!readOptionalInt("slices", out->lon_segments, 4, 128)) return false;
+        if (!readOptionalInt("stacks", out->lat_segments, 3, 64)) return false;
         break;
 
     case ShapeType::Torus:
         if (!readFloat("major_radius", out->major_radius)) return false;
         if (!readFloat("minor_radius", out->minor_radius)) return false;
-        if (!readInt("ring_segments", out->ring_segments, 3, 128)) return false;
-        if (!readInt("tube_segments", out->side_segments, 3, 64)) return false;
+        if (!readOptionalInt("ring_segments", out->ring_segments, 3, 128)) return false;
+        if (!readOptionalInt("tube_segments", out->side_segments, 3, 64)) return false;
         if (out->minor_radius >= out->major_radius) {
             error = "'minor_radius' must be less than 'major_radius'";
             return false;
@@ -297,7 +299,7 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
     case ShapeType::Capsule:
         if (!readFloat("radius", out->radius)) return false;
         if (!readFloat("height", out->height)) return false;
-        if (!readInt("sides", out->segments, 3, 128)) return false;
+        if (!readOptionalInt("sides", out->segments, 3, 128)) return false;
         if (out->height < 2.0f * out->radius) {
             error = "Capsule 'height' must be >= 2 * radius (need room for hemispherical caps)";
             return false;
@@ -459,39 +461,33 @@ static picojson::value SerializeNode(const BodyNode& node)
     picojson::object obj;
     obj["name"] = picojson::value(node.name);
 
-    // Shape
+    // Shape — only emit geometric parameters, not subdivision counts.
+    // Subdivision is a runtime concern (ApplySubdivision in the viewer).
     picojson::object shape;
     switch (node.shape.type) {
     case ShapeType::Cone:
         shape["type"] = picojson::value(std::string("cone"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
         shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     case ShapeType::Cylinder:
         shape["type"] = picojson::value(std::string("cylinder"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
         shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     case ShapeType::Sphere:
         shape["type"] = picojson::value(std::string("sphere"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
-        shape["slices"] = picojson::value(static_cast<double>(node.shape.lon_segments));
-        shape["stacks"] = picojson::value(static_cast<double>(node.shape.lat_segments));
         break;
     case ShapeType::Torus:
         shape["type"] = picojson::value(std::string("torus"));
         shape["major_radius"] = picojson::value(static_cast<double>(node.shape.major_radius));
         shape["minor_radius"] = picojson::value(static_cast<double>(node.shape.minor_radius));
-        shape["ring_segments"] = picojson::value(static_cast<double>(node.shape.ring_segments));
-        shape["tube_segments"] = picojson::value(static_cast<double>(node.shape.side_segments));
         break;
     case ShapeType::Capsule:
         shape["type"] = picojson::value(std::string("capsule"));
         shape["radius"] = picojson::value(static_cast<double>(node.shape.radius));
         shape["height"] = picojson::value(static_cast<double>(node.shape.height));
-        shape["sides"] = picojson::value(static_cast<double>(node.shape.segments));
         break;
     }
     obj["shape"] = picojson::value(shape);
