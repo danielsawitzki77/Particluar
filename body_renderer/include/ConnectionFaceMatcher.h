@@ -78,6 +78,12 @@ private:
         const ConnectionRing& ring, int& out_ring_face_index
     ) const;
 
+    // Taper torus geometry toward a connection ring (proper toroidal deformation)
+    void TaperTorusRegion(
+        std::vector<Face>& faces, const ShapeParams& shape,
+        const ConnectionRing& ring, int& out_ring_face_index
+    ) const;
+
     // Generate an N-gon face centered at a point with given normal and radius
     Face GenerateRingFace(const Vec3& center, const Vec3& normal, float radius, int segments) const;
 

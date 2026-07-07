@@ -162,7 +162,25 @@ void BodyRendererGL::RenderChild(const BodyNode* child, const BodyNode* parent, 
 
         // Generate child faces with all connection rings
         MatchedFaces child_matched = m_faceMatcher.GenerateWithConnections(*child, all_rings);
-        std::vector<Triangle> child_tris = m_triangulator.Triangulate(child_matched.faces);
+
+        // Shared face: exclude the child's connection face (ring index 0) from rendering.
+        // The parent already renders this face — rendering it twice causes z-fighting
+        // and the visual "broken face" artifacts. The child's geometry tapers toward
+        // the shared ring but the ring face itself belongs to the parent.
+        int shared_face_index = -1;
+        if (!child_matched.connection_face_indices.empty()) {
+            shared_face_index = child_matched.connection_face_indices[0];
+        }
+
+        // Build face list excluding the shared connection face
+        std::vector<Face> render_faces;
+        render_faces.reserve(child_matched.faces.size());
+        for (int fi = 0; fi < static_cast<int>(child_matched.faces.size()); ++fi) {
+            if (fi == shared_face_index) continue; // skip shared face
+            render_faces.push_back(child_matched.faces[fi]);
+        }
+
+        std::vector<Triangle> child_tris = m_triangulator.Triangulate(render_faces);
         SubmitTriangles(child_tris, child->color, child_world);
     } else {
         // Legacy connection — generate normal faces
