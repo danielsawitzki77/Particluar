@@ -706,17 +706,26 @@ void ConnectionFaceMatcher::TaperCapsuleRegion(
 // ============================================================================
 
 void ConnectionFaceMatcher::TaperTorusRegion(
-    std::vector<Face>& faces, const ShapeParams& shape,
+    std::vector<Face>& faces, const ShapeParams& /*shape*/,
     const ConnectionRing& ring, int& out_ring_face_index) const
 {
-    float R = shape.major_radius;
-    float r = shape.minor_radius;
-    int rings_count = shape.ring_segments;
-    int sides_count = shape.side_segments;
 
-    // Find the torus face closest to the connection ring center.
-    int closest_face = -1;
-    float closest_dist = 1e9f;
+    // ========================================================================
+    // APPROACH: "Cut hole and bridge"
+    // Instead of deforming existing faces (which creates inverted normals and
+    // gaps), we:
+    //   1. Find all faces within the connection radius of the ring center
+    //   2. Remove those faces entirely (creating a hole)
+    //   3. Collect the boundary edges of the hole
+    //   4. Insert the connection ring N-gon face
+    //   5. Bridge between the ring vertices and the boundary with triangles
+    // ========================================================================
+
+    // Step 1: Find faces whose centers are within the connection radius
+    float cut_radius = ring.radius * 1.2f; // slightly larger to ensure clean hole
+    std::vector<bool> to_remove(faces.size(), false);
+    int remove_count = 0;
+
     for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
         Vec3 face_center(0, 0, 0);
         for (const auto& v : faces[i].vertices) {
@@ -724,159 +733,192 @@ void ConnectionFaceMatcher::TaperTorusRegion(
         }
         face_center = face_center * (1.0f / faces[i].vertices.size());
         float dist = (face_center - ring.center).Length();
-        if (dist < closest_dist) {
-            closest_dist = dist;
-            closest_face = i;
+        if (dist < cut_radius) {
+            to_remove[i] = true;
+            remove_count++;
         }
     }
 
-    if (closest_face < 0) {
+    if (remove_count == 0) {
         out_ring_face_index = -1;
         return;
     }
 
-    // Determine the ring_index and side_index from the closest face index.
-    // Torus faces are generated in order: ring_idx * sides_count + side_idx
-    int ring_idx = closest_face / sides_count;
-    int side_idx = closest_face % sides_count;
+    // Step 2: Collect boundary vertices (vertices of removed faces that are
+    // shared with non-removed faces). These form the hole's perimeter.
+    std::vector<Vec3> boundary_verts;
 
-    // If ring.radius >= minor_radius, no tapering needed — just insert ring face.
-    if (ring.radius >= r * 0.95f) {
-        Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
-        faces[closest_face] = ring_face;
-        out_ring_face_index = closest_face;
+    for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
+        if (!to_remove[i]) continue;
+        for (const auto& v : faces[i].vertices) {
+            // Check if this vertex also belongs to a non-removed face
+            bool on_boundary = false;
+            for (int j = 0; j < static_cast<int>(faces.size()); ++j) {
+                if (to_remove[j]) continue;
+                for (const auto& ov : faces[j].vertices) {
+                    if ((v - ov).Length() < 0.0001f) {
+                        on_boundary = true;
+                        break;
+                    }
+                }
+                if (on_boundary) break;
+            }
+            if (on_boundary) {
+                // Deduplicate
+                bool already_added = false;
+                for (const auto& bv : boundary_verts) {
+                    if ((bv - v).Length() < 0.0001f) {
+                        already_added = true;
+                        break;
+                    }
+                }
+                if (!already_added) {
+                    boundary_verts.push_back(v);
+                }
+            }
+        }
+    }
+
+    // Step 3: Sort boundary vertices by angle around the ring center/normal
+    // to form a consistent loop.
+    if (boundary_verts.size() < 3) {
+        // Fallback: not enough boundary vertices, just replace closest face
+        int closest_face = -1;
+        float closest_dist = 1e9f;
+        for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
+            Vec3 fc(0, 0, 0);
+            for (const auto& v : faces[i].vertices) fc = fc + v;
+            fc = fc * (1.0f / faces[i].vertices.size());
+            float d = (fc - ring.center).Length();
+            if (d < closest_dist) { closest_dist = d; closest_face = i; }
+        }
+        if (closest_face >= 0) {
+            faces[closest_face] = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
+            out_ring_face_index = closest_face;
+        } else {
+            out_ring_face_index = -1;
+        }
         return;
     }
 
-    // Taper: deform vertices near the connection point so they converge toward
-    // the matched ring radius.
-    //
-    // KEY FIX: Instead of computing each vertex's tube center from its world position
-    // (which fails for inner-wall vertices where atan2 gives wrong results), we use
-    // the FACE's known grid position to determine which ring segment each vertex
-    // belongs to. Each face quad has 4 vertices from grid positions:
-    //   (ring_i, side_j), (ring_i+1, side_j), (ring_i+1, side_j+1), (ring_i, side_j+1)
-    // We know the ring angles for ring_i and ring_i+1, so we can assign the correct
-    // tube center to each vertex based on which ring it belongs to.
+    // Build a local coordinate frame around ring.normal
+    Vec3 N = ring.normal.Normalized();
+    Vec3 U, V;
+    if (std::fabs(N.y) < 0.9f) {
+        U = Vec3(0, 1, 0).Cross(N).Normalized();
+    } else {
+        U = Vec3(1, 0, 0).Cross(N).Normalized();
+    }
+    V = N.Cross(U).Normalized();
 
-    float influence_cells = 2.5f;
-    float taper_ratio = ring.radius / r;
+    // Sort boundary vertices by angle
+    std::sort(boundary_verts.begin(), boundary_verts.end(),
+        [&](const Vec3& a, const Vec3& b) {
+            Vec3 da = a - ring.center;
+            Vec3 db = b - ring.center;
+            float angle_a = std::atan2(da.Dot(V), da.Dot(U));
+            float angle_b = std::atan2(db.Dot(V), db.Dot(U));
+            return angle_a < angle_b;
+        });
 
+    // Step 4: Remove the cut faces and compact
+    std::vector<Face> new_faces;
+    new_faces.reserve(faces.size() - remove_count + 1 + boundary_verts.size());
     for (int i = 0; i < static_cast<int>(faces.size()); ++i) {
-        int ri = i / sides_count;
-        int si = i % sides_count;
+        if (!to_remove[i]) {
+            new_faces.push_back(faces[i]);
+        }
+    }
 
-        // Compute wrapped grid distance from connection face
-        int dr = ri - ring_idx;
-        if (dr > rings_count / 2) dr -= rings_count;
-        if (dr < -rings_count / 2) dr += rings_count;
+    // Step 5: Generate the connection ring N-gon
+    Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
+    int ring_face_idx = static_cast<int>(new_faces.size());
+    new_faces.push_back(ring_face);
 
-        int ds = si - side_idx;
-        if (ds > sides_count / 2) ds -= sides_count;
-        if (ds < -sides_count / 2) ds += sides_count;
+    // Step 6: Bridge between ring vertices and boundary vertices with triangles.
+    // Use a simple stitching approach: for each pair of adjacent boundary verts,
+    // find the closest ring vertex and create a triangle.
+    int n_boundary = static_cast<int>(boundary_verts.size());
+    int n_ring = static_cast<int>(ring_face.vertices.size());
 
-        float grid_dist = std::sqrt(static_cast<float>(dr * dr + ds * ds));
+    // Map each boundary vertex to its closest ring vertex index
+    for (int i = 0; i < n_boundary; ++i) {
+        int i_next = (i + 1) % n_boundary;
+        const Vec3& b0 = boundary_verts[i];
+        const Vec3& b1 = boundary_verts[i_next];
 
-        if (grid_dist > influence_cells) continue;
+        // Find closest ring vertex to b0
+        int closest_r = 0;
+        float min_d = 1e9f;
+        for (int ri = 0; ri < n_ring; ++ri) {
+            float d = (ring_face.vertices[ri] - b0).Length();
+            if (d < min_d) { min_d = d; closest_r = ri; }
+        }
+        int r0 = closest_r;
 
-        // Save original normal before deformation
-        Vec3 original_normal = faces[i].normal;
+        // Find closest ring vertex to b1
+        closest_r = 0;
+        min_d = 1e9f;
+        for (int ri = 0; ri < n_ring; ++ri) {
+            float d = (ring_face.vertices[ri] - b1).Length();
+            if (d < min_d) { min_d = d; closest_r = ri; }
+        }
+        int r1 = closest_r;
 
-        // Compute deformation strength via smoothstep
-        float t = grid_dist / influence_cells;
-        if (t > 1.0f) t = 1.0f;
-        float smooth_t = t * t * (3.0f - 2.0f * t);
-        float scale = taper_ratio + (1.0f - taper_ratio) * smooth_t;
-
-        // Compute the two ring angles for this face's ring indices.
-        // Face (ri, si) has vertices at ring indices ri and (ri+1)%rings_count.
-        int ri_next = (ri + 1) % rings_count;
-        float theta0 = 2.0f * static_cast<float>(M_PI) * ri / rings_count;
-        float theta1 = 2.0f * static_cast<float>(M_PI) * ri_next / rings_count;
-
-        // Tube centers for the two ring positions
-        Vec3 tube_center_0(R * std::cos(theta0), 0.0f, R * std::sin(theta0));
-        Vec3 tube_center_1(R * std::cos(theta1), 0.0f, R * std::sin(theta1));
-
-        // The face has 4 vertices in order:
-        //   v0 = vertex(ri, si), v1 = vertex(ri_next, si),
-        //   v2 = vertex(ri_next, si_next), v3 = vertex(ri, si_next)
-        // Vertices 0 and 3 use tube_center_0, vertices 1 and 2 use tube_center_1.
-        if (faces[i].vertices.size() == 4) {
-            Vec3 tube_centers[4] = { tube_center_0, tube_center_1, tube_center_1, tube_center_0 };
-
-            for (int vi = 0; vi < 4; ++vi) {
-                Vec3& v = faces[i].vertices[vi];
-                Vec3 from_tube = v - tube_centers[vi];
-                float from_tube_len = from_tube.Length();
-                if (from_tube_len > 0.001f) {
-                    float desired_len = from_tube_len * scale;
-                    float factor = desired_len / from_tube_len;
-                    v = tube_centers[vi] + from_tube * factor;
+        // Create triangle(s) bridging b0, b1 to the ring
+        if (r0 == r1) {
+            // Single triangle: b0, b1, ring[r0]
+            Face tri;
+            tri.vertices = { b0, b1, ring_face.vertices[r0] };
+            Vec3 e1 = b1 - b0;
+            Vec3 e2 = ring_face.vertices[r0] - b0;
+            tri.normal = e1.Cross(e2);
+            if (tri.normal.Length() > 0.0001f) {
+                tri.normal = tri.normal.Normalized();
+                // Ensure normal points outward (away from ring center)
+                Vec3 to_center = ring.center - b0;
+                if (tri.normal.Dot(to_center) > 0) {
+                    tri.normal = tri.normal * (-1.0f);
+                    std::swap(tri.vertices[1], tri.vertices[2]);
                 }
+                new_faces.push_back(tri);
             }
         } else {
-            // Non-quad face (shouldn't happen for standard torus but handle gracefully).
-            // Use the face's midpoint theta as a single tube center for all vertices.
-            float theta_mid = 2.0f * static_cast<float>(M_PI) * (ri + 0.5f) / rings_count;
-            Vec3 tube_center_mid(R * std::cos(theta_mid), 0.0f, R * std::sin(theta_mid));
-
-            for (auto& v : faces[i].vertices) {
-                Vec3 from_tube = v - tube_center_mid;
-                float from_tube_len = from_tube.Length();
-                if (from_tube_len > 0.001f) {
-                    float desired_len = from_tube_len * scale;
-                    float factor = desired_len / from_tube_len;
-                    v = tube_center_mid + from_tube * factor;
+            // Two triangles: b0-b1-ring[r1] and b0-ring[r1]-ring[r0]
+            Face tri1;
+            tri1.vertices = { b0, b1, ring_face.vertices[r1] };
+            Vec3 e1 = b1 - b0;
+            Vec3 e2 = ring_face.vertices[r1] - b0;
+            tri1.normal = e1.Cross(e2);
+            if (tri1.normal.Length() > 0.0001f) {
+                tri1.normal = tri1.normal.Normalized();
+                Vec3 to_center = ring.center - b0;
+                if (tri1.normal.Dot(to_center) > 0) {
+                    tri1.normal = tri1.normal * (-1.0f);
+                    std::swap(tri1.vertices[1], tri1.vertices[2]);
                 }
+                new_faces.push_back(tri1);
             }
-        }
 
-        // Recompute face normal after deformation using Newell's method
-        if (faces[i].vertices.size() >= 3) {
-            Vec3 computed(0, 0, 0);
-            int nv = static_cast<int>(faces[i].vertices.size());
-            for (int vi = 0; vi < nv; ++vi) {
-                const Vec3& cur = faces[i].vertices[vi];
-                const Vec3& nxt = faces[i].vertices[(vi + 1) % nv];
-                computed.x += (cur.y - nxt.y) * (cur.z + nxt.z);
-                computed.y += (cur.z - nxt.z) * (cur.x + nxt.x);
-                computed.z += (cur.x - nxt.x) * (cur.y + nxt.y);
-            }
-            if (computed.Length() > 0.0001f) {
-                computed = computed.Normalized();
-                if (computed.Dot(original_normal) < 0) {
-                    computed = computed * (-1.0f);
+            Face tri2;
+            tri2.vertices = { b0, ring_face.vertices[r1], ring_face.vertices[r0] };
+            e1 = ring_face.vertices[r1] - b0;
+            e2 = ring_face.vertices[r0] - b0;
+            tri2.normal = e1.Cross(e2);
+            if (tri2.normal.Length() > 0.0001f) {
+                tri2.normal = tri2.normal.Normalized();
+                Vec3 to_center = ring.center - b0;
+                if (tri2.normal.Dot(to_center) > 0) {
+                    tri2.normal = tri2.normal * (-1.0f);
+                    std::swap(tri2.vertices[1], tri2.vertices[2]);
                 }
-                faces[i].normal = computed;
+                new_faces.push_back(tri2);
             }
         }
     }
 
-    // Replace the closest face with the connection ring N-gon.
-    Face ring_face = GenerateRingFace(ring.center, ring.normal, ring.radius, ring.segments);
-
-    // Snap ring vertices to nearby deformed mesh vertices for watertight continuity
-    for (auto& rv : ring_face.vertices) {
-        float best_dist = 1e9f;
-        Vec3 best_v = rv;
-        for (int fi = 0; fi < static_cast<int>(faces.size()); ++fi) {
-            if (fi == closest_face) continue;
-            for (const auto& fv : faces[fi].vertices) {
-                float d = (fv - rv).Length();
-                if (d < best_dist && d < ring.radius * 0.5f) {
-                    best_dist = d;
-                    best_v = fv;
-                }
-            }
-        }
-        if (best_dist < ring.radius * 0.5f) {
-            rv = best_v;
-        }
-    }
-
-    faces[closest_face] = ring_face;
-    out_ring_face_index = closest_face;
+    faces = std::move(new_faces);
+    out_ring_face_index = ring_face_idx;
 }
 
 // ============================================================================
