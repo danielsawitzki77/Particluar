@@ -6,6 +6,7 @@
 #include "Triangulator.h"
 #include "LightManager.h"
 #include <vector>
+#include <utility>
 
 namespace BodyRenderer {
 
@@ -22,9 +23,19 @@ struct RenderParams {
     {}
 };
 
+// Cached triangulated geometry for a single node
+struct CachedNodeGeometry {
+    std::vector<Triangle> triangles;
+    Vec3 color;
+};
+
 class BodyRendererGL {
 public:
     void Render(const Body& body, const RenderParams& params) const;
+
+    // Invalidate geometry cache (call when body geometry changes —
+    // model switch, subdivision change, scale animation, etc.)
+    void InvalidateCache() { m_cacheValid = false; }
 
 private:
     void RenderNode(const BodyNode* node, const Mat4& parent_world) const;
@@ -41,6 +52,10 @@ private:
     FaceGenerator m_faceGen;
     ConnectionFaceMatcher m_faceMatcher;
     Triangulator m_triangulator;
+
+    // Geometry cache — mutable because Render() is const but caching is an implementation detail
+    mutable bool m_cacheValid = false;
+    mutable std::vector<std::pair<std::vector<Triangle>, Vec3>> m_cachedNodes;
 };
 
 } // namespace BodyRenderer

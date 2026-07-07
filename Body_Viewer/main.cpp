@@ -366,11 +366,13 @@ int main(int argc, char* argv[])
 
     if (switcher.LoadDirectory(body_dir)) {
         LoadModel(switcher.GetCurrentPath(), state);
+        renderer.InvalidateCache();
         total_models = switcher.GetCount();
         SDL_Log("[Body_Viewer] Loaded %d models from '%s'", total_models, body_dir.c_str());
     } else {
         SDL_Log("[Body_Viewer] No models found in '%s' — starting with generated bodies", body_dir.c_str());
         LoadGeneratedBody(state);
+        renderer.InvalidateCache();
         viewing_generated = true;
         total_models = 1;
     }
@@ -426,6 +428,7 @@ int main(int argc, char* argv[])
                     // Reset animation state on model switch
                     state.animator.SetEnabled(false);
                     state.scale_animator.SetEnabled(false);
+                    renderer.InvalidateCache();
                     total_models = switcher.GetCount() + 1; // +1 for potential generated
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -450,6 +453,7 @@ int main(int argc, char* argv[])
                     // Reset animation state on model switch
                     state.animator.SetEnabled(false);
                     state.scale_animator.SetEnabled(false);
+                    renderer.InvalidateCache();
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -468,6 +472,7 @@ int main(int argc, char* argv[])
                         state.scale_animator.ResetTo(state.current_body);
                         BodyRenderer::ConnectionSolver solver;
                         solver.ResolveTree(&state.current_body.root);
+                        renderer.InvalidateCache();
                     }
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -476,6 +481,7 @@ int main(int argc, char* argv[])
                     if (state.subdivision_level < 8) {
                         state.subdivision_level++;
                         ReloadCurrentBody(state, switcher, viewing_generated);
+                        renderer.InvalidateCache();
                         UpdateWindowTitle(window, state, state.current_body.name,
                                           current_index, total_models);
                     }
@@ -484,6 +490,7 @@ int main(int argc, char* argv[])
                     if (state.subdivision_level > 1) {
                         state.subdivision_level--;
                         ReloadCurrentBody(state, switcher, viewing_generated);
+                        renderer.InvalidateCache();
                         UpdateWindowTitle(window, state, state.current_body.name,
                                           current_index, total_models);
                     }
@@ -495,6 +502,7 @@ int main(int argc, char* argv[])
                     // Reset animation state on model switch
                     state.animator.SetEnabled(false);
                     state.scale_animator.SetEnabled(false);
+                    renderer.InvalidateCache();
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
@@ -538,6 +546,9 @@ int main(int argc, char* argv[])
                 BodyRenderer::ConnectionSolver solver;
                 solver.ResolveTree(&state.current_body.root);
 
+                // Invalidate geometry cache since transforms changed
+                renderer.InvalidateCache();
+
                 // Update title to show current joint
                 UpdateWindowTitle(window, state, state.current_body.name,
                                   current_index, total_models);
@@ -553,6 +564,9 @@ int main(int argc, char* argv[])
                 // Re-resolve transforms after scale change
                 BodyRenderer::ConnectionSolver solver;
                 solver.ResolveTree(&state.current_body.root);
+
+                // Invalidate geometry cache since shapes changed
+                renderer.InvalidateCache();
 
                 UpdateWindowTitle(window, state, state.current_body.name,
                                   current_index, total_models);
