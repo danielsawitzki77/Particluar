@@ -1,4 +1,5 @@
 #include "ConnectionSolver.h"
+#include "ConnectionFaceMatcher.h"
 #include <cmath>
 
 #ifndef M_PI
@@ -43,10 +44,42 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     const ShapeParams& parent_shape,
     const ShapeParams& child_shape) const
 {
-    // Resolve parent attachment point
+    // Resolve parent and child attachment points on continuous surface
     SurfacePoint parent_pt = m_resolver.Resolve(parent_shape, conn.parent_attach);
-    // Resolve child attachment point
     SurfacePoint child_pt = m_resolver.Resolve(child_shape, conn.child_attach);
+
+    // Snap to actual face center for shapes with discrete face grids.
+    // This ensures the child is positioned at the face center (where the
+    // actual geometry lives), not at an arbitrary continuous surface point.
+    FaceGenerator faceGen;
+    ConnectionFaceMatcher faceMatcher;
+
+    // Get parent face center
+    {
+        std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
+        int grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parent_attach);
+        if (grid_idx >= 0 && grid_idx < static_cast<int>(parent_faces.size())) {
+            Vec3 fc(0, 0, 0);
+            for (const auto& v : parent_faces[grid_idx].vertices) fc = fc + v;
+            fc = fc * (1.0f / parent_faces[grid_idx].vertices.size());
+            parent_pt.position = fc;
+            // Keep the resolved normal (it's smooth), but use face normal for flat-shading alignment
+            parent_pt.normal = parent_faces[grid_idx].normal;
+        }
+    }
+
+    // Get child face center
+    {
+        std::vector<Face> child_faces = faceGen.Generate(child_shape);
+        int grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.child_attach);
+        if (grid_idx >= 0 && grid_idx < static_cast<int>(child_faces.size())) {
+            Vec3 fc(0, 0, 0);
+            for (const auto& v : child_faces[grid_idx].vertices) fc = fc + v;
+            fc = fc * (1.0f / child_faces[grid_idx].vertices.size());
+            child_pt.position = fc;
+            child_pt.normal = child_faces[grid_idx].normal;
+        }
+    }
 
     // The child's attachment normal should face opposite to parent's attachment normal
     Vec3 from = child_pt.normal.Normalized();

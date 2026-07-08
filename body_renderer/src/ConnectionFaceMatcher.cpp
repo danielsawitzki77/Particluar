@@ -312,16 +312,14 @@ MatchedFaces ConnectionFaceMatcher::GenerateWithConnections(
             }
         }
 
-        // Phase 3: Apply size-matching deformation
-        if (conn_face >= 0) {
-            // Compute this shape's natural radius at the connection point
-            float natural_radius = ComputeConnectionRadius(node.shape, ring.attach);
-
-            // Only deform if target radius differs from natural
-            if (std::fabs(ring.radius - natural_radius) > 1e-4f) {
-                DeformFaceToRadius(result.faces, conn_face, ring.radius);
-            }
-        }
+        // Phase 3: Size-matching deformation — DISABLED pending positioning fix.
+        // Re-enable once ConnectionSolver produces flush contact.
+        // if (conn_face >= 0) {
+        //     float natural_radius = ComputeConnectionRadius(node.shape, ring.attach);
+        //     if (std::fabs(ring.radius - natural_radius) > 1e-4f) {
+        //         DeformFaceToRadius(result.faces, conn_face, ring.radius);
+        //     }
+        // }
 
         result.connection_face_indices.push_back(conn_face);
     }
