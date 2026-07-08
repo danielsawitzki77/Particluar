@@ -171,19 +171,9 @@ static void BuildCacheForChild(
 
         MatchedFaces child_matched = faceMatcher.GenerateWithConnections(*child, all_rings);
 
-        int shared_face_index = -1;
-        if (!child_matched.connection_face_indices.empty()) {
-            shared_face_index = child_matched.connection_face_indices[0];
-        }
-
-        std::vector<Face> render_faces;
-        render_faces.reserve(child_matched.faces.size());
-        for (int fi = 0; fi < static_cast<int>(child_matched.faces.size()); ++fi) {
-            if (fi == shared_face_index) continue;
-            render_faces.push_back(child_matched.faces[fi]);
-        }
-
-        std::vector<Triangle> child_tris = triangulator.Triangulate(render_faces);
+        // V3 Phase 1: Render ALL faces — no suppression.
+        // Both bodies are complete closed solids touching at their connection face.
+        std::vector<Triangle> child_tris = triangulator.Triangulate(child_matched.faces);
 
         for (auto& tri : child_tris) {
             tri.v0 = child_world.TransformPoint(tri.v0);
