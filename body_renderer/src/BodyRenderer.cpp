@@ -62,6 +62,7 @@ static std::vector<ConnectionRing> BuildParentRingsStatic(
         ring.radius = matched_radius;
         ring.segments = matched_segments;
         ring.child_index = i;
+        ring.attach = child.connection.parent_attach;
         rings.push_back(ring);
     }
 
@@ -92,6 +93,7 @@ static ConnectionRing BuildChildRingStatic(
     ring.radius = matched_radius;
     ring.segments = matched_segments;
     ring.child_index = -1;
+    ring.attach = child->connection.child_attach;
     return ring;
 }
 
@@ -166,6 +168,7 @@ static void BuildCacheForChild(
             ring.radius = matched_radius;
             ring.segments = matched_segments;
             ring.child_index = i;
+            ring.attach = grandchild.connection.parent_attach;
             all_rings.push_back(ring);
         }
 
