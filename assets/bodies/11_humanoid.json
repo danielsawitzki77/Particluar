@@ -12,7 +12,7 @@
     "children": [
       {
         "connection": {
-          "parent_attach": { "region": "top_cap", "u": 0.5, "v": 0.0 },
+          "parent_attach": { "region": "side", "u": 0.5, "v": 1.0 },
           "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
           "rotation": 0.0
         },
@@ -25,7 +25,7 @@
       {
         "connection": {
           "parent_attach": { "region": "side", "u": 0.25, "v": 0.8 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.0 },
           "rotation": 0.0
         },
         "node": {
@@ -35,7 +35,7 @@
           "children": [
             {
               "connection": {
-                "parent_attach": { "region": "bottom_cap", "u": 0.5, "v": 0.0 },
+                "parent_attach": { "region": "side", "u": 0.5, "v": 0.0 },
                 "child_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
                 "rotation": 0.0
               },
@@ -51,7 +51,7 @@
       {
         "connection": {
           "parent_attach": { "region": "side", "u": 0.75, "v": 0.8 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.0 },
           "rotation": 0.0
         },
         "node": {
@@ -61,7 +61,7 @@
           "children": [
             {
               "connection": {
-                "parent_attach": { "region": "bottom_cap", "u": 0.5, "v": 0.0 },
+                "parent_attach": { "region": "side", "u": 0.5, "v": 0.0 },
                 "child_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
                 "rotation": 0.0
               },

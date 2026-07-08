@@ -30,7 +30,7 @@
                 "children": [
                   {
                     "connection": {
-                      "parent_attach": { "region": "top", "u": 0.5, "v": 0.5 },
+                      "parent_attach": { "region": "side", "u": 0.5, "v": 1.0 },
                       "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
                       "rotation": 0.0
                     },

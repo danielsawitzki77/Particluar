@@ -11,6 +11,7 @@
 #include "BodyRenderer.h"
 #include "BodyGenerator.h"
 #include "ConnectionSolver.h"
+#include "ConnectionValidator.h"
 #include "JointAnimator.h"
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
@@ -212,6 +213,14 @@ static bool LoadModel(const std::string& path, ViewerState& state)
     BodyRenderer::LoadResult result = loader.LoadFromFile(path);
     if (!result.success) {
         SDL_Log("[Body_Viewer] Failed to load '%s': %s", path.c_str(), result.error.c_str());
+        return false;
+    }
+
+    // Validate connections before accepting the model
+    BodyRenderer::ConnectionValidator validator;
+    auto vr = validator.ValidateBody(result.body);
+    if (!vr.valid) {
+        SDL_Log("[Body_Viewer] Validation failed for '%s': %s", path.c_str(), vr.error.c_str());
         return false;
     }
 
