@@ -12,11 +12,15 @@
 #include "BodyGenerator.h"
 #include "ConnectionSolver.h"
 #include "ConnectionValidator.h"
+#include "ConnectionFaceMatcher.h"
+#include "FaceGenerator.h"
+#include "ParametricResolver.h"
 #include "JointAnimator.h"
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
 
 #include <string>
+#include <cstdio>
 #include <cmath>
 #include <algorithm>
 
@@ -314,11 +318,297 @@ static void UpdateWindowTitle(SDL_Window* window, const ViewerState& state,
 }
 
 // ============================================================================
+// Geometry Dump Mode (--dump <model_path>)
+// ============================================================================
+
+static const char* ShapeTypeName(BodyRenderer::ShapeType t)
+{
+    switch (t) {
+    case BodyRenderer::ShapeType::Cone: return "cone";
+    case BodyRenderer::ShapeType::Cylinder: return "cylinder";
+    case BodyRenderer::ShapeType::Sphere: return "sphere";
+    case BodyRenderer::ShapeType::Torus: return "torus";
+    case BodyRenderer::ShapeType::Capsule: return "capsule";
+    }
+    return "unknown";
+}
+
+static const char* RegionName(BodyRenderer::AttachRegion r)
+{
+    switch (r) {
+    case BodyRenderer::AttachRegion::Surface: return "surface";
+    case BodyRenderer::AttachRegion::Top: return "top";
+    case BodyRenderer::AttachRegion::Bottom: return "bottom";
+    case BodyRenderer::AttachRegion::Side: return "side";
+    case BodyRenderer::AttachRegion::Base: return "base";
+    case BodyRenderer::AttachRegion::TopCap: return "top_cap";
+    case BodyRenderer::AttachRegion::BottomCap: return "bottom_cap";
+    }
+    return "unknown";
+}
+
+static BodyRenderer::Vec3 ComputeFaceCenterUtil(const BodyRenderer::Face& face)
+{
+    BodyRenderer::Vec3 center(0, 0, 0);
+    if (face.vertices.empty()) return center;
+    for (const auto& v : face.vertices) {
+        center = center + v;
+    }
+    return center * (1.0f / static_cast<float>(face.vertices.size()));
+}
+
+static void DumpNodeRecursive(
+    const BodyRenderer::BodyNode* node,
+    const BodyRenderer::BodyNode* parent,
+    const BodyRenderer::Mat4& parent_world,
+    const BodyRenderer::ConnectionFaceMatcher& faceMatcher,
+    int depth)
+{
+    if (!node) return;
+
+    BodyRenderer::Mat4 world = parent_world * node->local_transform;
+
+    // Extract translation from local_transform
+    float tx = node->local_transform.m[12];
+    float ty = node->local_transform.m[13];
+    float tz = node->local_transform.m[14];
+
+    // Print header
+    std::string indent(depth * 2, ' ');
+    if (!parent) {
+        printf("\n%s=== Node: %s (root) ===\n", indent.c_str(), node->name.c_str());
+    } else {
+        printf("\n%s=== Node: %s (child of %s) ===\n", indent.c_str(), node->name.c_str(), parent->name.c_str());
+    }
+    printf("%s  Shape: %s\n", indent.c_str(), ShapeTypeName(node->shape.type));
+
+    if (!parent) {
+        printf("%s  Local transform: identity\n", indent.c_str());
+    } else {
+        printf("%s  Local transform: T=(%.4f, %.4f, %.4f)\n", indent.c_str(), tx, ty, tz);
+    }
+
+    // Build rings for this node (as parent of its children)
+    BodyRenderer::ParametricResolver resolver;
+    std::vector<BodyRenderer::ConnectionRing> rings;
+
+    // If this node IS a child, include its own child-side ring first
+    if (parent && !node->connection.is_legacy) {
+        float matched_radius = faceMatcher.ComputeMatchedRadius(
+            parent->shape, node->connection.parent_attach,
+            node->shape, node->connection.child_attach
+        );
+        int matched_segments = faceMatcher.ComputeMatchedSegments(
+            parent->shape, node->connection.parent_attach,
+            node->shape, node->connection.child_attach
+        );
+        BodyRenderer::SurfacePoint child_pt = resolver.Resolve(node->shape, node->connection.child_attach);
+        BodyRenderer::ConnectionRing child_ring;
+        child_ring.center = child_pt.position;
+        child_ring.normal = child_pt.normal;
+        child_ring.radius = matched_radius;
+        child_ring.segments = matched_segments;
+        child_ring.child_index = -1;
+        child_ring.attach = node->connection.child_attach;
+        rings.push_back(child_ring);
+    }
+
+    // Add rings for each child (parent-side attachment on this node)
+    for (int i = 0; i < static_cast<int>(node->children.size()); ++i) {
+        const BodyRenderer::BodyNode& child = node->children[i];
+        if (child.connection.is_legacy) continue;
+
+        float matched_radius = faceMatcher.ComputeMatchedRadius(
+            node->shape, child.connection.parent_attach,
+            child.shape, child.connection.child_attach
+        );
+        int matched_segments = faceMatcher.ComputeMatchedSegments(
+            node->shape, child.connection.parent_attach,
+            child.shape, child.connection.child_attach
+        );
+
+        BodyRenderer::SurfacePoint pt = resolver.Resolve(node->shape, child.connection.parent_attach);
+        BodyRenderer::ConnectionRing ring;
+        ring.center = pt.position;
+        ring.normal = pt.normal;
+        ring.radius = matched_radius;
+        ring.segments = matched_segments;
+        ring.child_index = i;
+        ring.attach = child.connection.parent_attach;
+        rings.push_back(ring);
+    }
+
+    // Generate faces with connection matching
+    BodyRenderer::MatchedFaces matched = faceMatcher.GenerateWithConnections(*node, rings);
+    int num_faces = static_cast<int>(matched.faces.size());
+    printf("%s  Total faces: %d\n", indent.c_str(), num_faces);
+
+    // Print connection face indices
+    if (!matched.connection_face_indices.empty()) {
+        printf("%s  Connection face indices: [", indent.c_str());
+        for (size_t i = 0; i < matched.connection_face_indices.size(); ++i) {
+            if (i > 0) printf(", ");
+            printf("%d", matched.connection_face_indices[i]);
+        }
+        printf("]\n");
+
+        // Print details for each connection face
+        for (size_t i = 0; i < matched.connection_face_indices.size(); ++i) {
+            int fi = matched.connection_face_indices[i];
+            if (fi < 0 || fi >= num_faces) continue;
+
+            BodyRenderer::Vec3 local_center = ComputeFaceCenterUtil(matched.faces[fi]);
+            BodyRenderer::Vec3 world_center = world.TransformPoint(local_center);
+            BodyRenderer::Vec3 local_normal = matched.faces[fi].normal;
+            BodyRenderer::Vec3 world_normal = world.TransformDirection(local_normal).Normalized();
+
+            const char* role = (rings[i].child_index == -1) ? "own/child-attach" : "parent-attach";
+            printf("%s  Face %d (%s):\n", indent.c_str(), fi, role);
+            printf("%s    center (local): (%.4f, %.4f, %.4f)\n", indent.c_str(), local_center.x, local_center.y, local_center.z);
+            printf("%s    center (world): (%.4f, %.4f, %.4f)\n", indent.c_str(), world_center.x, world_center.y, world_center.z);
+            printf("%s    normal (local): (%.4f, %.4f, %.4f)\n", indent.c_str(), local_normal.x, local_normal.y, local_normal.z);
+            printf("%s    normal (world): (%.4f, %.4f, %.4f)\n", indent.c_str(), world_normal.x, world_normal.y, world_normal.z);
+            printf("%s    vertices: %d\n", indent.c_str(), static_cast<int>(matched.faces[fi].vertices.size()));
+        }
+    }
+
+    // Connection analysis: if this is a child node, compare parent/child face contact
+    if (parent && !node->connection.is_legacy) {
+        printf("\n%s  --- Connection Analysis ---\n", indent.c_str());
+
+        // Compute parent's connection face for this child
+        // Re-generate parent's faces to find its connection face
+        std::vector<BodyRenderer::ConnectionRing> parent_rings;
+        for (int i = 0; i < static_cast<int>(parent->children.size()); ++i) {
+            const BodyRenderer::BodyNode& sibling = parent->children[i];
+            if (sibling.connection.is_legacy) continue;
+
+            float mr = faceMatcher.ComputeMatchedRadius(
+                parent->shape, sibling.connection.parent_attach,
+                sibling.shape, sibling.connection.child_attach
+            );
+            int ms = faceMatcher.ComputeMatchedSegments(
+                parent->shape, sibling.connection.parent_attach,
+                sibling.shape, sibling.connection.child_attach
+            );
+
+            BodyRenderer::SurfacePoint pt = resolver.Resolve(parent->shape, sibling.connection.parent_attach);
+            BodyRenderer::ConnectionRing ring;
+            ring.center = pt.position;
+            ring.normal = pt.normal;
+            ring.radius = mr;
+            ring.segments = ms;
+            ring.child_index = i;
+            ring.attach = sibling.connection.parent_attach;
+            parent_rings.push_back(ring);
+        }
+
+        BodyRenderer::MatchedFaces parent_matched = faceMatcher.GenerateWithConnections(*parent, parent_rings);
+
+        // Find which parent ring corresponds to this node
+        int my_index = -1;
+        for (int i = 0; i < static_cast<int>(parent->children.size()); ++i) {
+            if (&parent->children[i] == node) { my_index = i; break; }
+        }
+
+        int parent_ring_idx = -1;
+        for (int i = 0; i < static_cast<int>(parent_rings.size()); ++i) {
+            if (parent_rings[i].child_index == my_index) {
+                parent_ring_idx = i;
+                break;
+            }
+        }
+
+        if (parent_ring_idx >= 0 && parent_ring_idx < static_cast<int>(parent_matched.connection_face_indices.size())) {
+            int parent_fi = parent_matched.connection_face_indices[parent_ring_idx];
+            if (parent_fi >= 0 && parent_fi < static_cast<int>(parent_matched.faces.size())) {
+                BodyRenderer::Vec3 parent_face_center_local = ComputeFaceCenterUtil(parent_matched.faces[parent_fi]);
+                BodyRenderer::Vec3 parent_face_center_world = parent_world.TransformPoint(parent_face_center_local);
+                BodyRenderer::Vec3 parent_face_normal_local = parent_matched.faces[parent_fi].normal;
+                BodyRenderer::Vec3 parent_face_normal_world = parent_world.TransformDirection(parent_face_normal_local).Normalized();
+
+                printf("%s  Parent face %d center (world): (%.4f, %.4f, %.4f)\n", indent.c_str(),
+                       parent_fi, parent_face_center_world.x, parent_face_center_world.y, parent_face_center_world.z);
+                printf("%s  Parent face normal (world):     (%.4f, %.4f, %.4f)\n", indent.c_str(),
+                       parent_face_normal_world.x, parent_face_normal_world.y, parent_face_normal_world.z);
+
+                // Child's own connection face (first ring, child_index == -1)
+                if (!matched.connection_face_indices.empty()) {
+                    int child_fi = matched.connection_face_indices[0]; // first ring is own attach
+                    if (child_fi >= 0 && child_fi < num_faces) {
+                        BodyRenderer::Vec3 child_face_center_local = ComputeFaceCenterUtil(matched.faces[child_fi]);
+                        BodyRenderer::Vec3 child_face_center_world = world.TransformPoint(child_face_center_local);
+                        BodyRenderer::Vec3 child_face_normal_local = matched.faces[child_fi].normal;
+                        BodyRenderer::Vec3 child_face_normal_world = world.TransformDirection(child_face_normal_local).Normalized();
+
+                        printf("%s  Child face %d center (world):  (%.4f, %.4f, %.4f)\n", indent.c_str(),
+                               child_fi, child_face_center_world.x, child_face_center_world.y, child_face_center_world.z);
+                        printf("%s  Child face normal (world):      (%.4f, %.4f, %.4f)\n", indent.c_str(),
+                               child_face_normal_world.x, child_face_normal_world.y, child_face_normal_world.z);
+
+                        float dx = parent_face_center_world.x - child_face_center_world.x;
+                        float dy = parent_face_center_world.y - child_face_center_world.y;
+                        float dz = parent_face_center_world.z - child_face_center_world.z;
+                        float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+                        printf("%s  Distance: %.6f (should be ~0 if touching)\n", indent.c_str(), distance);
+
+                        float dot = parent_face_normal_world.Dot(child_face_normal_world);
+                        printf("%s  Dot product of normals: %.6f (should be -1.0 if flush)\n", indent.c_str(), dot);
+                    }
+                }
+            }
+        } else {
+            printf("%s  (Could not find parent connection face for analysis)\n", indent.c_str());
+        }
+    }
+
+    // Recurse into children
+    for (int i = 0; i < static_cast<int>(node->children.size()); ++i) {
+        DumpNodeRecursive(&node->children[i], node, world, faceMatcher, depth + 1);
+    }
+}
+
+static int RunDumpMode(const std::string& model_path)
+{
+    printf("=== Geometry Dump: %s ===\n", model_path.c_str());
+
+    // Load the body
+    BodyRenderer::BodyLoader loader;
+    BodyRenderer::LoadResult result = loader.LoadFromFile(model_path);
+    if (!result.success) {
+        fprintf(stderr, "ERROR: Failed to load '%s': %s\n", model_path.c_str(), result.error.c_str());
+        return 1;
+    }
+
+    printf("Body: %s (format v%d)\n", result.body.name.c_str(), result.body.format_version);
+
+    // Resolve connection tree
+    BodyRenderer::ConnectionSolver solver;
+    solver.ResolveTree(&result.body.root);
+
+    // Setup face matcher (same as renderer uses)
+    BodyRenderer::ConnectionFaceMatcher faceMatcher;
+
+    // Start recursive dump from root
+    BodyRenderer::Mat4 identity;
+    identity.Identity();
+    DumpNodeRecursive(&result.body.root, nullptr, identity, faceMatcher, 0);
+
+    printf("\n=== End Dump ===\n");
+    return 0;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
 int main(int argc, char* argv[])
 {
+    // Check for --dump mode (runs without SDL/window)
+    if (argc >= 3 && std::string(argv[1]) == "--dump") {
+        return RunDumpMode(argv[2]);
+    }
+
     // Determine body directory
     std::string body_dir = "assets/bodies/";
     if (argc > 1) {

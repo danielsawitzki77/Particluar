@@ -105,8 +105,13 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Mat4 spin = Mat4::RotationAxis(parent_pt.normal, rot_angle);
 
-    // Orientation = spin * rot
-    Mat4 orientation = spin * rot;
+    // Offset child by half a segment so face centers (not edges) align
+    int child_segments = faceMatcher.GetSegmentsAtRegion(child_shape, conn.child_attach);
+    float half_segment_angle = static_cast<float>(M_PI) / child_segments;
+    Mat4 half_seg_rot = Mat4::RotationAxis(parent_pt.normal, half_segment_angle);
+
+    // Orientation = half_seg_rot * spin * rot
+    Mat4 orientation = half_seg_rot * spin * rot;
 
     // After rotating the child, its attachment point moves
     Vec3 rotated_child_attach = orientation.TransformPoint(child_pt.position);
@@ -115,7 +120,7 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     Vec3 final_pos = parent_pt.position - rotated_child_attach;
     Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 
-    return trans * spin * rot;
+    return trans * half_seg_rot * spin * rot;
 }
 
 // ============================================================================

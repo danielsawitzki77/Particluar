@@ -55,8 +55,10 @@ public:
     // Returns the index into the FaceGenerator::Generate output array.
     int ComputeGridIndex(const ShapeParams& shape, const AttachmentPoint& attach) const;
 
-private:
+    // Get the number of segments at a given region (public for half-segment alignment).
     int GetSegmentsAtRegion(const ShapeParams& shape, const AttachmentPoint& attach) const;
+
+private:
     float ComputeSphereLocalRadius(const ShapeParams& shape, const AttachmentPoint& attach) const;
     Face GenerateRingFace(const Vec3& center, const Vec3& normal, float radius, int segments) const;
 
