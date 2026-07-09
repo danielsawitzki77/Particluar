@@ -217,6 +217,13 @@ static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, 
         node.shape.ring_segments = ComputeRequiredSegments(side_u_positions, (std::max)(3, base_res));
         // side_segments derive from v-positions
         node.shape.side_segments = ComputeRequiredSegments(side_v_positions, (std::max)(3, base_res));
+    } else if (node.shape.type == BodyRenderer::ShapeType::Cylinder ||
+               node.shape.type == BodyRenderer::ShapeType::Capsule ||
+               node.shape.type == BodyRenderer::ShapeType::Cone) {
+        // For cylinder/capsule/cone, v-positions on the side map to height_segments
+        if (!side_v_positions.empty()) {
+            node.shape.height_segments = ComputeRequiredSegments(side_v_positions, (std::max)(1, base_res / 4));
+        }
     }
 
     // For each child: ensure child uses compatible segments at the connection boundary
