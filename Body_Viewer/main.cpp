@@ -102,6 +102,93 @@ static void BuildLightSetup(std::vector<BodyRenderer::PointLight>& lights)
 }
 
 // ============================================================================
+// Segment propagation — ensures connected shapes share the same angular
+// segment count at their connection boundary so faces align perfectly.
+// ============================================================================
+
+static int GetAngularSegments(const BodyRenderer::ShapeParams& shape,
+                               const BodyRenderer::AttachmentPoint& attach)
+{
+    switch (shape.type) {
+    case BodyRenderer::ShapeType::Cylinder:
+    case BodyRenderer::ShapeType::Capsule:
+    case BodyRenderer::ShapeType::Cone:
+        return shape.segments;
+    case BodyRenderer::ShapeType::Sphere:
+        return shape.lon_segments;
+    case BodyRenderer::ShapeType::Torus:
+        // For surface connections: side_segments determines face width around the tube
+        return shape.side_segments;
+    }
+    return 8;
+}
+
+static void SetAngularSegments(BodyRenderer::ShapeParams& shape,
+                                const BodyRenderer::AttachmentPoint& /*attach*/,
+                                int matched)
+{
+    switch (shape.type) {
+    case BodyRenderer::ShapeType::Cylinder:
+    case BodyRenderer::ShapeType::Capsule:
+    case BodyRenderer::ShapeType::Cone:
+        shape.segments = matched;
+        break;
+    case BodyRenderer::ShapeType::Sphere:
+        shape.lon_segments = matched;
+        break;
+    case BodyRenderer::ShapeType::Torus:
+        shape.side_segments = matched;
+        break;
+    }
+}
+
+static void PropagateConnectionSegments(BodyRenderer::BodyNode& parent)
+{
+    for (auto& child : parent.children) {
+        if (child.connection.is_legacy) {
+            PropagateConnectionSegments(child);
+            continue;
+        }
+
+        // Get angular segment counts at the connection boundary
+        int parent_segs = GetAngularSegments(parent.shape, child.connection.parent_attach);
+        int child_segs = GetAngularSegments(child.shape, child.connection.child_attach);
+        int matched = (std::max)(parent_segs, child_segs);
+
+        // Set both shapes to the matched count
+        SetAngularSegments(parent.shape, child.connection.parent_attach, matched);
+        SetAngularSegments(child.shape, child.connection.child_attach, matched);
+
+        // Special case: when a cylinder/capsule/cone side connects to a torus surface,
+        // the cylinder's height_segments should match the torus's side_segments so that
+        // vertical subdivisions align with the tube's angular faces.
+        if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface &&
+            parent.shape.type == BodyRenderer::ShapeType::Torus) {
+            if (child.shape.type == BodyRenderer::ShapeType::Cylinder ||
+                child.shape.type == BodyRenderer::ShapeType::Capsule ||
+                child.shape.type == BodyRenderer::ShapeType::Cone) {
+                if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Side) {
+                    child.shape.height_segments = parent.shape.side_segments;
+                }
+            }
+        }
+        if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Surface &&
+            child.shape.type == BodyRenderer::ShapeType::Torus) {
+            if (parent.shape.type == BodyRenderer::ShapeType::Cylinder ||
+                parent.shape.type == BodyRenderer::ShapeType::Capsule ||
+                parent.shape.type == BodyRenderer::ShapeType::Cone) {
+                if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side) {
+                    parent.shape.height_segments = child.shape.side_segments;
+                }
+            }
+        }
+
+        // Recurse into child subtree
+        PropagateConnectionSegments(child);
+    }
+}
+
+// ============================================================================
 // Subdivision adjustment
 // ============================================================================
 
@@ -234,6 +321,9 @@ static bool LoadModel(const std::string& path, ViewerState& state)
     // Apply current subdivision level
     ApplySubdivision(state.current_body, state.subdivision_level);
 
+    // Propagate segment counts so connected shapes share angular segments at boundaries
+    PropagateConnectionSegments(state.current_body.root);
+
     // Resolve connections
     BodyRenderer::ConnectionSolver solver;
     solver.ResolveTree(&state.current_body.root);
@@ -256,6 +346,9 @@ static void LoadGeneratedBody(ViewerState& state)
 
     // Apply current subdivision level
     ApplySubdivision(state.current_body, state.subdivision_level);
+
+    // Propagate segment counts so connected shapes share angular segments at boundaries
+    PropagateConnectionSegments(state.current_body.root);
 
     // Resolve connections
     BodyRenderer::ConnectionSolver solver;
@@ -285,6 +378,9 @@ static void ReloadCurrentBody(ViewerState& state, BodyRenderer::ModelSwitcher& s
     }
 
     ApplySubdivision(state.current_body, state.subdivision_level);
+
+    // Propagate segment counts so connected shapes share angular segments at boundaries
+    PropagateConnectionSegments(state.current_body.root);
 
     BodyRenderer::ConnectionSolver solver;
     solver.ResolveTree(&state.current_body.root);
@@ -581,6 +677,12 @@ static int RunDumpMode(const std::string& model_path)
     }
 
     printf("Body: %s (format v%d)\n", result.body.name.c_str(), result.body.format_version);
+
+    // Apply default subdivision (level 1)
+    ApplySubdivision(result.body, 1);
+
+    // Propagate segment counts at connection boundaries
+    PropagateConnectionSegments(result.body.root);
 
     // Resolve connection tree
     BodyRenderer::ConnectionSolver solver;
