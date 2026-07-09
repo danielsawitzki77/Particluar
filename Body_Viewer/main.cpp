@@ -102,12 +102,76 @@ static void BuildLightSetup(std::vector<BodyRenderer::PointLight>& lights)
 }
 
 // ============================================================================
-// Segment propagation — ensures connected shapes share the same angular
-// segment count at their connection boundary so faces align perfectly.
+// Segments derived from connections — computes the minimum N such that every
+// connection position lands exactly on a face center, guaranteeing alignment
+// by construction without half-segment rotation hacks.
 // ============================================================================
 
-static int GetAngularSegments(const BodyRenderer::ShapeParams& shape,
-                               const BodyRenderer::AttachmentPoint& attach)
+static int ComputeRequiredSegments(const std::vector<float>& positions, int min_segments)
+{
+    if (positions.empty()) return min_segments;
+    for (int N = min_segments; N <= 128; ++N) {
+        bool all_valid = true;
+        for (float u : positions) {
+            float face_pos = N * u - 0.5f;
+            float rounded = std::round(face_pos);
+            if (std::fabs(face_pos - rounded) > 0.01f) {
+                all_valid = false;
+                break;
+            }
+        }
+        if (all_valid) return N;
+    }
+    return min_segments; // fallback
+}
+
+// For sphere latitude: face centers are at (row + 1.5) / T for mid-band quads,
+// and pole triangles occupy [0, 1/T] and [(T-1)/T, 1].
+// So for a v-position to land on a mid-band face center: v * T - 1.5 must be integer >= 0
+static int ComputeRequiredSphereLat(const std::vector<float>& v_positions, int min_segments)
+{
+    if (v_positions.empty()) return min_segments;
+    for (int T = min_segments; T <= 128; ++T) {
+        bool all_valid = true;
+        for (float v : v_positions) {
+            float stack_f = v * T;
+            // Check if it lands in pole region (which is fine — pole tris just need col)
+            if (stack_f < 1.0f || stack_f >= static_cast<float>(T - 1)) {
+                continue; // pole connections always align
+            }
+            // Mid-band: face center at (row + 1.5) where row = int(stack_f) - 1
+            // The actual face center v is (int(stack_f) + 0.5) / T
+            // So we need stack_f - 0.5 to be integer (i.e., v*T - 0.5 is integer)
+            float face_pos = stack_f - 0.5f;
+            float rounded = std::round(face_pos);
+            if (std::fabs(face_pos - rounded) > 0.01f) {
+                all_valid = false;
+                break;
+            }
+        }
+        if (all_valid) return T;
+    }
+    return min_segments;
+}
+
+static void SetShapeAngularSegments(BodyRenderer::ShapeParams& shape, int segs)
+{
+    switch (shape.type) {
+    case BodyRenderer::ShapeType::Cylinder:
+    case BodyRenderer::ShapeType::Capsule:
+    case BodyRenderer::ShapeType::Cone:
+        shape.segments = segs;
+        break;
+    case BodyRenderer::ShapeType::Sphere:
+        shape.lon_segments = segs;
+        break;
+    case BodyRenderer::ShapeType::Torus:
+        shape.side_segments = segs;
+        break;
+    }
+}
+
+static int GetShapeAngularSegments(const BodyRenderer::ShapeParams& shape)
 {
     switch (shape.type) {
     case BodyRenderer::ShapeType::Cylinder:
@@ -117,135 +181,102 @@ static int GetAngularSegments(const BodyRenderer::ShapeParams& shape,
     case BodyRenderer::ShapeType::Sphere:
         return shape.lon_segments;
     case BodyRenderer::ShapeType::Torus:
-        // For surface connections: side_segments determines face width around the tube
         return shape.side_segments;
     }
     return 8;
 }
 
-static void SetAngularSegments(BodyRenderer::ShapeParams& shape,
-                                const BodyRenderer::AttachmentPoint& /*attach*/,
-                                int matched)
+static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, int forced_angular = 0)
 {
-    switch (shape.type) {
-    case BodyRenderer::ShapeType::Cylinder:
-    case BodyRenderer::ShapeType::Capsule:
-    case BodyRenderer::ShapeType::Cone:
-        shape.segments = matched;
-        break;
-    case BodyRenderer::ShapeType::Sphere:
-        shape.lon_segments = matched;
-        break;
-    case BodyRenderer::ShapeType::Torus:
-        shape.side_segments = matched;
-        break;
+    // Collect all connection u-positions on this node (from children connecting to its side/surface)
+    std::vector<float> side_u_positions;
+    std::vector<float> side_v_positions; // for sphere lat / torus tube direction
+    for (const auto& child : node.children) {
+        if (child.connection.is_legacy) continue;
+        if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side ||
+            child.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface) {
+            side_u_positions.push_back(child.connection.parent_attach.u);
+            side_v_positions.push_back(child.connection.parent_attach.v);
+        }
     }
-}
 
-static void PropagateConnectionSegments(BodyRenderer::BodyNode& parent)
-{
-    for (auto& child : parent.children) {
+    // Compute angular segments needed for this shape based on connection positions
+    // Use the maximum of base_res and any forced value from the parent connection
+    int min_angular = (std::max)(base_res, forced_angular);
+    int required_angular = ComputeRequiredSegments(side_u_positions, min_angular);
+
+    // Set the shape's angular segments
+    SetShapeAngularSegments(node.shape, required_angular);
+
+    // Also set lat_segments for spheres and ring_segments for tori based on v-positions
+    if (node.shape.type == BodyRenderer::ShapeType::Sphere) {
+        // For sphere, v maps to latitude. Use specialized sphere-lat formula.
+        node.shape.lat_segments = ComputeRequiredSphereLat(side_v_positions, (std::max)(3, base_res));
+    } else if (node.shape.type == BodyRenderer::ShapeType::Torus) {
+        // For torus surface, u → ring_segments, v → side_segments
+        node.shape.ring_segments = ComputeRequiredSegments(side_u_positions, (std::max)(3, base_res));
+        // side_segments derive from v-positions
+        node.shape.side_segments = ComputeRequiredSegments(side_v_positions, (std::max)(3, base_res));
+    }
+
+    // For each child: ensure child uses compatible segments at the connection boundary
+    for (auto& child : node.children) {
         if (child.connection.is_legacy) {
-            PropagateConnectionSegments(child);
+            DeriveSegmentsRecursive(child, base_res, 0);
             continue;
         }
 
-        // Get angular segment counts at the connection boundary
-        int parent_segs = GetAngularSegments(parent.shape, child.connection.parent_attach);
-        int child_segs = GetAngularSegments(child.shape, child.connection.child_attach);
-        int matched = (std::max)(parent_segs, child_segs);
+        // Child's angular segments must be at least parent's
+        int parent_segs = GetShapeAngularSegments(node.shape);
 
-        // Set both shapes to the matched count
-        SetAngularSegments(parent.shape, child.connection.parent_attach, matched);
-        SetAngularSegments(child.shape, child.connection.child_attach, matched);
+        // Set child lat_segments / ring_segments from base_res
+        if (child.shape.type == BodyRenderer::ShapeType::Sphere) {
+            child.shape.lat_segments = (std::max)(3, base_res);
+        } else if (child.shape.type == BodyRenderer::ShapeType::Torus) {
+            child.shape.ring_segments = (std::max)(3, base_res);
+        }
+
+        // If child connects via its side, compute height_segments from v-positions
+        if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Side) {
+            std::vector<float> child_v_positions;
+            // The connection to parent is at child's side v-position
+            child_v_positions.push_back(child.connection.child_attach.v);
+            // Collect v-positions of grandchildren connecting to child's side
+            for (const auto& grandchild : child.children) {
+                if (grandchild.connection.is_legacy) continue;
+                if (grandchild.connection.parent_attach.region == BodyRenderer::AttachRegion::Side ||
+                    grandchild.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface) {
+                    child_v_positions.push_back(grandchild.connection.parent_attach.v);
+                }
+            }
+            int h_segs = ComputeRequiredSegments(child_v_positions, (std::max)(1, base_res / 4));
+            child.shape.height_segments = h_segs;
+        } else {
+            // Non-side child: give reasonable height segments
+            child.shape.height_segments = (std::max)(1, base_res / 4);
+        }
 
         // Special case: when a cylinder/capsule/cone side connects to a torus surface,
-        // the cylinder's height_segments should match the torus's side_segments so that
-        // vertical subdivisions align with the tube's angular faces.
+        // the cylinder's height_segments should match the torus's side_segments
         if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface &&
-            parent.shape.type == BodyRenderer::ShapeType::Torus) {
+            node.shape.type == BodyRenderer::ShapeType::Torus) {
             if (child.shape.type == BodyRenderer::ShapeType::Cylinder ||
                 child.shape.type == BodyRenderer::ShapeType::Capsule ||
                 child.shape.type == BodyRenderer::ShapeType::Cone) {
                 if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Side) {
-                    child.shape.height_segments = parent.shape.side_segments;
-                }
-            }
-        }
-        if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Surface &&
-            child.shape.type == BodyRenderer::ShapeType::Torus) {
-            if (parent.shape.type == BodyRenderer::ShapeType::Cylinder ||
-                parent.shape.type == BodyRenderer::ShapeType::Capsule ||
-                parent.shape.type == BodyRenderer::ShapeType::Cone) {
-                if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side) {
-                    parent.shape.height_segments = child.shape.side_segments;
+                    child.shape.height_segments = node.shape.side_segments;
                 }
             }
         }
 
-        // Recurse into child subtree
-        PropagateConnectionSegments(child);
+        // Recurse — pass parent_segs as forced minimum so child doesn't reduce below it
+        DeriveSegmentsRecursive(child, base_res, parent_segs);
     }
 }
 
-// ============================================================================
-// Subdivision adjustment
-// ============================================================================
-
-static void ApplySubdivision(BodyRenderer::Body& body, int level)
+static void DeriveSubdivisionFromConnections(BodyRenderer::Body& body, int base_resolution)
 {
-    // Adjust all shape segments based on subdivision level
-    struct Adjuster {
-        int level;
-        void Apply(BodyRenderer::BodyNode& node) {
-            BodyRenderer::ShapeParams& s = node.shape;
-            // Apply multiplier
-            switch (s.type) {
-            case BodyRenderer::ShapeType::Cone:
-            case BodyRenderer::ShapeType::Cylinder:
-            case BodyRenderer::ShapeType::Capsule: {
-                int base = 8;
-                s.segments = base * level;
-                if (s.segments < 3) s.segments = 3;
-                if (s.segments > 128) s.segments = 128;
-                // Height segments scale with level for tapering support
-                s.height_segments = (std::max)(1, level * 2);
-                if (s.height_segments > 16) s.height_segments = 16;
-                break;
-            }
-            case BodyRenderer::ShapeType::Sphere: {
-                int base_lon = 10;
-                int base_lat = 8;
-                s.lon_segments = base_lon * level;
-                s.lat_segments = base_lat * level;
-                if (s.lon_segments < 4) s.lon_segments = 4;
-                if (s.lon_segments > 128) s.lon_segments = 128;
-                if (s.lat_segments < 3) s.lat_segments = 3;
-                if (s.lat_segments > 64) s.lat_segments = 64;
-                break;
-            }
-            case BodyRenderer::ShapeType::Torus: {
-                int base_ring = 10;
-                int base_side = 8;
-                s.ring_segments = base_ring * level;
-                s.side_segments = base_side * level;
-                if (s.ring_segments < 3) s.ring_segments = 3;
-                if (s.ring_segments > 128) s.ring_segments = 128;
-                if (s.side_segments < 3) s.side_segments = 3;
-                if (s.side_segments > 64) s.side_segments = 64;
-                break;
-            }
-            }
-
-            for (auto& child : node.children) {
-                Apply(child);
-            }
-        }
-    };
-
-    Adjuster adj;
-    adj.level = level;
-    adj.Apply(body.root);
+    DeriveSegmentsRecursive(body.root, base_resolution);
 }
 
 // ============================================================================
@@ -318,11 +349,8 @@ static bool LoadModel(const std::string& path, ViewerState& state)
     state.current_body = result.body;
     state.has_model = true;
 
-    // Apply current subdivision level
-    ApplySubdivision(state.current_body, state.subdivision_level);
-
-    // Propagate segment counts so connected shapes share angular segments at boundaries
-    PropagateConnectionSegments(state.current_body.root);
+    // Derive segment counts from connection positions
+    DeriveSubdivisionFromConnections(state.current_body, state.subdivision_level * 8);
 
     // Resolve connections
     BodyRenderer::ConnectionSolver solver;
@@ -344,11 +372,8 @@ static void LoadGeneratedBody(ViewerState& state)
     state.current_body = body;
     state.has_model = true;
 
-    // Apply current subdivision level
-    ApplySubdivision(state.current_body, state.subdivision_level);
-
-    // Propagate segment counts so connected shapes share angular segments at boundaries
-    PropagateConnectionSegments(state.current_body.root);
+    // Derive segment counts from connection positions
+    DeriveSubdivisionFromConnections(state.current_body, state.subdivision_level * 8);
 
     // Resolve connections
     BodyRenderer::ConnectionSolver solver;
@@ -377,10 +402,7 @@ static void ReloadCurrentBody(ViewerState& state, BodyRenderer::ModelSwitcher& s
         state.has_model = true;
     }
 
-    ApplySubdivision(state.current_body, state.subdivision_level);
-
-    // Propagate segment counts so connected shapes share angular segments at boundaries
-    PropagateConnectionSegments(state.current_body.root);
+    DeriveSubdivisionFromConnections(state.current_body, state.subdivision_level * 8);
 
     BodyRenderer::ConnectionSolver solver;
     solver.ResolveTree(&state.current_body.root);
@@ -678,11 +700,8 @@ static int RunDumpMode(const std::string& model_path)
 
     printf("Body: %s (format v%d)\n", result.body.name.c_str(), result.body.format_version);
 
-    // Apply default subdivision (level 1)
-    ApplySubdivision(result.body, 1);
-
-    // Propagate segment counts at connection boundaries
-    PropagateConnectionSegments(result.body.root);
+    // Derive segment counts from connection positions
+    DeriveSubdivisionFromConnections(result.body, 1 * 8);
 
     // Resolve connection tree
     BodyRenderer::ConnectionSolver solver;
