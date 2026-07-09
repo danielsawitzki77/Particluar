@@ -283,6 +283,18 @@ static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, 
                 int synced = (std::max)(node.shape.lat_segments, child.shape.height_segments);
                 node.shape.lat_segments = synced;
                 child.shape.height_segments = synced;
+
+                // Compute non-uniform row boundaries so cylinder rows match sphere latitude bands
+                int H = child.shape.height_segments;
+                std::vector<float> boundaries;
+                boundaries.reserve(H + 1);
+                for (int k = 0; k <= H; ++k) {
+                    // Sphere stack (H-k) has Y = cos(pi*(H-k)/H), normalized to [0,1]
+                    float phi = static_cast<float>(M_PI) * (H - k) / H;
+                    float t = (1.0f + std::cos(phi)) * 0.5f;
+                    boundaries.push_back(t);
+                }
+                child.shape.row_boundaries = boundaries;
             }
         }
         if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side ||
@@ -292,6 +304,17 @@ static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, 
                 int synced = (std::max)(child.shape.lat_segments, node.shape.height_segments);
                 child.shape.lat_segments = synced;
                 node.shape.height_segments = synced;
+
+                // Compute non-uniform row boundaries so parent cylinder rows match sphere latitude bands
+                int H = node.shape.height_segments;
+                std::vector<float> boundaries;
+                boundaries.reserve(H + 1);
+                for (int k = 0; k <= H; ++k) {
+                    float phi = static_cast<float>(M_PI) * (H - k) / H;
+                    float t = (1.0f + std::cos(phi)) * 0.5f;
+                    boundaries.push_back(t);
+                }
+                node.shape.row_boundaries = boundaries;
             }
         }
 

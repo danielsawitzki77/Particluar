@@ -43,6 +43,12 @@ struct ShapeParams {
     float major_radius, minor_radius;
     int ring_segments, side_segments;
 
+    // Non-uniform row boundaries for height subdivision.
+    // If non-empty, these normalized Y-positions (0-1 from bottom to top) define where
+    // horizontal ring boundaries are placed. Size should be height_segments+1 (includes
+    // 0.0 and 1.0 endpoints). When empty, uniform spacing is used.
+    std::vector<float> row_boundaries;
+
     ShapeParams()
         : type(ShapeType::Cylinder)
         , radius(0.5f), height(1.0f), segments(16), height_segments(1)
