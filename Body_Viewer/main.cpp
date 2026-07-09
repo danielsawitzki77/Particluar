@@ -276,6 +276,25 @@ static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, 
             }
         }
 
+        // Sync cylinder height_segments with sphere lat_segments at side<->surface connections
+        if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Side) {
+            if (node.shape.type == BodyRenderer::ShapeType::Sphere) {
+                // Parent is sphere, child is cylinder connecting via side
+                int synced = (std::max)(node.shape.lat_segments, child.shape.height_segments);
+                node.shape.lat_segments = synced;
+                child.shape.height_segments = synced;
+            }
+        }
+        if (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side ||
+            child.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface) {
+            if (child.shape.type == BodyRenderer::ShapeType::Sphere) {
+                // Child is sphere, parent is cylinder/capsule connecting via side
+                int synced = (std::max)(child.shape.lat_segments, node.shape.height_segments);
+                child.shape.lat_segments = synced;
+                node.shape.height_segments = synced;
+            }
+        }
+
         // Recurse — pass parent_segs as forced minimum so child doesn't reduce below it
         DeriveSegmentsRecursive(child, base_res, parent_segs);
     }
