@@ -320,6 +320,105 @@ static void DeriveSegmentsRecursive(BodyRenderer::BodyNode& node, int base_res, 
             }
         }
 
+        // Generalized non-uniform row spacing: match the child cylinder's connection
+        // row to the parent's actual face height at the junction point.
+        // This overrides any previous row_boundaries assignment (except sphere, which
+        // already handles this correctly via cosine spacing above).
+        if (child.connection.child_attach.region == BodyRenderer::AttachRegion::Side &&
+            (child.connection.parent_attach.region == BodyRenderer::AttachRegion::Surface ||
+             child.connection.parent_attach.region == BodyRenderer::AttachRegion::Side) &&
+            node.shape.type != BodyRenderer::ShapeType::Sphere) {
+
+            // Generate parent faces to measure actual face height at connection point
+            BodyRenderer::FaceGenerator faceGen;
+            std::vector<BodyRenderer::Face> parent_faces = faceGen.Generate(node.shape);
+
+            BodyRenderer::ConnectionFaceMatcher matcher;
+            int parent_grid_idx = matcher.ComputeGridIndex(node.shape, child.connection.parent_attach);
+
+            if (parent_grid_idx >= 0 && parent_grid_idx < static_cast<int>(parent_faces.size())) {
+                const auto& conn_face = parent_faces[parent_grid_idx];
+
+                // Only proceed for quad faces (lateral faces on torus, cylinder, etc.)
+                if (conn_face.vertices.size() == 4) {
+                    // Measure the parent face's height (Y-distance between top and bottom edges)
+                    // Face vertex order from FaceGenerator:
+                    //   Torus: v(i,j), v(i+1,j), v(i+1,j+1), v(i,j+1)
+                    //   Cylinder: v(row,col), v(row,col+1), v(row+1,col+1), v(row+1,col)
+                    // In both cases, vertices 0,1 share one row and 2,3 share the next row.
+                    BodyRenderer::Vec3 bot_mid(
+                        (conn_face.vertices[0].x + conn_face.vertices[1].x) * 0.5f,
+                        (conn_face.vertices[0].y + conn_face.vertices[1].y) * 0.5f,
+                        (conn_face.vertices[0].z + conn_face.vertices[1].z) * 0.5f
+                    );
+                    BodyRenderer::Vec3 top_mid(
+                        (conn_face.vertices[2].x + conn_face.vertices[3].x) * 0.5f,
+                        (conn_face.vertices[2].y + conn_face.vertices[3].y) * 0.5f,
+                        (conn_face.vertices[2].z + conn_face.vertices[3].z) * 0.5f
+                    );
+                    float dx = top_mid.x - bot_mid.x;
+                    float dy = top_mid.y - bot_mid.y;
+                    float dz = top_mid.z - bot_mid.z;
+                    float parent_face_height = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+                    // Only apply if the child has meaningful height
+                    if (child.shape.height > 0.0f && parent_face_height > 0.0f) {
+                        int H = child.shape.height_segments;
+                        float v_center = child.connection.child_attach.v;
+
+                        // The connection row should span parent_face_height in world units.
+                        // Convert to a fraction of the cylinder's total height.
+                        float row_half = parent_face_height / (2.0f * child.shape.height);
+                        float row_bottom = v_center - row_half;
+                        float row_top = v_center + row_half;
+
+                        // Clamp to [0, 1]
+                        if (row_bottom < 0.0f) { row_top += -row_bottom; row_bottom = 0.0f; }
+                        if (row_top > 1.0f) { row_bottom -= (row_top - 1.0f); row_top = 1.0f; }
+                        if (row_bottom < 0.0f) row_bottom = 0.0f;
+                        if (row_top > 1.0f) row_top = 1.0f;
+
+                        // Determine how many rows below and above the connection row
+                        // The connection row takes 1 slot. Remaining H-1 rows split proportionally.
+                        int rows_below = static_cast<int>(std::round(v_center * (H - 1)));
+                        int rows_above = H - 1 - rows_below;
+                        if (rows_below < 0) rows_below = 0;
+                        if (rows_above < 0) rows_above = 0;
+                        // Ensure at least H-1 total
+                        if (rows_below + rows_above < H - 1) {
+                            rows_above = H - 1 - rows_below;
+                        }
+
+                        // Build boundaries: [0 → row_bottom] (rows_below steps),
+                        //                   row_bottom, row_top,
+                        //                   [row_top → 1] (rows_above steps)
+                        std::vector<float> boundaries;
+                        boundaries.reserve(H + 1);
+                        boundaries.push_back(0.0f);
+                        for (int i = 1; i <= rows_below; ++i) {
+                            boundaries.push_back(row_bottom * static_cast<float>(i) / rows_below);
+                        }
+                        if (rows_below == 0) {
+                            boundaries.push_back(row_bottom);
+                        }
+                        boundaries.push_back(row_top);
+                        for (int i = 1; i <= rows_above; ++i) {
+                            boundaries.push_back(row_top + (1.0f - row_top) * static_cast<float>(i) / rows_above);
+                        }
+
+                        // Ensure exactly H+1 entries
+                        while (static_cast<int>(boundaries.size()) < H + 1)
+                            boundaries.push_back(1.0f);
+                        while (static_cast<int>(boundaries.size()) > H + 1)
+                            boundaries.pop_back();
+                        boundaries.back() = 1.0f;
+
+                        child.shape.row_boundaries = boundaries;
+                    }
+                }
+            }
+        }
+
         // Recurse — pass parent_segs as forced minimum so child doesn't reduce below it
         DeriveSegmentsRecursive(child, base_res, parent_segs);
     }
