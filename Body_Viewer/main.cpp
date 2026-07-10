@@ -19,6 +19,7 @@
 #include "JointAnimator.h"
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
+#include "JointFaceAnalyzer.h"
 
 #include <string>
 #include <cstdio>
@@ -262,20 +263,6 @@ static const char* ShapeTypeName(BodyRenderer::ShapeType t)
     case BodyRenderer::ShapeType::Sphere: return "sphere";
     case BodyRenderer::ShapeType::Torus: return "torus";
     case BodyRenderer::ShapeType::Capsule: return "capsule";
-    }
-    return "unknown";
-}
-
-static const char* RegionName(BodyRenderer::AttachRegion r)
-{
-    switch (r) {
-    case BodyRenderer::AttachRegion::Surface: return "surface";
-    case BodyRenderer::AttachRegion::Top: return "top";
-    case BodyRenderer::AttachRegion::Bottom: return "bottom";
-    case BodyRenderer::AttachRegion::Side: return "side";
-    case BodyRenderer::AttachRegion::Base: return "base";
-    case BodyRenderer::AttachRegion::TopCap: return "top_cap";
-    case BodyRenderer::AttachRegion::BottomCap: return "bottom_cap";
     }
     return "unknown";
 }
@@ -532,11 +519,68 @@ static int RunDumpMode(const std::string& model_path)
 }
 
 // ============================================================================
+// Analyze Mode (--analyze [output_path])
+// ============================================================================
+
+static int RunAnalyzeMode(const std::string& output_path)
+{
+    printf("=== Joint Face Matching Analysis ===\n");
+    printf("Output: %s\n\n", output_path.c_str());
+
+    BodyRenderer::JointFaceAnalyzer analyzer;
+
+    // Test at multiple subdivision levels: low (1), default (2), medium (4), high (8)
+    std::vector<int> levels = {1, 2, 4, 8};
+
+    auto reports = analyzer.AnalyzeDirectory("assets/bodies/", levels);
+
+    if (reports.empty()) {
+        fprintf(stderr, "ERROR: No models found or all failed to load.\n");
+        return 1;
+    }
+
+    printf("\nAnalyzed %d models. Writing report...\n", static_cast<int>(reports.size()));
+
+    if (!analyzer.WriteReport(reports, output_path)) {
+        fprintf(stderr, "ERROR: Failed to write report to '%s'\n", output_path.c_str());
+        return 1;
+    }
+
+    // Print summary to stdout as well
+    int total = 0, passing = 0;
+    for (const auto& model : reports) {
+        for (const auto& jr : model.joints) {
+            total++;
+            if (jr.grade <= BodyRenderer::JointFaceReport::ACCEPTABLE) {
+                passing++;
+            }
+        }
+    }
+
+    printf("\n=== Results ===\n");
+    printf("Total joint/level combinations: %d\n", total);
+    printf("Passing (PERFECT/GOOD/ACCEPTABLE): %d\n", passing);
+    printf("Failing (POOR/FAILING): %d\n", total - passing);
+    if (total > 0) {
+        printf("Pass rate: %.1f%%\n", 100.0f * passing / total);
+    }
+    printf("\nFull report written to: %s\n", output_path.c_str());
+    return (total - passing > 0) ? 2 : 0; // exit code 2 if any failures
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
 int main(int argc, char* argv[])
 {
+    // Check for --analyze mode (runs without SDL/window)
+    if (argc >= 2 && std::string(argv[1]) == "--analyze") {
+        std::string output = "joint_face_analysis.md";
+        if (argc >= 3) output = argv[2];
+        return RunAnalyzeMode(output);
+    }
+
     // Check for --dump mode (runs without SDL/window)
     if (argc >= 3 && std::string(argv[1]) == "--dump") {
         return RunDumpMode(argv[2]);
