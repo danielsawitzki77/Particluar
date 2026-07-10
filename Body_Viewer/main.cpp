@@ -113,6 +113,8 @@ static int ComputeRequiredSegments(const std::vector<float>& positions, int min_
     for (int N = min_segments; N <= 128; ++N) {
         bool all_valid = true;
         for (float u : positions) {
+            // u=0.0 and u=1.0 always land near face 0 center for any N — skip check
+            if (u < 0.001f || u > 0.999f) continue;
             float face_pos = N * u - 0.5f;
             float rounded = std::round(face_pos);
             if (std::fabs(face_pos - rounded) > 0.01f) {
