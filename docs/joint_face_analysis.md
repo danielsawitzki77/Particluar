@@ -94,21 +94,21 @@ Joints: 2
 
 | Subdiv | Joint | Grade | Dist | Normal Dot | Area Ratio | Vtx Match | Max Vtx Dist |
 |--------|-------|-------|------|------------|------------|-----------|-------------|
-| 1 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.082716 |
+| 1 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.2983 | YES (4/4) | 0.290696 |
 | 1 | spoke -> antenna | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (10/10) | 0.000000 |
-| 2 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.069958 |
+| 2 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.3511 | YES (4/4) | 0.268404 |
 | 2 | spoke -> antenna | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (18/18) | 0.000000 |
-| 4 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.067610 |
+| 4 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.3766 | YES (4/4) | 0.258353 |
 | 4 | spoke -> antenna | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (34/34) | 0.000000 |
-| 8 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.067773 |
+| 8 | ring -> spoke | 🟠 POOR | 0.000000 | -1.000000 | 0.3888 | YES (4/4) | 0.253858 |
 | 8 | spoke -> antenna | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (66/66) | 0.000000 |
 
 **Issues found:**
 
-- 🟠 **ring -> spoke** (subdiv 1): area mismatch (ratio=0.000), 
-- 🟠 **ring -> spoke** (subdiv 2): area mismatch (ratio=0.000), 
-- 🟠 **ring -> spoke** (subdiv 4): area mismatch (ratio=0.000), 
-- 🟠 **ring -> spoke** (subdiv 8): area mismatch (ratio=0.000), 
+- 🟠 **ring -> spoke** (subdiv 1): area mismatch (ratio=0.298), 
+- 🟠 **ring -> spoke** (subdiv 2): area mismatch (ratio=0.351), 
+- 🟠 **ring -> spoke** (subdiv 4): area mismatch (ratio=0.377), 
+- 🟠 **ring -> spoke** (subdiv 8): area mismatch (ratio=0.389), 
 
 ### Chess Pawn
 
@@ -271,43 +271,43 @@ Joints: 5
 
 | Subdiv | Joint | Grade | Dist | Normal Dot | Area Ratio | Vtx Match | Max Vtx Dist |
 |--------|-------|-------|------|------------|------------|-----------|-------------|
-| 1 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
-| 1 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
+| 1 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.0816 | YES (4/4) | 0.342134 |
+| 1 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.0816 | YES (4/4) | 0.342133 |
 | 1 | central_hub -> antenna_dish | 🟠 POOR | 0.000000 | -0.999248 | 0.3315 | NO (4/3) | 0.250279 |
 | 1 | antenna_dish -> feed_horn | 🟠 POOR | 0.000000 | -0.999248 | 0.4108 | NO (3/9) | 0.021214 |
 | 1 | central_hub -> thruster | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (8/8) | 0.000000 |
-| 2 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
-| 2 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
+| 2 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.1595 | YES (4/4) | 0.317606 |
+| 2 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.1595 | YES (4/4) | 0.317606 |
 | 2 | central_hub -> antenna_dish | 🟠 POOR | 0.000000 | -0.999582 | 0.2401 | NO (4/3) | 0.267198 |
 | 2 | antenna_dish -> feed_horn | 🟠 POOR | 0.000000 | -0.999582 | 0.2666 | NO (3/17) | 0.034997 |
 | 2 | central_hub -> thruster | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (16/16) | 0.000000 |
-| 4 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
-| 4 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367605 |
+| 4 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.3137 | YES (4/4) | 0.268171 |
+| 4 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.3137 | YES (4/4) | 0.268171 |
 | 4 | central_hub -> antenna_dish | 🟠 POOR | 0.000000 | -0.999874 | 0.2116 | NO (4/3) | 0.276691 |
 | 4 | antenna_dish -> feed_horn | 🟠 POOR | 0.000000 | -0.999874 | 0.1486 | NO (3/33) | 0.041203 |
 | 4 | central_hub -> thruster | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (32/32) | 0.000000 |
-| 8 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367604 |
-| 8 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.0000 | YES (4/4) | 0.367604 |
+| 8 | central_hub -> solar_panel_right | 🟠 POOR | 0.000000 | -1.000000 | 0.5981 | YES (4/4) | 0.171035 |
+| 8 | central_hub -> solar_panel_left | 🟠 POOR | 0.000000 | -1.000000 | 0.5981 | YES (4/4) | 0.171034 |
 | 8 | central_hub -> antenna_dish | 🟠 POOR | 0.000000 | -0.999967 | 0.2026 | NO (4/3) | 0.285619 |
 | 8 | antenna_dish -> feed_horn | 🟠 POOR | 0.000000 | -0.999967 | 0.0772 | NO (3/65) | 0.043075 |
 | 8 | central_hub -> thruster | ✅ PERFECT | 0.000000 | -1.000000 | 1.0000 | YES (64/64) | 0.000000 |
 
 **Issues found:**
 
-- 🟠 **central_hub -> solar_panel_right** (subdiv 1): area mismatch (ratio=0.000), 
-- 🟠 **central_hub -> solar_panel_left** (subdiv 1): area mismatch (ratio=0.000), 
+- 🟠 **central_hub -> solar_panel_right** (subdiv 1): area mismatch (ratio=0.082), 
+- 🟠 **central_hub -> solar_panel_left** (subdiv 1): area mismatch (ratio=0.082), 
 - 🟠 **central_hub -> antenna_dish** (subdiv 1): vertex count mismatch (4 vs 3), area mismatch (ratio=0.331), 
 - 🟠 **antenna_dish -> feed_horn** (subdiv 1): vertex count mismatch (3 vs 9), area mismatch (ratio=0.411), 
-- 🟠 **central_hub -> solar_panel_right** (subdiv 2): area mismatch (ratio=0.000), 
-- 🟠 **central_hub -> solar_panel_left** (subdiv 2): area mismatch (ratio=0.000), 
+- 🟠 **central_hub -> solar_panel_right** (subdiv 2): area mismatch (ratio=0.160), 
+- 🟠 **central_hub -> solar_panel_left** (subdiv 2): area mismatch (ratio=0.160), 
 - 🟠 **central_hub -> antenna_dish** (subdiv 2): vertex count mismatch (4 vs 3), area mismatch (ratio=0.240), 
 - 🟠 **antenna_dish -> feed_horn** (subdiv 2): vertex count mismatch (3 vs 17), area mismatch (ratio=0.267), 
-- 🟠 **central_hub -> solar_panel_right** (subdiv 4): area mismatch (ratio=0.000), 
-- 🟠 **central_hub -> solar_panel_left** (subdiv 4): area mismatch (ratio=0.000), 
+- 🟠 **central_hub -> solar_panel_right** (subdiv 4): area mismatch (ratio=0.314), 
+- 🟠 **central_hub -> solar_panel_left** (subdiv 4): area mismatch (ratio=0.314), 
 - 🟠 **central_hub -> antenna_dish** (subdiv 4): vertex count mismatch (4 vs 3), area mismatch (ratio=0.212), 
 - 🟠 **antenna_dish -> feed_horn** (subdiv 4): vertex count mismatch (3 vs 33), area mismatch (ratio=0.149), 
-- 🟠 **central_hub -> solar_panel_right** (subdiv 8): area mismatch (ratio=0.000), 
-- 🟠 **central_hub -> solar_panel_left** (subdiv 8): area mismatch (ratio=0.000), 
+- 🟠 **central_hub -> solar_panel_right** (subdiv 8): area mismatch (ratio=0.598), 
+- 🟠 **central_hub -> solar_panel_left** (subdiv 8): area mismatch (ratio=0.598), 
 - 🟠 **central_hub -> antenna_dish** (subdiv 8): vertex count mismatch (4 vs 3), area mismatch (ratio=0.203), 
 - 🟠 **antenna_dish -> feed_horn** (subdiv 8): vertex count mismatch (3 vs 65), area mismatch (ratio=0.077), 
 

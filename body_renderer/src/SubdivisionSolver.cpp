@@ -257,34 +257,66 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                         int H = child.shape.height_segments;
                         float v_center = child.connection.child_attach.v;
 
-                        float row_half = parent_face_height / (2.0f * child.shape.height);
-                        float row_bottom = v_center - row_half;
-                        float row_top = v_center + row_half;
+                        // Compute the row span that should match parent face height
+                        float row_span = parent_face_height / child.shape.height;
+                        if (row_span > 1.0f) row_span = 1.0f;
 
-                        // Clamp to [0, 1]
-                        if (row_bottom < 0.0f) { row_top += -row_bottom; row_bottom = 0.0f; }
-                        if (row_top > 1.0f) { row_bottom -= (row_top - 1.0f); row_top = 1.0f; }
-                        if (row_bottom < 0.0f) row_bottom = 0.0f;
-                        if (row_top > 1.0f) row_top = 1.0f;
+                        // For edge cases (v=0 or v=1), the connection row is at the
+                        // boundary, so we place the full row_span starting from that edge.
+                        float row_bottom, row_top;
+                        if (v_center < 0.001f) {
+                            // Connection at bottom edge: row extends upward
+                            row_bottom = 0.0f;
+                            row_top = row_span;
+                        } else if (v_center > 0.999f) {
+                            // Connection at top edge: row extends downward
+                            row_bottom = 1.0f - row_span;
+                            row_top = 1.0f;
+                        } else {
+                            // Connection in middle: row centered on v
+                            float row_half = row_span * 0.5f;
+                            row_bottom = v_center - row_half;
+                            row_top = v_center + row_half;
 
-                        int rows_below = static_cast<int>(std::round(v_center * (H - 1)));
-                        int rows_above = H - 1 - rows_below;
-                        if (rows_below < 0) rows_below = 0;
-                        if (rows_above < 0) rows_above = 0;
-                        if (rows_below + rows_above < H - 1) {
-                            rows_above = H - 1 - rows_below;
+                            // Clamp to [0, 1]
+                            if (row_bottom < 0.0f) { row_top += -row_bottom; row_bottom = 0.0f; }
+                            if (row_top > 1.0f) { row_bottom -= (row_top - 1.0f); row_top = 1.0f; }
+                            if (row_bottom < 0.0f) row_bottom = 0.0f;
+                            if (row_top > 1.0f) row_top = 1.0f;
                         }
+
+                        // Determine how many uniform rows above/below the connection row
+                        int conn_row;
+                        if (v_center < 0.001f) {
+                            conn_row = 0;
+                        } else if (v_center > 0.999f) {
+                            conn_row = H - 1;
+                        } else {
+                            conn_row = static_cast<int>(std::round(v_center * (H - 1)));
+                        }
+                        if (conn_row < 0) conn_row = 0;
+                        if (conn_row >= H) conn_row = H - 1;
+
+                        int rows_below = conn_row;
+                        int rows_above = H - 1 - conn_row;
 
                         std::vector<float> boundaries;
                         boundaries.reserve(H + 1);
                         boundaries.push_back(0.0f);
+
+                        // Uniform rows below the connection row
                         for (int i = 1; i <= rows_below; ++i) {
                             boundaries.push_back(row_bottom * static_cast<float>(i) / rows_below);
                         }
-                        if (rows_below == 0) {
+
+                        // Connection row boundaries
+                        if (rows_below == 0 && row_bottom > 0.001f) {
+                            // If no rows below but row_bottom > 0, add it
                             boundaries.push_back(row_bottom);
                         }
                         boundaries.push_back(row_top);
+
+                        // Uniform rows above the connection row
                         for (int i = 1; i <= rows_above; ++i) {
                             boundaries.push_back(row_top + (1.0f - row_top) * static_cast<float>(i) / rows_above);
                         }

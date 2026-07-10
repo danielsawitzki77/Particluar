@@ -29,15 +29,20 @@ float JointFaceAnalyzer::ComputeFaceArea(const Face& face) const
 {
     if (face.vertices.size() < 3) return 0.0f;
 
-    // Use Newell's method generalized for 3D polygon
-    Vec3 cross_sum(0, 0, 0);
+    // Use triangle fan decomposition from vertex 0.
+    // This correctly handles non-planar polygons (e.g., torus quads)
+    // by summing the areas of individual triangles, which Newell's method
+    // would undercount due to cross-product cancellation on curved surfaces.
+    float total_area = 0.0f;
+    const Vec3& v0 = face.vertices[0];
     int n = static_cast<int>(face.vertices.size());
-    for (int i = 0; i < n; ++i) {
-        const Vec3& curr = face.vertices[i];
-        const Vec3& next = face.vertices[(i + 1) % n];
-        cross_sum = cross_sum + curr.Cross(next);
+    for (int i = 1; i < n - 1; ++i) {
+        Vec3 e1 = face.vertices[i] - v0;
+        Vec3 e2 = face.vertices[i + 1] - v0;
+        Vec3 cross = e1.Cross(e2);
+        total_area += cross.Length() * 0.5f;
     }
-    return cross_sum.Length() * 0.5f;
+    return total_area;
 }
 
 // ============================================================================
