@@ -13,7 +13,7 @@
       {
         "connection": {
           "parent_attach": { "region": "side", "u": 0.5, "v": 1.0 },
-          "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
+          "child_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
           "rotation": 0.0
         },
         "node": {
