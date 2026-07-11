@@ -31,7 +31,7 @@
                   {
                     "connection": {
                       "parent_attach": { "region": "top", "u": 0.5, "v": 0.5 },
-                      "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+                      "child_attach": { "region": "bottom", "u": 0.5, "v": 1.0 },
                       "rotation": 0.0
                     },
                     "node": {
