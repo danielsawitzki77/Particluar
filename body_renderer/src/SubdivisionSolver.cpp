@@ -143,7 +143,16 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         }
 
         // Child's angular segments must be at least parent's
-        int parent_segs = GetShapeAngularSegments(node.shape);
+        // For torus parents: the child's angular dimension maps to the torus's
+        // ring direction, so use ring_segments as the forced minimum (not side_segments
+        // which GetShapeAngularSegments returns for torus).
+        int parent_segs;
+        if (node.shape.type == ShapeType::Torus &&
+            (child.connection.parent_attach.region == AttachRegion::Surface)) {
+            parent_segs = node.shape.ring_segments;
+        } else {
+            parent_segs = GetShapeAngularSegments(node.shape);
+        }
 
         // Set child lat_segments / ring_segments from base_res
         if (child.shape.type == ShapeType::Sphere) {
