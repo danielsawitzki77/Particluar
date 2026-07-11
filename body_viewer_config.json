@@ -1,0 +1,8 @@
+{
+  "analyze": {
+    "num_random_models": 64,
+    "bodies_per_model": 2,
+    "subdivision_range": [1, 2, 3, 4, 5, 6, 7, 8],
+    "random_seed": 0
+  }
+}
