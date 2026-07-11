@@ -101,8 +101,18 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
         rot = Mat4::RotationAxis(axis, angle);
     }
 
-    // Apply spin rotation around parent normal
-    float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
+    // Apply spin rotation around parent normal.
+    // For side↔surface (quad↔quad) connections, rotation is LOCKED to 0 —
+    // the face grid alignment fully determines the child's angular orientation.
+    // Free rotation is only allowed for cap↔cap (ngon) connections.
+    float rot_angle = 0.0f;
+    bool is_side_connection = 
+        (conn.child_attach.region == AttachRegion::Side ||
+         conn.parent_attach.region == AttachRegion::Surface ||
+         conn.parent_attach.region == AttachRegion::Side);
+    if (!is_side_connection) {
+        rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
+    }
     Mat4 spin = Mat4::RotationAxis(parent_pt.normal, rot_angle);
 
     // Orientation = spin * rot (no half-segment offset needed — segments are now
