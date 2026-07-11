@@ -790,9 +790,27 @@ static int RunAnalyzePairsMode(const std::string& base_output_path)
 
     for (int i = 0; i < cfg.num_random_models; ++i) {
         unsigned int model_seed = seed + static_cast<unsigned int>(i);
-        // max_children = 1 forces exactly 2 nodes (root + 1 child) when bodies_per_model == 2
-        int max_depth = cfg.bodies_per_model; // depth_limit=2 means root + 1 child = 2 nodes
-        BodyRenderer::Body body = generator.Generate(model_seed, max_depth);
+        // Generate with depth_limit=2 (allows root + children)
+        BodyRenderer::Body body = generator.Generate(model_seed, 2);
+        
+        // Force exactly bodies_per_model nodes: trim to root + (bodies_per_model-1) children
+        if (cfg.bodies_per_model == 2) {
+            // Keep only the first child, remove the rest
+            if (body.root.children.empty()) {
+                // Root has no children — regenerate with offset seed until we get one
+                unsigned int retry_seed = model_seed + 1000;
+                for (int attempt = 0; attempt < 100 && body.root.children.empty(); ++attempt) {
+                    body = generator.Generate(retry_seed + attempt, 2);
+                }
+            }
+            if (body.root.children.size() > 1) {
+                body.root.children.resize(1);
+            }
+            // Also remove grandchildren to ensure exactly 2 total nodes
+            if (!body.root.children.empty()) {
+                body.root.children[0].children.clear();
+            }
+        }
 
         // Task 7: Serialize the body to JSON
         std::string body_json = loader.Serialize(body);
