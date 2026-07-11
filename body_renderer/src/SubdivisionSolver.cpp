@@ -160,8 +160,9 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             child.shape.ring_segments = (std::max)(3, base_res);
         }
 
-        // If child connects via its side, compute height_segments from v-positions
-        if (child.connection.child_attach.region == AttachRegion::Side) {
+        // If child connects via its side or surface, compute height_segments from v-positions
+        if (child.connection.child_attach.region == AttachRegion::Side ||
+            child.connection.child_attach.region == AttachRegion::Surface) {
             std::vector<float> child_v_positions;
             child_v_positions.push_back(child.connection.child_attach.v);
             for (const auto& grandchild : child.children) {
@@ -188,7 +189,8 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             if (child.shape.type == ShapeType::Cylinder ||
                 child.shape.type == ShapeType::Capsule ||
                 child.shape.type == ShapeType::Cone) {
-                if (child.connection.child_attach.region == AttachRegion::Side) {
+                if (child.connection.child_attach.region == AttachRegion::Side ||
+                    child.connection.child_attach.region == AttachRegion::Surface) {
                     // Match height: cylinder row height = torus tube face height
                     child.shape.height_segments = node.shape.side_segments;
                     // Increase torus ring_segments so its face width matches cylinder's
@@ -206,7 +208,8 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         }
 
         // Sync cylinder height_segments with sphere lat_segments at side<->surface connections
-        if (child.connection.child_attach.region == AttachRegion::Side) {
+        if (child.connection.child_attach.region == AttachRegion::Side ||
+            child.connection.child_attach.region == AttachRegion::Surface) {
             if (node.shape.type == ShapeType::Sphere) {
                 int synced = (std::max)(node.shape.lat_segments, child.shape.height_segments);
                 node.shape.lat_segments = synced;
@@ -250,12 +253,14 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         printf("[SubdivSolver] Checking generalized row spacing for %s -> %s: "
                "child_side=%d, parent_surface=%d, not_sphere=%d\n",
                node.name.c_str(), child.name.c_str(),
-               child.connection.child_attach.region == AttachRegion::Side,
+               (child.connection.child_attach.region == AttachRegion::Side ||
+                child.connection.child_attach.region == AttachRegion::Surface),
                (child.connection.parent_attach.region == AttachRegion::Surface || 
                 child.connection.parent_attach.region == AttachRegion::Side),
                node.shape.type != ShapeType::Sphere);
 #endif
-        if (child.connection.child_attach.region == AttachRegion::Side &&
+        if ((child.connection.child_attach.region == AttachRegion::Side ||
+             child.connection.child_attach.region == AttachRegion::Surface) &&
             (child.connection.parent_attach.region == AttachRegion::Surface ||
              child.connection.parent_attach.region == AttachRegion::Side) &&
             node.shape.type != ShapeType::Sphere) {
@@ -387,7 +392,8 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             printf("[SubdivSolver] SKIPPED generalized row spacing for %s -> %s: "
                    "child_side=%d, parent_surface_or_side=%d, not_sphere=%d\n",
                    node.name.c_str(), child.name.c_str(),
-                   child.connection.child_attach.region == AttachRegion::Side,
+                   (child.connection.child_attach.region == AttachRegion::Side ||
+                    child.connection.child_attach.region == AttachRegion::Surface),
                    (child.connection.parent_attach.region == AttachRegion::Surface || 
                     child.connection.parent_attach.region == AttachRegion::Side),
                    node.shape.type != ShapeType::Sphere);
