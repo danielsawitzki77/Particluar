@@ -207,42 +207,79 @@ Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_s
         conn.child_attach.region = AttachRegion::Bottom;
     }
 
-    conn.rotation = static_cast<float>(rng.IntRange(0, 7)) * 45.0f;
+    // Rotation is only valid for cap↔cap connections.
+    // For side/surface connections, face grid alignment determines orientation.
+    bool is_side = (conn.parent_attach.region == AttachRegion::Side ||
+                    conn.parent_attach.region == AttachRegion::Surface);
+    if (is_side) {
+        conn.rotation = 0.0f;
+    } else {
+        conn.rotation = static_cast<float>(rng.IntRange(0, 7)) * 45.0f;
+    }
 
     return conn;
 }
 
 // Fix up child attachment region to be valid for the child's shape type
+// AND enforce topology compatibility (quad↔quad, ngon↔ngon)
 static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
 {
-    AttachRegion region = conn.child_attach.region;
+    AttachRegion parent_region = conn.parent_attach.region;
+
+    // Determine if parent produces quads or ngons at its attachment
+    bool parent_is_quad = (parent_region == AttachRegion::Side ||
+                           parent_region == AttachRegion::Surface);
 
     switch (child_shape.type) {
     case ShapeType::Sphere:
         conn.child_attach.region = AttachRegion::Surface;
-        conn.child_attach.v = 1.0f; // bottom pole
+        conn.child_attach.u = 0.5f;
+        conn.child_attach.v = 0.5f; // equator (quad), NOT pole (triangle)
         break;
     case ShapeType::Cylinder:
-        if (region != AttachRegion::Top && region != AttachRegion::Bottom && region != AttachRegion::Side) {
+        if (parent_is_quad) {
+            // Parent has quads — child must use Side (quad)
+            conn.child_attach.region = AttachRegion::Side;
+            conn.child_attach.u = 0.5f;
+            conn.child_attach.v = 0.0f;
+        } else {
+            // Parent has ngons — child uses cap (ngon)
             conn.child_attach.region = AttachRegion::Bottom;
+            conn.child_attach.u = 0.5f;
+            conn.child_attach.v = 0.5f;
         }
         break;
     case ShapeType::Cone:
-        if (region != AttachRegion::Base && region != AttachRegion::Side) {
-            conn.child_attach.region = AttachRegion::Base;
-        }
+        // Cone base is ngon, cone side is triangle
+        // For quad parents: no compatible cone face exists — use base anyway
+        conn.child_attach.region = AttachRegion::Base;
+        conn.child_attach.u = 0.5f;
+        conn.child_attach.v = 0.5f;
         break;
     case ShapeType::Torus:
         conn.child_attach.region = AttachRegion::Surface;
+        conn.child_attach.u = 0.5f;
+        conn.child_attach.v = 0.5f;
         break;
     case ShapeType::Capsule:
-        if (region != AttachRegion::Top && region != AttachRegion::TopCap &&
-            region != AttachRegion::Bottom && region != AttachRegion::BottomCap &&
-            region != AttachRegion::Side) {
-            conn.child_attach.region = AttachRegion::BottomCap;
+        if (parent_is_quad) {
+            conn.child_attach.region = AttachRegion::Side;
+            conn.child_attach.u = 0.5f;
             conn.child_attach.v = 0.0f;
+        } else {
+            conn.child_attach.region = AttachRegion::BottomCap;
+            conn.child_attach.u = 0.5f;
+            conn.child_attach.v = 0.5f;
         }
         break;
+    }
+
+    // Lock rotation to 0 for side/surface connections
+    bool is_side = (conn.child_attach.region == AttachRegion::Side ||
+                    conn.parent_attach.region == AttachRegion::Surface ||
+                    conn.parent_attach.region == AttachRegion::Side);
+    if (is_side) {
+        conn.rotation = 0.0f;
     }
 }
 
