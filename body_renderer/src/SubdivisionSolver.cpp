@@ -5,6 +5,7 @@
 #include "BodyTypes.h"
 
 #include <cmath>
+#include <cstdio>
 #include <algorithm>
 #include <vector>
 
@@ -176,6 +177,7 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                 child.shape.type == ShapeType::Cone) {
                 if (child.connection.child_attach.region == AttachRegion::Side) {
                     child.shape.height_segments = node.shape.side_segments;
+                    child.shape.segments = node.shape.ring_segments;
                 }
             }
         }
@@ -221,6 +223,15 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
 
         // Generalized non-uniform row spacing: match the child cylinder's connection
         // row to the parent's actual face height at the junction point.
+#ifdef _DEBUG
+        printf("[SubdivSolver] Checking generalized row spacing for %s -> %s: "
+               "child_side=%d, parent_surface=%d, not_sphere=%d\n",
+               node.name.c_str(), child.name.c_str(),
+               child.connection.child_attach.region == AttachRegion::Side,
+               (child.connection.parent_attach.region == AttachRegion::Surface || 
+                child.connection.parent_attach.region == AttachRegion::Side),
+               node.shape.type != ShapeType::Sphere);
+#endif
         if (child.connection.child_attach.region == AttachRegion::Side &&
             (child.connection.parent_attach.region == AttachRegion::Surface ||
              child.connection.parent_attach.region == AttachRegion::Side) &&
@@ -233,6 +244,10 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             ConnectionFaceMatcher matcher;
             int parent_grid_idx = matcher.ComputeGridIndex(node.shape, child.connection.parent_attach);
 
+#ifdef _DEBUG
+            printf("[SubdivSolver] %s -> %s: parent_faces=%d, parent_grid_idx=%d\n",
+                   node.name.c_str(), child.name.c_str(), (int)parent_faces.size(), parent_grid_idx);
+#endif
             if (parent_grid_idx >= 0 && parent_grid_idx < static_cast<int>(parent_faces.size())) {
                 const auto& conn_face = parent_faces[parent_grid_idx];
 
@@ -253,6 +268,11 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                     float dz = top_mid.z - bot_mid.z;
                     float parent_face_height = std::sqrt(dx * dx + dy * dy + dz * dz);
 
+#ifdef _DEBUG
+                    printf("[SubdivSolver] %s -> %s: parent_face_height=%.4f, child_height=%.4f, parent_grid_idx=%d, face_verts=%d\n",
+                           node.name.c_str(), child.name.c_str(), parent_face_height, child.shape.height,
+                           parent_grid_idx, (int)conn_face.vertices.size());
+#endif
                     if (child.shape.height > 0.0f && parent_face_height > 0.0f) {
                         int H = child.shape.height_segments;
                         float v_center = child.connection.child_attach.v;
@@ -329,9 +349,26 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                         boundaries.back() = 1.0f;
 
                         child.shape.row_boundaries = boundaries;
+#ifdef _DEBUG
+                        printf("[SubdivSolver] %s -> %s: H=%d, v_center=%.4f, row_span=%.4f, conn_row=%d, row_bottom=%.4f, row_top=%.4f\n",
+                               node.name.c_str(), child.name.c_str(), H, v_center, row_span, conn_row, row_bottom, row_top);
+                        printf("[SubdivSolver] row_boundaries: [");
+                        for (float b : boundaries) printf("%.3f ", b);
+                        printf("]\n");
+#endif
                     }
                 }
             }
+        } else {
+#ifdef _DEBUG
+            printf("[SubdivSolver] SKIPPED generalized row spacing for %s -> %s: "
+                   "child_side=%d, parent_surface_or_side=%d, not_sphere=%d\n",
+                   node.name.c_str(), child.name.c_str(),
+                   child.connection.child_attach.region == AttachRegion::Side,
+                   (child.connection.parent_attach.region == AttachRegion::Surface || 
+                    child.connection.parent_attach.region == AttachRegion::Side),
+                   node.shape.type != ShapeType::Sphere);
+#endif
         }
 
         // Recurse — pass parent_segs as forced minimum so child doesn't reduce below it
