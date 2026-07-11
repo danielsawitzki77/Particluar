@@ -179,6 +179,9 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         }
 
         // Special case: cylinder/capsule/cone side connects to a torus surface
+        // The torus needs enough ring_segments so its face width matches the
+        // cylinder's face width: 2π*major/ring_segs = 2π*cyl_radius/cyl_segs
+        // => ring_segs = major_radius / cyl_radius * cyl_segs
         if (child.connection.parent_attach.region == AttachRegion::Surface &&
             node.shape.type == ShapeType::Torus) {
             if (child.shape.type == ShapeType::Cylinder ||
@@ -186,6 +189,15 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                 child.shape.type == ShapeType::Cone) {
                 if (child.connection.child_attach.region == AttachRegion::Side) {
                     child.shape.height_segments = node.shape.side_segments;
+                    // Compute ring_segments needed for face width matching
+                    float child_radius = child.shape.radius;
+                    if (child_radius > 0.001f) {
+                        int needed_ring = static_cast<int>(
+                            std::ceil(node.shape.major_radius / child_radius * child.shape.segments));
+                        if (needed_ring < node.shape.ring_segments) needed_ring = node.shape.ring_segments;
+                        if (needed_ring > 128) needed_ring = 128;
+                        node.shape.ring_segments = needed_ring;
+                    }
                     child.shape.segments = node.shape.ring_segments;
                 }
             }
