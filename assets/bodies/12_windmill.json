@@ -37,7 +37,7 @@
               "connection": {
                 "parent_attach": { "region": "surface", "u": 0.33, "v": 0.5 },
                 "child_attach": { "region": "side", "u": 0.5, "v": 0.0 },
-                "rotation": 120.0
+                "rotation": 0.0
               },
               "node": {
                 "name": "blade_2",
@@ -49,7 +49,7 @@
               "connection": {
                 "parent_attach": { "region": "surface", "u": 0.66, "v": 0.5 },
                 "child_attach": { "region": "side", "u": 0.5, "v": 0.0 },
-                "rotation": 240.0
+                "rotation": 0.0
               },
               "node": {
                 "name": "blade_3",

@@ -21,7 +21,7 @@
               "connection": {
                 "parent_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
                 "child_attach": { "region": "side", "u": 0.5, "v": 0.0 },
-                "rotation": 45.0
+                "rotation": 0.0
               },
               "node": {
                 "name": "forearm",
