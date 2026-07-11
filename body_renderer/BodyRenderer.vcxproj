@@ -115,6 +115,8 @@
     <ClCompile Include="src\BodyRenderer.cpp" />
     <ClCompile Include="src\ModelSwitcher.cpp" />
     <ClCompile Include="src\JointAnimator.cpp" />
+    <ClCompile Include="src\SubdivisionSolver.cpp" />
+    <ClCompile Include="src\JointFaceAnalyzer.cpp" />
   </ItemGroup>
 
   <ItemGroup>
@@ -132,6 +134,8 @@
     <ClInclude Include="include\BodyRenderer.h" />
     <ClInclude Include="include\ModelSwitcher.h" />
     <ClInclude Include="include\JointAnimator.h" />
+    <ClInclude Include="include\SubdivisionSolver.h" />
+    <ClInclude Include="include\JointFaceAnalyzer.h" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

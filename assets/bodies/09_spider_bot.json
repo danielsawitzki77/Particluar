@@ -13,7 +13,7 @@
       {
         "connection": {
           "parent_attach": { "region": "surface", "u": 0.15, "v": 0.5 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.2 },
           "rotation": 0.0
         },
         "node": {
@@ -39,8 +39,8 @@
       {
         "connection": {
           "parent_attach": { "region": "surface", "u": 0.35, "v": 0.5 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
-          "rotation": 90.0
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.2 },
+          "rotation": 0.0
         },
         "node": {
           "name": "leg_back_right",
@@ -65,8 +65,8 @@
       {
         "connection": {
           "parent_attach": { "region": "surface", "u": 0.65, "v": 0.5 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
-          "rotation": 180.0
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.2 },
+          "rotation": 0.0
         },
         "node": {
           "name": "leg_front_left",
@@ -91,8 +91,8 @@
       {
         "connection": {
           "parent_attach": { "region": "surface", "u": 0.85, "v": 0.5 },
-          "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
-          "rotation": 270.0
+          "child_attach": { "region": "side", "u": 0.5, "v": 0.2 },
+          "rotation": 0.0
         },
         "node": {
           "name": "leg_back_left",

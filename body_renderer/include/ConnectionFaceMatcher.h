@@ -7,33 +7,33 @@
 
 namespace BodyRenderer {
 
-// Describes a connection ring that must be inserted into a shape's geometry
-// so that connected shapes share matching N-gon faces at their junction.
+// Describes a connection ring — where on a shape a child attaches.
 struct ConnectionRing {
     Vec3 center;           // Center position of the ring (in shape local space)
     Vec3 normal;           // Normal direction at the ring (outward from shape)
-    float radius;          // Radius of the N-gon ring
-    int segments;          // Number of vertices in the ring (N of the N-gon)
+    float radius;          // Target matched radius for size-matching deformation
+    int segments;          // Number of segments (for matched segment computation)
     int child_index;       // Which child this ring corresponds to (-1 for child-side attachment)
+    AttachmentPoint attach; // The attachment point used to derive this ring (for grid-index lookup)
 };
 
-// Result of face generation with connection ring modifications applied.
-// Contains the modified faces where connection rings have been inserted.
+// Result of face generation with connection modifications applied.
 struct MatchedFaces {
-    std::vector<Face> faces;                    // All faces for this shape (with ring modifications)
-    std::vector<int> connection_face_indices;   // Index into 'faces' for each connection ring face
+    std::vector<Face> faces;                    // All faces for this shape
+    std::vector<int> connection_face_indices;   // Index into 'faces' for each connection ring's face
 };
 
-// Computes matching connection face sizes between parent and child shapes.
-// At each connection point, both shapes produce an N-gon face of the same size.
-// When the matched radius is smaller than the shape's natural radius,
-// the shape geometry is deformed (tapered) toward the connection point.
+// Connection System V3: grid-based face identification + uniform-scale deformation.
+//
+// Phase 1 (done): Returns unmodified faces, identifies connection faces by proximity.
+// Phase 2: Identifies connection faces by grid index (UV → face array index).
+// Phase 3: Scales connection face to midpoint radius, propagates shared vertices.
 class ConnectionFaceMatcher {
 public:
     // Compute the effective connection radius for a shape at a given attachment point.
     float ComputeConnectionRadius(const ShapeParams& shape, const AttachmentPoint& attach) const;
 
-    // Compute the matched connection radius between parent and child.
+    // Compute the matched connection radius between parent and child (midpoint average).
     float ComputeMatchedRadius(
         const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
         const ShapeParams& child_shape, const AttachmentPoint& child_attach
@@ -45,47 +45,26 @@ public:
         const ShapeParams& child_shape, const AttachmentPoint& child_attach
     ) const;
 
-    // Generate faces for a node with connection ring modifications.
-    // For each connection, the shape geometry is tapered toward the connection
-    // point so that the face at the junction matches the required size.
+    // Generate faces with size-matching deformation at connection points.
     MatchedFaces GenerateWithConnections(
         const BodyNode& node,
         const std::vector<ConnectionRing>& rings
     ) const;
 
-private:
-    // Get the number of segments a shape uses at a given attachment region
+    // Phase 2: Compute the face grid index for a given shape and attachment point.
+    // Returns the index into the FaceGenerator::Generate output array.
+    int ComputeGridIndex(const ShapeParams& shape, const AttachmentPoint& attach) const;
+
+    // Get the number of segments at a given region (public for half-segment alignment).
     int GetSegmentsAtRegion(const ShapeParams& shape, const AttachmentPoint& attach) const;
 
-    // Compute the natural face radius at a sphere surface point
+private:
     float ComputeSphereLocalRadius(const ShapeParams& shape, const AttachmentPoint& attach) const;
-
-    // Taper cylinder geometry toward a connection ring at top or bottom
-    void TaperCylinderEnd(
-        std::vector<Face>& faces, const ShapeParams& shape,
-        const ConnectionRing& ring, int& out_ring_face_index
-    ) const;
-
-    // Taper sphere geometry toward a connection ring
-    void TaperSphereRegion(
-        std::vector<Face>& faces, const ShapeParams& shape,
-        const ConnectionRing& ring, int& out_ring_face_index
-    ) const;
-
-    // Taper capsule geometry toward a connection ring
-    void TaperCapsuleRegion(
-        std::vector<Face>& faces, const ShapeParams& shape,
-        const ConnectionRing& ring, int& out_ring_face_index
-    ) const;
-
-    // Taper torus geometry toward a connection ring (proper toroidal deformation)
-    void TaperTorusRegion(
-        std::vector<Face>& faces, const ShapeParams& shape,
-        const ConnectionRing& ring, int& out_ring_face_index
-    ) const;
-
-    // Generate an N-gon face centered at a point with given normal and radius
     Face GenerateRingFace(const Vec3& center, const Vec3& normal, float radius, int segments) const;
+
+    // Phase 3: Scale a face's vertices uniformly from its center to reach target_radius.
+    // Propagates shared vertex moves to neighboring faces.
+    void DeformFaceToRadius(std::vector<Face>& faces, int face_index, float target_radius) const;
 
     ParametricResolver m_resolver;
     FaceGenerator m_faceGen;

@@ -1,6 +1,7 @@
 #include "ConnectionValidator.h"
 #include "ConnectionSolver.h"
 #include <cmath>
+#include <cstdio>
 
 namespace BodyRenderer {
 
@@ -175,6 +176,36 @@ ValidationResult ConnectionValidator::ValidateParametricConnection(
         return ValidationResult(false,
             "Connection from '" + parent_name + "' to '" + child_name +
             "': child attachment u/v out of [0,1] range");
+    }
+
+    // Warn (not reject) if sphere attachment v lands in a pole region.
+    // Sphere poles produce triangles; only mid-band latitudes produce quads.
+    auto warnSpherePole = [&](const char* role, const ShapeParams& shape, float v) {
+        if (shape.type == ShapeType::Sphere && shape.lat_segments > 0) {
+            float pole_threshold = 1.0f / static_cast<float>(shape.lat_segments);
+            if (v < pole_threshold || v > (1.0f - pole_threshold)) {
+                fprintf(stderr, "[ConnectionValidator] WARNING: %s '%s' -> '%s': "
+                    "sphere %s attachment v=%.3f lands in pole region (triangles). "
+                    "Use v in [%.3f, %.3f] for quad faces.\n",
+                    role, parent_name.c_str(), child_name.c_str(), role,
+                    v, pole_threshold, 1.0f - pole_threshold);
+            }
+        }
+    };
+    warnSpherePole("parent", parent_shape, conn.parent_attach.v);
+    warnSpherePole("child", child_shape, conn.child_attach.v);
+
+    // Warn if rotation is specified for side/surface connections (has no effect)
+    if (conn.rotation != 0.0f) {
+        bool is_side = (conn.child_attach.region == AttachRegion::Side ||
+                        conn.parent_attach.region == AttachRegion::Surface ||
+                        conn.parent_attach.region == AttachRegion::Side);
+        if (is_side) {
+            fprintf(stderr, "[ConnectionValidator] WARNING: '%s' -> '%s': "
+                "rotation=%.1f specified for side/surface connection (ignored — "
+                "face grid determines orientation for quad connections).\n",
+                parent_name.c_str(), child_name.c_str(), conn.rotation);
+        }
     }
 
     return ValidationResult();

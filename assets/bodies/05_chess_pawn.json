@@ -31,12 +31,12 @@
                   {
                     "connection": {
                       "parent_attach": { "region": "top", "u": 0.5, "v": 0.5 },
-                      "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
+                      "child_attach": { "region": "bottom", "u": 0.5, "v": 1.0 },
                       "rotation": 0.0
                     },
                     "node": {
                       "name": "head",
-                      "shape": { "type": "sphere", "radius": 0.28 },
+                      "shape": { "type": "capsule", "radius": 0.3, "height": 0.6 },
                       "color": { "r": 0.88, "g": 0.78, "b": 0.58 }
                     }
                   }

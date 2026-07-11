@@ -1,4 +1,5 @@
 #include "ConnectionSolver.h"
+#include "ConnectionFaceMatcher.h"
 #include <cmath>
 
 #ifndef M_PI
@@ -43,10 +44,42 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     const ShapeParams& parent_shape,
     const ShapeParams& child_shape) const
 {
-    // Resolve parent attachment point
+    // Resolve parent and child attachment points on continuous surface
     SurfacePoint parent_pt = m_resolver.Resolve(parent_shape, conn.parent_attach);
-    // Resolve child attachment point
     SurfacePoint child_pt = m_resolver.Resolve(child_shape, conn.child_attach);
+
+    // Snap to actual face center for shapes with discrete face grids.
+    // This ensures the child is positioned at the face center (where the
+    // actual geometry lives), not at an arbitrary continuous surface point.
+    FaceGenerator faceGen;
+    ConnectionFaceMatcher faceMatcher;
+
+    // Get parent face center
+    {
+        std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
+        int grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parent_attach);
+        if (grid_idx >= 0 && grid_idx < static_cast<int>(parent_faces.size())) {
+            Vec3 fc(0, 0, 0);
+            for (const auto& v : parent_faces[grid_idx].vertices) fc = fc + v;
+            fc = fc * (1.0f / parent_faces[grid_idx].vertices.size());
+            parent_pt.position = fc;
+            // Keep the resolved normal (it's smooth), but use face normal for flat-shading alignment
+            parent_pt.normal = parent_faces[grid_idx].normal;
+        }
+    }
+
+    // Get child face center
+    {
+        std::vector<Face> child_faces = faceGen.Generate(child_shape);
+        int grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.child_attach);
+        if (grid_idx >= 0 && grid_idx < static_cast<int>(child_faces.size())) {
+            Vec3 fc(0, 0, 0);
+            for (const auto& v : child_faces[grid_idx].vertices) fc = fc + v;
+            fc = fc * (1.0f / child_faces[grid_idx].vertices.size());
+            child_pt.position = fc;
+            child_pt.normal = child_faces[grid_idx].normal;
+        }
+    }
 
     // The child's attachment normal should face opposite to parent's attachment normal
     Vec3 from = child_pt.normal.Normalized();
@@ -68,8 +101,58 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
         rot = Mat4::RotationAxis(axis, angle);
     }
 
-    // Apply spin rotation around parent normal
-    float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
+    // Apply spin rotation around parent normal.
+    // For side↔surface (quad↔quad) connections, compute alignment rotation
+    // so the child's face edges match the parent's face edges.
+    // For cap↔cap connections, use the specified rotation from JSON.
+    float rot_angle = 0.0f;
+    bool is_side_connection = 
+        (conn.child_attach.region == AttachRegion::Side ||
+         conn.parent_attach.region == AttachRegion::Surface ||
+         conn.parent_attach.region == AttachRegion::Side);
+    
+    if (!is_side_connection) {
+        rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
+    } else {
+        // Compute alignment rotation from face edge directions.
+        // Get parent face's first edge direction (tangent along the face grid)
+        std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
+        int parent_grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parent_attach);
+        if (parent_grid_idx >= 0 && parent_grid_idx < static_cast<int>(parent_faces.size()) &&
+            parent_faces[parent_grid_idx].vertices.size() >= 2) {
+            Vec3 parent_edge = (parent_faces[parent_grid_idx].vertices[1] - 
+                                parent_faces[parent_grid_idx].vertices[0]).Normalized();
+            
+            // Get child face's first edge direction after applying rot
+            std::vector<Face> child_faces = faceGen.Generate(child_shape);
+            int child_grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.child_attach);
+            if (child_grid_idx >= 0 && child_grid_idx < static_cast<int>(child_faces.size()) &&
+                child_faces[child_grid_idx].vertices.size() >= 2) {
+                Vec3 child_edge_local = (child_faces[child_grid_idx].vertices[1] - 
+                                         child_faces[child_grid_idx].vertices[0]).Normalized();
+                // Transform child edge by the normal-alignment rotation
+                Vec3 child_edge = rot.TransformDirection(child_edge_local).Normalized();
+                
+                // Project both edges onto the plane perpendicular to parent normal
+                Vec3 N = parent_pt.normal.Normalized();
+                Vec3 pe = (parent_edge - N * parent_edge.Dot(N)).Normalized();
+                Vec3 ce = (child_edge - N * child_edge.Dot(N)).Normalized();
+                
+                // Compute angle between them
+                if (pe.Length() > 0.1f && ce.Length() > 0.1f) {
+                    pe = pe.Normalized();
+                    ce = ce.Normalized();
+                    float cos_a = pe.Dot(ce);
+                    if (cos_a > 1.0f) cos_a = 1.0f;
+                    if (cos_a < -1.0f) cos_a = -1.0f;
+                    rot_angle = std::acos(cos_a);
+                    // Determine sign using cross product
+                    Vec3 cross = ce.Cross(pe);
+                    if (cross.Dot(N) < 0) rot_angle = -rot_angle;
+                }
+            }
+        }
+    }
     Mat4 spin = Mat4::RotationAxis(parent_pt.normal, rot_angle);
 
     // Orientation = spin * rot

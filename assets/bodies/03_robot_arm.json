@@ -8,8 +8,8 @@
     "children": [
       {
         "connection": {
-          "parent_attach": { "region": "top", "u": 0.5, "v": 0.5 },
-          "child_attach": { "region": "surface", "u": 0.5, "v": 1.0 },
+          "parent_attach": { "region": "side", "u": 0.5, "v": 0.8 },
+          "child_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
           "rotation": 0.0
         },
         "node": {
@@ -19,9 +19,9 @@
           "children": [
             {
               "connection": {
-                "parent_attach": { "region": "surface", "u": 0.5, "v": 0.0 },
-                "child_attach": { "region": "bottom", "u": 0.5, "v": 0.5 },
-                "rotation": 45.0
+                "parent_attach": { "region": "surface", "u": 0.5, "v": 0.5 },
+                "child_attach": { "region": "side", "u": 0.5, "v": 0.2 },
+                "rotation": 0.0
               },
               "node": {
                 "name": "forearm",

@@ -74,7 +74,12 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
     // ring_verts[row][col], row 0 = bottom, row h_segs = top
     std::vector<std::vector<Vec3>> ring_verts(h_segs + 1, std::vector<Vec3>(n));
     for (int row = 0; row <= h_segs; ++row) {
-        float t = static_cast<float>(row) / h_segs; // 0 at bottom, 1 at top
+        float t;
+        if (!s.row_boundaries.empty() && row < static_cast<int>(s.row_boundaries.size())) {
+            t = s.row_boundaries[row];
+        } else {
+            t = static_cast<float>(row) / h_segs;
+        }
         float y = -hh + t * s.height;
         for (int col = 0; col < n; ++col) {
             float angle = 2.0f * static_cast<float>(M_PI) * col / n;
