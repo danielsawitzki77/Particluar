@@ -3,6 +3,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <direct.h>
 #endif
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -20,11 +21,15 @@
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
 #include "JointFaceAnalyzer.h"
+#include "picojson.h"
 
 #include <string>
 #include <cstdio>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
+#include <ctime>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -519,6 +524,410 @@ static int RunDumpMode(const std::string& model_path)
 }
 
 // ============================================================================
+// Analyzer Pair Testing Config
+// ============================================================================
+
+struct AnalyzerConfig {
+    int num_random_models = 64;
+    int bodies_per_model = 2;
+    std::vector<int> subdivision_range = {1, 2, 3, 4, 5, 6, 7, 8};
+    int random_seed = 0;
+};
+
+static AnalyzerConfig LoadAnalyzerConfig()
+{
+    AnalyzerConfig cfg;
+    std::ifstream f("body_viewer_config.json");
+    if (!f.is_open()) {
+        printf("[Config] body_viewer_config.json not found, using defaults.\n");
+        return cfg;
+    }
+
+    picojson::value root;
+    std::string err = picojson::parse(root, f);
+    if (!err.empty()) {
+        printf("[Config] Parse error: %s\n", err.c_str());
+        return cfg;
+    }
+
+    if (!root.is<picojson::object>()) return cfg;
+    const picojson::object& obj = root.get<picojson::object>();
+
+    if (obj.count("analyze") && obj.at("analyze").is<picojson::object>()) {
+        const picojson::object& analyze = obj.at("analyze").get<picojson::object>();
+
+        if (analyze.count("num_random_models") && analyze.at("num_random_models").is<double>()) {
+            cfg.num_random_models = static_cast<int>(analyze.at("num_random_models").get<double>());
+        }
+        if (analyze.count("bodies_per_model") && analyze.at("bodies_per_model").is<double>()) {
+            cfg.bodies_per_model = static_cast<int>(analyze.at("bodies_per_model").get<double>());
+        }
+        if (analyze.count("random_seed") && analyze.at("random_seed").is<double>()) {
+            cfg.random_seed = static_cast<int>(analyze.at("random_seed").get<double>());
+        }
+        if (analyze.count("subdivision_range") && analyze.at("subdivision_range").is<picojson::array>()) {
+            const picojson::array& arr = analyze.at("subdivision_range").get<picojson::array>();
+            cfg.subdivision_range.clear();
+            for (const auto& item : arr) {
+                if (item.is<double>()) {
+                    cfg.subdivision_range.push_back(static_cast<int>(item.get<double>()));
+                }
+            }
+        }
+    }
+
+    printf("[Config] Loaded: models=%d, bodies_per_model=%d, seed=%d, subdivisions=%d levels\n",
+           cfg.num_random_models, cfg.bodies_per_model, cfg.random_seed,
+           static_cast<int>(cfg.subdivision_range.size()));
+    return cfg;
+}
+
+// ============================================================================
+// BMP Screenshot Writer
+// ============================================================================
+
+static bool WriteBMP(const std::string& filepath, const std::vector<unsigned char>& pixels, int width, int height)
+{
+    // BMP file: 14-byte file header + 40-byte DIB header + pixel data (BGR, bottom-up)
+    int row_stride = width * 3;
+    int padding = (4 - (row_stride % 4)) % 4;
+    int padded_row = row_stride + padding;
+    int pixel_data_size = padded_row * height;
+    int file_size = 14 + 40 + pixel_data_size;
+
+    std::ofstream out(filepath, std::ios::binary);
+    if (!out.is_open()) return false;
+
+    // File header (14 bytes)
+    unsigned char file_header[14] = {};
+    file_header[0] = 'B'; file_header[1] = 'M';
+    file_header[2] = (file_size) & 0xFF;
+    file_header[3] = (file_size >> 8) & 0xFF;
+    file_header[4] = (file_size >> 16) & 0xFF;
+    file_header[5] = (file_size >> 24) & 0xFF;
+    file_header[10] = 54; // offset to pixel data
+    out.write(reinterpret_cast<char*>(file_header), 14);
+
+    // DIB header (40 bytes)
+    unsigned char dib_header[40] = {};
+    dib_header[0] = 40; // header size
+    dib_header[4] = (width) & 0xFF;
+    dib_header[5] = (width >> 8) & 0xFF;
+    dib_header[6] = (width >> 16) & 0xFF;
+    dib_header[7] = (width >> 24) & 0xFF;
+    dib_header[8] = (height) & 0xFF;
+    dib_header[9] = (height >> 8) & 0xFF;
+    dib_header[10] = (height >> 16) & 0xFF;
+    dib_header[11] = (height >> 24) & 0xFF;
+    dib_header[12] = 1; // planes
+    dib_header[14] = 24; // bits per pixel
+    dib_header[20] = (pixel_data_size) & 0xFF;
+    dib_header[21] = (pixel_data_size >> 8) & 0xFF;
+    dib_header[22] = (pixel_data_size >> 16) & 0xFF;
+    dib_header[23] = (pixel_data_size >> 24) & 0xFF;
+    out.write(reinterpret_cast<char*>(dib_header), 40);
+
+    // Pixel data: glReadPixels gives RGB bottom-up, BMP expects BGR bottom-up
+    unsigned char pad_bytes[3] = {0, 0, 0};
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int src_idx = (y * width + x) * 3;
+            unsigned char bgr[3] = { pixels[src_idx + 2], pixels[src_idx + 1], pixels[src_idx] };
+            out.write(reinterpret_cast<char*>(bgr), 3);
+        }
+        if (padding > 0) out.write(reinterpret_cast<char*>(pad_bytes), padding);
+    }
+
+    out.close();
+    return true;
+}
+
+static bool CaptureScreenshot(const std::string& filepath, int width, int height)
+{
+    std::vector<unsigned char> pixels(width * height * 3);
+    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixels.data());
+    return WriteBMP(filepath, pixels, width, height);
+}
+
+// ============================================================================
+// Directory creation utility
+// ============================================================================
+
+static bool CreateDirectoryRecursive(const std::string& path)
+{
+#ifdef _WIN32
+    // Try to create each component
+    std::string current;
+    for (size_t i = 0; i < path.size(); ++i) {
+        char c = path[i];
+        if (c == '/' || c == '\\') {
+            if (!current.empty()) {
+                _mkdir(current.c_str());
+            }
+            current += '\\';
+        } else {
+            current += c;
+        }
+    }
+    if (!current.empty()) {
+        _mkdir(current.c_str());
+    }
+    // Check if final directory exists
+    DWORD attr = GetFileAttributesA(path.c_str());
+    return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY));
+#else
+    // POSIX fallback
+    std::string cmd = "mkdir -p \"" + path + "\"";
+    return system(cmd.c_str()) == 0;
+#endif
+}
+
+// ============================================================================
+// Analyze Pairs Mode (--analyze-pairs [output_path])
+// ============================================================================
+
+static int RunAnalyzePairsMode(const std::string& base_output_path)
+{
+    printf("=== Analyzer Pair Testing ===\n");
+
+    // Task 2: Load config
+    AnalyzerConfig cfg = LoadAnalyzerConfig();
+
+    // Task 3: Determine seed
+    unsigned int seed = static_cast<unsigned int>(cfg.random_seed);
+    if (seed == 0) {
+        seed = static_cast<unsigned int>(time(nullptr));
+    }
+    printf("Using seed: %u\n", seed);
+    printf("Generating %d random 2-body models...\n", cfg.num_random_models);
+    printf("Subdivision levels: ");
+    for (size_t i = 0; i < cfg.subdivision_range.size(); ++i) {
+        if (i > 0) printf(", ");
+        printf("%d", cfg.subdivision_range[i]);
+    }
+    printf("\n\n");
+
+    // Task 6: Create timestamped output folder
+    std::string output_dir;
+    if (!base_output_path.empty()) {
+        output_dir = base_output_path;
+    } else {
+        time_t now = time(nullptr);
+        struct tm t_buf;
+#ifdef _WIN32
+        localtime_s(&t_buf, &now);
+#else
+        t_buf = *localtime(&now);
+#endif
+        char dir_name[128];
+        snprintf(dir_name, sizeof(dir_name), "test_output/run_%04d%02d%02d_%02d%02d%02d",
+                 t_buf.tm_year + 1900, t_buf.tm_mon + 1, t_buf.tm_mday,
+                 t_buf.tm_hour, t_buf.tm_min, t_buf.tm_sec);
+        output_dir = dir_name;
+    }
+
+    std::string screenshots_dir = output_dir + "/screenshots";
+    if (!CreateDirectoryRecursive(screenshots_dir)) {
+        fprintf(stderr, "ERROR: Failed to create output directory: %s\n", screenshots_dir.c_str());
+        return 1;
+    }
+    printf("Output directory: %s\n", output_dir.c_str());
+
+    // Task 5: Initialize SDL for offscreen rendering
+    if (!SDL_Init(SDL_INIT_VIDEO)) {
+        fprintf(stderr, "ERROR: SDL_Init failed: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+    const int CAPTURE_WIDTH = 512;
+    const int CAPTURE_HEIGHT = 512;
+
+    SDL_Window* window = SDL_CreateWindow("Analyzer Pairs", CAPTURE_WIDTH, CAPTURE_HEIGHT,
+                                          SDL_WINDOW_HIDDEN | SDL_WINDOW_OPENGL);
+    if (!window) {
+        fprintf(stderr, "ERROR: Window creation failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    if (!gl_context) {
+        fprintf(stderr, "ERROR: OpenGL context creation failed: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glClearDepth(1.0);
+    SetupProjection(CAPTURE_WIDTH, CAPTURE_HEIGHT);
+
+    // Setup renderer and lights
+    BodyRenderer::BodyRendererGL renderer;
+    std::vector<BodyRenderer::PointLight> lights;
+    BuildLightSetup(lights);
+
+    // Task 4: Generate 2-body models and capture screenshots
+    BodyRenderer::BodyGenerator generator;
+    BodyRenderer::BodyLoader loader;
+    BodyRenderer::SubdivisionSolver subdivSolver;
+
+    // Collect generated bodies and their JSON for the report
+    struct ModelRecord {
+        BodyRenderer::Body body;
+        std::string json;
+        unsigned int model_seed;
+    };
+    std::vector<ModelRecord> models;
+    models.reserve(cfg.num_random_models);
+
+    for (int i = 0; i < cfg.num_random_models; ++i) {
+        unsigned int model_seed = seed + static_cast<unsigned int>(i);
+        // max_children = 1 forces exactly 2 nodes (root + 1 child) when bodies_per_model == 2
+        int max_depth = cfg.bodies_per_model; // depth_limit=2 means root + 1 child = 2 nodes
+        BodyRenderer::Body body = generator.Generate(model_seed, max_depth);
+
+        // Task 7: Serialize the body to JSON
+        std::string body_json = loader.Serialize(body);
+
+        models.push_back({body, body_json, model_seed});
+    }
+
+    printf("Generated %d models. Capturing screenshots...\n", static_cast<int>(models.size()));
+
+    int total_screenshots = 0;
+    for (int m = 0; m < static_cast<int>(models.size()); ++m) {
+        for (int s = 0; s < static_cast<int>(cfg.subdivision_range.size()); ++s) {
+            int subdiv = cfg.subdivision_range[s];
+
+            // Prepare body at this subdivision level
+            BodyRenderer::Body body_copy = models[m].body;
+            subdivSolver.PrepareBody(body_copy, subdiv * 8);
+
+            // Render
+            glClearColor(0.08f, 0.08f, 0.12f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glLoadIdentity();
+
+            // Camera: fixed distance looking at origin
+            float cam_distance = 5.0f;
+            float cam_yaw = 30.0f;
+            float cam_pitch = 20.0f;
+            float cam_x = cam_distance * std::sin(cam_yaw * static_cast<float>(M_PI) / 180.0f) * std::cos(cam_pitch * static_cast<float>(M_PI) / 180.0f);
+            float cam_y = cam_distance * std::sin(cam_pitch * static_cast<float>(M_PI) / 180.0f);
+            float cam_z = cam_distance * std::cos(cam_yaw * static_cast<float>(M_PI) / 180.0f) * std::cos(cam_pitch * static_cast<float>(M_PI) / 180.0f);
+            gluLookAt(cam_x, cam_y, cam_z, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+
+            BodyRenderer::RenderParams params;
+            params.ambient = body_copy.material.ambient;
+            params.shininess = body_copy.material.shininess;
+            params.model_color = body_copy.root.color;
+            params.lights = lights;
+
+            renderer.Render(body_copy, params);
+            renderer.InvalidateCache();
+            glFinish();
+
+            // Capture screenshot
+            char filename[256];
+            snprintf(filename, sizeof(filename), "model_%02d_subdiv_%d.bmp", m, subdiv);
+            std::string filepath = screenshots_dir + "/" + filename;
+            if (!CaptureScreenshot(filepath, CAPTURE_WIDTH, CAPTURE_HEIGHT)) {
+                fprintf(stderr, "WARNING: Failed to capture screenshot: %s\n", filepath.c_str());
+            }
+            total_screenshots++;
+        }
+
+        if ((m + 1) % 10 == 0 || m == static_cast<int>(models.size()) - 1) {
+            printf("  Progress: %d/%d models captured\n", m + 1, static_cast<int>(models.size()));
+        }
+    }
+
+    printf("\nCaptured %d screenshots.\n", total_screenshots);
+
+    // Task 7: Write markdown report with embedded JSON
+    std::string report_path = output_dir + "/report.md";
+    std::ofstream report(report_path);
+    if (!report.is_open()) {
+        fprintf(stderr, "ERROR: Failed to write report: %s\n", report_path.c_str());
+        SDL_GL_DestroyContext(gl_context);
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
+
+    // Report header
+    {
+        time_t now = time(nullptr);
+        struct tm t_buf;
+#ifdef _WIN32
+        localtime_s(&t_buf, &now);
+#else
+        t_buf = *localtime(&now);
+#endif
+        char time_str[64];
+        snprintf(time_str, sizeof(time_str), "%04d-%02d-%02d %02d:%02d:%02d",
+                 t_buf.tm_year + 1900, t_buf.tm_mon + 1, t_buf.tm_mday,
+                 t_buf.tm_hour, t_buf.tm_min, t_buf.tm_sec);
+
+        report << "# Analyzer Pair Test Report\n\n";
+        report << "Generated: " << time_str << "\n";
+        report << "Seed: " << seed << "\n";
+        report << "Models: " << cfg.num_random_models << "\n";
+        report << "Bodies per model: " << cfg.bodies_per_model << "\n";
+        report << "Subdivision range: [";
+        for (size_t i = 0; i < cfg.subdivision_range.size(); ++i) {
+            if (i > 0) report << ", ";
+            report << cfg.subdivision_range[i];
+        }
+        report << "]\n\n";
+    }
+
+    for (int m = 0; m < static_cast<int>(models.size()); ++m) {
+        char model_header[64];
+        snprintf(model_header, sizeof(model_header), "## Model %02d", m);
+        report << model_header << "\n\n";
+        report << "Seed: " << models[m].model_seed << "\n\n";
+
+        // Embed body JSON
+        report << "```json\n";
+        report << models[m].json;
+        report << "```\n\n";
+
+        // Screenshots for each subdivision level
+        for (int s = 0; s < static_cast<int>(cfg.subdivision_range.size()); ++s) {
+            int subdiv = cfg.subdivision_range[s];
+            char filename[256];
+            snprintf(filename, sizeof(filename), "model_%02d_subdiv_%d.bmp", m, subdiv);
+
+            report << "### Subdivision " << subdiv << "\n\n";
+            report << "![" << filename << "](screenshots/" << filename << ")\n\n";
+        }
+    }
+
+    report.close();
+    printf("Report written to: %s\n", report_path.c_str());
+
+    // Cleanup
+    SDL_GL_DestroyContext(gl_context);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    printf("\n=== Pair Testing Complete ===\n");
+    printf("Total models: %d\n", static_cast<int>(models.size()));
+    printf("Total screenshots: %d\n", total_screenshots);
+    printf("Report: %s\n", report_path.c_str());
+    return 0;
+}
+
+// ============================================================================
 // Analyze Mode (--analyze [output_path])
 // ============================================================================
 
@@ -574,6 +983,13 @@ static int RunAnalyzeMode(const std::string& output_path)
 
 int main(int argc, char* argv[])
 {
+    // Check for --analyze-pairs mode (offscreen pair testing)
+    if (argc >= 2 && std::string(argv[1]) == "--analyze-pairs") {
+        std::string output = "";
+        if (argc >= 3) output = argv[2];
+        return RunAnalyzePairsMode(output);
+    }
+
     // Check for --analyze mode (runs without SDL/window)
     if (argc >= 2 && std::string(argv[1]) == "--analyze") {
         std::string output = "joint_face_analysis.md";
