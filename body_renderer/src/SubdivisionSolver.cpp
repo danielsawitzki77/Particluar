@@ -143,13 +143,12 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         }
 
         // Child's angular segments must be at least parent's
-        // For torus parents: the child's angular dimension maps to the torus's
-        // ring direction, so use ring_segments as the forced minimum (not side_segments
-        // which GetShapeAngularSegments returns for torus).
+        // For torus parents: do NOT force the child's segments to torus ring_segments.
+        // The child keeps its natural segments; the torus adapts instead.
         int parent_segs;
         if (node.shape.type == ShapeType::Torus &&
             (child.connection.parent_attach.region == AttachRegion::Surface)) {
-            parent_segs = node.shape.ring_segments;
+            parent_segs = 0; // Don't force child segments from torus
         } else {
             parent_segs = GetShapeAngularSegments(node.shape);
         }
@@ -179,8 +178,10 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         }
 
         // Special case: cylinder/capsule/cone side connects to a torus surface
-        // The torus needs enough ring_segments so its face width matches the
-        // cylinder's face width: 2π*major/ring_segs = 2π*cyl_radius/cyl_segs
+        // The torus needs enough ring_segments so ONE of its faces matches the
+        // cylinder's natural face width. The cylinder stays unchanged.
+        // Formula: torus face width = 2π*major/ring_segs should equal
+        //          cylinder face width = 2π*cyl_radius/cyl_segs
         // => ring_segs = major_radius / cyl_radius * cyl_segs
         if (child.connection.parent_attach.region == AttachRegion::Surface &&
             node.shape.type == ShapeType::Torus) {
@@ -188,8 +189,9 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                 child.shape.type == ShapeType::Capsule ||
                 child.shape.type == ShapeType::Cone) {
                 if (child.connection.child_attach.region == AttachRegion::Side) {
+                    // Match height: cylinder row height = torus tube face height
                     child.shape.height_segments = node.shape.side_segments;
-                    // Compute ring_segments needed for face width matching
+                    // Increase torus ring_segments so its face width matches cylinder's
                     float child_radius = child.shape.radius;
                     if (child_radius > 0.001f) {
                         int needed_ring = static_cast<int>(
@@ -198,7 +200,7 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                         if (needed_ring > 128) needed_ring = 128;
                         node.shape.ring_segments = needed_ring;
                     }
-                    child.shape.segments = node.shape.ring_segments;
+                    // Do NOT change child.shape.segments — the cylinder keeps its natural geometry
                 }
             }
         }
