@@ -1,5 +1,7 @@
 # Particluar Code Style Guide
 
+When writing or modifying code in this project, follow these conventions strictly.
+
 ## Folder Naming
 - All lowercase, underscore-separated: `body_renderer`, `tile_renderer`, `math_lib`
 

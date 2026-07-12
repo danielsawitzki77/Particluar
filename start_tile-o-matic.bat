@@ -3,7 +3,7 @@ setlocal
 :: Tile-O-Matic — Tileset Configurator + Level Editor
 :: Opens a browser window with the web-based editor on launch.
 
-cd /d "%~dp0tools\tileset-editor"
+cd /d "%~dp0tools\tileset_editor"
 
 :: Check if node_modules exists; install if missing
 if not exist "node_modules\" (
