@@ -39,88 +39,173 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
         rng.seed(params.seed);
     }
 
-    // --- Greedy row-by-row placement ---
-    // For each cell, collect tiles compatible with already-placed left and top
-    // neighbors. Pick one randomly. If none fit, leave as gap (empty).
+    // --- Allocate grid (empty = not yet placed) ---
     result.status = WFCStatus::Success;
     result.map.width = params.width;
     result.map.height = params.height;
     result.map.tileset_id = tileset.name;
     result.map.grid.resize(params.height);
-
     for (int r = 0; r < params.height; ++r) {
-        result.map.grid[r].resize(params.width);
+        result.map.grid[r].resize(params.width); // all empty strings
+    }
+
+    // --- Flood-fill from center with limited backtracking ---
+    // Place cells in concentric rings radiating from center.
+    // For each cell, try candidates. On failure, backtrack up to MAX_BACKTRACK
+    // neighbors before leaving a gap.
+
+    const int MAX_BACKTRACK = 3;
+
+    // Build placement order: sort cells by distance from center (concentric)
+    int centerR = params.height / 2;
+    int centerC = params.width / 2;
+
+    struct CellPos {
+        int r, c;
+        float dist;
+    };
+    std::vector<CellPos> order;
+    order.reserve(params.width * params.height);
+    for (int r = 0; r < params.height; ++r) {
         for (int c = 0; c < params.width; ++c) {
-            // Determine constraints from placed neighbors
-            std::string leftId = (c > 0) ? result.map.grid[r][c - 1] : "";
-            std::string topId = (r > 0) ? result.map.grid[r - 1][c] : "";
+            float dr = static_cast<float>(r - centerR);
+            float dc = static_cast<float>(c - centerC);
+            order.push_back({ r, c, dr * dr + dc * dc });
+        }
+    }
+    std::sort(order.begin(), order.end(), [](const CellPos& a, const CellPos& b) {
+        return a.dist < b.dist;
+    });
 
-            // Find the TileDef for left and top neighbors
-            const TileDef* leftTile = nullptr;
-            const TileDef* topTile = nullptr;
-            if (!leftId.empty()) {
-                auto it = tileset.idIndex.find(leftId);
-                if (it != tileset.idIndex.end()) leftTile = &tileset.tiles[it->second];
-            }
-            if (!topId.empty()) {
-                auto it = tileset.idIndex.find(topId);
-                if (it != tileset.idIndex.end()) topTile = &tileset.tiles[it->second];
-            }
+    // Helper: get candidates for a cell based on already-placed neighbors
+    auto getCandidates = [&](int r, int c) -> std::vector<int> {
+        std::vector<int> cands;
 
-            // Collect candidate tiles that satisfy adjacency with both neighbors
-            std::vector<int> candidates;
-            candidates.reserve(32);
+        // Gather placed neighbors
+        struct Neighbor {
+            const TileDef* tile;
+            std::string id;
+            int dir; // 0=up, 1=down, 2=left, 3=right (from neighbor's perspective TO this cell)
+        };
+        std::vector<Neighbor> neighbors;
 
-            for (int t = 0; t < numTiles; ++t) {
-                const TileDef& candidate = tileset.tiles[t];
+        // Up neighbor (row-1): its "down" must allow candidate, candidate "up" must allow it
+        if (r > 0 && !result.map.grid[r - 1][c].empty()) {
+            auto it = tileset.idIndex.find(result.map.grid[r - 1][c]);
+            if (it != tileset.idIndex.end())
+                neighbors.push_back({ &tileset.tiles[it->second], result.map.grid[r - 1][c], 1 });
+        }
+        // Down neighbor (row+1): its "up" must allow candidate, candidate "down" must allow it
+        if (r < params.height - 1 && !result.map.grid[r + 1][c].empty()) {
+            auto it = tileset.idIndex.find(result.map.grid[r + 1][c]);
+            if (it != tileset.idIndex.end())
+                neighbors.push_back({ &tileset.tiles[it->second], result.map.grid[r + 1][c], 0 });
+        }
+        // Left neighbor (col-1): its "right" must allow candidate, candidate "left" must allow it
+        if (c > 0 && !result.map.grid[r][c - 1].empty()) {
+            auto it = tileset.idIndex.find(result.map.grid[r][c - 1]);
+            if (it != tileset.idIndex.end())
+                neighbors.push_back({ &tileset.tiles[it->second], result.map.grid[r][c - 1], 3 });
+        }
+        // Right neighbor (col+1): its "left" must allow candidate, candidate "right" must allow it
+        if (c < params.width - 1 && !result.map.grid[r][c + 1].empty()) {
+            auto it = tileset.idIndex.find(result.map.grid[r][c + 1]);
+            if (it != tileset.idIndex.end())
+                neighbors.push_back({ &tileset.tiles[it->second], result.map.grid[r][c + 1], 2 });
+        }
 
-                // Check: left neighbor's "right" list must allow this candidate
-                if (leftTile) {
-                    if (!leftTile->adjacency.right.empty()) {
-                        bool found = false;
-                        for (const std::string& id : leftTile->adjacency.right) {
-                            if (id == candidate.id) { found = true; break; }
-                        }
-                        if (!found) continue;
+        for (int t = 0; t < numTiles; ++t) {
+            const TileDef& candidate = tileset.tiles[t];
+            bool valid = true;
+
+            for (const Neighbor& nb : neighbors) {
+                if (!valid) break;
+
+                // Neighbor's adjacency toward this cell must allow candidate
+                const std::vector<std::string>* nbList = nullptr;
+                switch (nb.dir) {
+                    case 0: nbList = &nb.tile->adjacency.up; break;
+                    case 1: nbList = &nb.tile->adjacency.down; break;
+                    case 2: nbList = &nb.tile->adjacency.left; break;
+                    case 3: nbList = &nb.tile->adjacency.right; break;
+                }
+                if (nbList && !nbList->empty()) {
+                    bool found = false;
+                    for (const std::string& id : *nbList) {
+                        if (id == candidate.id) { found = true; break; }
                     }
-                    // Also check candidate's "left" allows the left neighbor
-                    if (!candidate.adjacency.left.empty()) {
-                        bool found = false;
-                        for (const std::string& id : candidate.adjacency.left) {
-                            if (id == leftId) { found = true; break; }
-                        }
-                        if (!found) continue;
-                    }
+                    if (!found) { valid = false; break; }
                 }
 
-                // Check: top neighbor's "down" list must allow this candidate
-                if (topTile) {
-                    if (!topTile->adjacency.down.empty()) {
-                        bool found = false;
-                        for (const std::string& id : topTile->adjacency.down) {
-                            if (id == candidate.id) { found = true; break; }
-                        }
-                        if (!found) continue;
-                    }
-                    // Also check candidate's "up" allows the top neighbor
-                    if (!candidate.adjacency.up.empty()) {
-                        bool found = false;
-                        for (const std::string& id : candidate.adjacency.up) {
-                            if (id == topId) { found = true; break; }
-                        }
-                        if (!found) continue;
-                    }
+                // Candidate's adjacency toward the neighbor must allow it
+                // Opposite: if neighbor is in dir D from us, we look at our opposite-D list
+                const std::vector<std::string>* candList = nullptr;
+                switch (nb.dir) {
+                    case 0: candList = &candidate.adjacency.down; break;  // nb is above, our "up" points to it
+                    case 1: candList = &candidate.adjacency.up; break;    // nb is below, our "down" points to it
+                    case 2: candList = &candidate.adjacency.right; break; // nb is to left, our "left" points to it
+                    case 3: candList = &candidate.adjacency.left; break;  // nb is to right, our "right" points to it
                 }
-
-                candidates.push_back(t);
+                if (candList && !candList->empty()) {
+                    bool found = false;
+                    for (const std::string& id : *candList) {
+                        if (id == nb.id) { found = true; break; }
+                    }
+                    if (!found) { valid = false; break; }
+                }
             }
 
-            // Pick a random candidate, or leave as gap
-            if (!candidates.empty()) {
-                std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
-                result.map.grid[r][c] = tileset.tiles[candidates[dist(rng)]].id;
+            if (valid) cands.push_back(t);
+        }
+
+        return cands;
+    };
+
+    // --- Place tiles in flood-fill order ---
+    for (const CellPos& cp : order) {
+        std::vector<int> cands = getCandidates(cp.r, cp.c);
+
+        if (!cands.empty()) {
+            std::uniform_int_distribution<int> dist(0, static_cast<int>(cands.size()) - 1);
+            result.map.grid[cp.r][cp.c] = tileset.tiles[cands[dist(rng)]].id;
+        } else {
+            // Backtrack: retry up to MAX_BACKTRACK placed neighbors
+            bool resolved = false;
+            // Try clearing each neighbor and re-placing this cell
+            int attempts = 0;
+            int dr[] = { -1, 1, 0, 0 };
+            int dc[] = { 0, 0, -1, 1 };
+            for (int d = 0; d < 4 && !resolved && attempts < MAX_BACKTRACK; ++d) {
+                int nr = cp.r + dr[d];
+                int nc = cp.c + dc[d];
+                if (nr < 0 || nr >= params.height || nc < 0 || nc >= params.width) continue;
+                if (result.map.grid[nr][nc].empty()) continue;
+
+                // Save and clear the neighbor
+                std::string saved = result.map.grid[nr][nc];
+                result.map.grid[nr][nc] = "";
+                ++attempts;
+
+                // Try placing this cell now
+                cands = getCandidates(cp.r, cp.c);
+                if (!cands.empty()) {
+                    std::uniform_int_distribution<int> dist(0, static_cast<int>(cands.size()) - 1);
+                    result.map.grid[cp.r][cp.c] = tileset.tiles[cands[dist(rng)]].id;
+
+                    // Re-place the neighbor with updated constraints
+                    std::vector<int> nbCands = getCandidates(nr, nc);
+                    if (!nbCands.empty()) {
+                        std::uniform_int_distribution<int> nbDist(0, static_cast<int>(nbCands.size()) - 1);
+                        result.map.grid[nr][nc] = tileset.tiles[nbCands[nbDist(rng)]].id;
+                    }
+                    // else neighbor becomes a gap
+                    resolved = true;
+                } else {
+                    // Restore neighbor, try next direction
+                    result.map.grid[nr][nc] = saved;
+                }
             }
-            // else: leave empty string = gap
+            // If still unresolved, leave as gap
         }
     }
 
