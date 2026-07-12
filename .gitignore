@@ -83,3 +83,13 @@ vendor/rapidcheck/
 # Test output (screenshots generated during test runs)
 # =============================================================================
 test_output/
+
+# =============================================================================
+# Legacy directories (removed from project, may linger locally)
+# =============================================================================
+/renderer/
+/tests/
+/tools/tilename/
+/tools/mapgen/
+/bodies/
+/docs/
