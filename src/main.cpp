@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <unordered_map>
 #include <random>
 #include <cmath>
 #include <algorithm>
@@ -280,13 +281,17 @@ int main(int argc, char* argv[])
         TilesetDef def;
         Tileset* tileset;
         JigsawMap map;
-        std::set<std::pair<int, int>> generatedCells;
         float cellW, cellH;
         std::mt19937 rng;
-        // Pre-built adjacency: for tile index i, adjRight[i] = set of tile indices valid to its right
-        // adjDown[i] = set of tile indices valid below it
-        std::vector<std::vector<size_t>> adjRight; // [tileIdx] -> tiles valid to right
-        std::vector<std::vector<size_t>> adjDown;  // [tileIdx] -> tiles valid below
+        // Grid index: (col,row) -> tile index placed there (-1 = gap)
+        std::unordered_map<int64_t, int> cellGrid;
+        // Pre-built adjacency: for tile index i, adjRight[i] = tile indices valid to its right
+        std::vector<std::vector<size_t>> adjRight;
+        std::vector<std::vector<size_t>> adjDown;
+
+        static int64_t CellKey(int col, int row) {
+            return (static_cast<int64_t>(row) << 32) | static_cast<uint32_t>(col);
+        }
     };
     std::vector<LayerState> layers;
 
@@ -450,7 +455,7 @@ int main(int argc, char* argv[])
 
                 for (int row = rowMin; row <= rowMax; ++row) {
                     for (int col = colMin; col <= colMax; ++col) {
-                        if (layer.generatedCells.count(std::make_pair(col, row)) > 0) continue;
+                        if (layer.cellGrid.count(LayerState::CellKey(col, row)) > 0) continue;
                         float cx = (static_cast<float>(col) + 0.5f) * cw;
                         float cy = (static_cast<float>(row) + 0.5f) * ch;
                         float dx = cx - visCenterX;
@@ -466,48 +471,26 @@ int main(int argc, char* argv[])
                 // Generate cells within budget
                 for (const CellEntry& cell : pending) {
                     if (budget <= 0) break;
-
-                    layer.generatedCells.insert(std::make_pair(cell.col, cell.row));
                     --budget;
 
-                    // Find valid candidates using pre-built adjacency tables
-                    // Check left neighbor
+                    // Look up neighbors from grid index (O(1) hash lookup, no QueryPoint)
                     int leftIdx = -1;
                     {
-                        auto lk = std::make_pair(cell.col - 1, cell.row);
-                        if (layer.generatedCells.count(lk) > 0) {
-                            float qx = (static_cast<float>(cell.col) - 0.5f) * cw;
-                            float qy = (static_cast<float>(cell.row) + 0.5f) * ch;
-                            const PlacedTile* lt = layer.map.QueryPoint(qx, qy);
-                            if (lt) {
-                                auto it = layer.def.idIndex.find(lt->tileId);
-                                if (it != layer.def.idIndex.end()) leftIdx = static_cast<int>(it->second);
-                            }
-                        }
+                        auto it = layer.cellGrid.find(LayerState::CellKey(cell.col - 1, cell.row));
+                        if (it != layer.cellGrid.end()) leftIdx = it->second;
                     }
 
-                    // Check top neighbor
                     int topIdx = -1;
                     {
-                        auto tk = std::make_pair(cell.col, cell.row - 1);
-                        if (layer.generatedCells.count(tk) > 0) {
-                            float qx = (static_cast<float>(cell.col) + 0.5f) * cw;
-                            float qy = (static_cast<float>(cell.row) - 0.5f) * ch;
-                            const PlacedTile* tt = layer.map.QueryPoint(qx, qy);
-                            if (tt) {
-                                auto it = layer.def.idIndex.find(tt->tileId);
-                                if (it != layer.def.idIndex.end()) topIdx = static_cast<int>(it->second);
-                            }
-                        }
+                        auto it = layer.cellGrid.find(LayerState::CellKey(cell.col, cell.row - 1));
+                        if (it != layer.cellGrid.end()) topIdx = it->second;
                     }
 
                     // Intersect adjacency sets
                     std::vector<int> candidates;
                     if (leftIdx >= 0 && topIdx >= 0) {
-                        // Must be in adjRight[leftIdx] AND adjDown[topIdx]
                         const auto& rightSet = layer.adjRight[leftIdx];
                         const auto& downSet = layer.adjDown[topIdx];
-                        // Intersect (both are sorted by construction order)
                         for (size_t ri = 0, di = 0; ri < rightSet.size() && di < downSet.size(); ) {
                             if (rightSet[ri] == downSet[di]) {
                                 candidates.push_back(static_cast<int>(rightSet[ri]));
@@ -525,7 +508,6 @@ int main(int argc, char* argv[])
                         for (size_t idx : layer.adjDown[topIdx])
                             candidates.push_back(static_cast<int>(idx));
                     } else {
-                        // No constraints — any tile
                         candidates.resize(numTiles);
                         for (int t = 0; t < numTiles; ++t) candidates[t] = t;
                     }
@@ -540,6 +522,10 @@ int main(int argc, char* argv[])
                         pt.w = cw;
                         pt.h = ch;
                         layer.map.AddTile(pt);
+                        layer.cellGrid[LayerState::CellKey(cell.col, cell.row)] = chosen;
+                    } else {
+                        // Gap — mark as generated with -1
+                        layer.cellGrid[LayerState::CellKey(cell.col, cell.row)] = -1;
                     }
                 }
             }
