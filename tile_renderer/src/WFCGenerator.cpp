@@ -49,7 +49,7 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
         }
     }
 
-    // --- Main loop ---
+    // --- Main loop (greedy: allow gaps on contradiction) ---
     while (true) {
         // Select minimum entropy cell
         std::pair<int, int> pos = SelectMinEntropy(grid, rng);
@@ -62,11 +62,18 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
         // Collapse chosen cell
         Collapse(grid[pos.first][pos.second], rng);
 
-        // Propagate constraints
+        // Propagate constraints — on contradiction, mark the failed cell as
+        // a gap (entropy 0, collapsed with no tile) and continue greedily.
         if (!Propagate(grid, pos.first, pos.second, tileset)) {
-            result.status = WFCStatus::Contradiction;
-            SDL_Log("[WFC] Contradiction encountered during propagation");
-            return result;
+            // Mark contradicted cells as gaps (collapsed, no valid tile)
+            for (int r = 0; r < params.height; ++r) {
+                for (int c = 0; c < params.width; ++c) {
+                    if (!grid[r][c].collapsed && grid[r][c].entropy <= 0) {
+                        grid[r][c].collapsed = true;
+                        // Leave possibilities all-false = gap
+                    }
+                }
+            }
         }
     }
 
@@ -166,7 +173,12 @@ bool WFCGenerator::Propagate(std::vector<std::vector<Cell>>& grid,
     std::queue<std::pair<int, int>> queue;
     queue.push({ startRow, startCol });
 
-    while (!queue.empty()) {
+    // Cap propagation iterations to avoid freezing on large tilesets
+    int iterations = 0;
+    const int MAX_ITERATIONS = width * height * 2;
+
+    while (!queue.empty() && iterations < MAX_ITERATIONS) {
+        ++iterations;
         auto current = queue.front();
         queue.pop();
         int cr = current.first;
