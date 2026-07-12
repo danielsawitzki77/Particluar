@@ -1,0 +1,9 @@
+refactor: add subsystem prefixes and rename projects (#23)
+
+- renderer/ -> tile_renderer/ (TileRenderer lib)
+- tests/ -> tile_renderer_tests/ (TileRendererTests)
+- tools/tilename/ -> tools/tile_namer/ (TileNamer)
+- tools/mapgen/ -> tools/map_generator/ (MapGenerator)
+- Body_Viewer.vcxproj -> BodyViewer.vcxproj
+- Updated all vcxproj include paths and lib references
+- Updated Particluar.sln project entries

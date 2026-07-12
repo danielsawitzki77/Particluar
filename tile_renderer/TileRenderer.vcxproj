@@ -13,22 +13,22 @@
 
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{D4E5F6A7-B8C9-0123-4567-89ABCDEF0002}</ProjectGuid>
-    <RootNamespace>BodyViewer</RootNamespace>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <RootNamespace>TileRenderer</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>Body_Viewer</ProjectName>
+    <ProjectName>TileRenderer</ProjectName>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
 
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -38,9 +38,9 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
 
   <PropertyGroup>
-    <OutDir>$(ProjectDir)..\bin\$(Configuration)\</OutDir>
-    <IntDir>$(ProjectDir)..\obj\BodyViewer\$(Configuration)\</IntDir>
-    <TargetName>Body_Viewer</TargetName>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)obj\TileRenderer\$(Configuration)\</IntDir>
+    <TargetName>TileRenderer</TargetName>
   </PropertyGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -52,45 +52,23 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
       <PreprocessorDefinitions>
         _DEBUG;
+        TILE_RENDERER_LIB;
+        _LIB;
         SDL_STATIC_LIB;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
-        $(ProjectDir)..\body_renderer\include;
-        $(ProjectDir)..\math_lib\include;
-        $(ProjectDir)..\vendor\SDL\include;
-        $(ProjectDir)..\vendor\picojson;
+        $(SolutionDir)tile_renderer\include;
+        $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
+        $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>
-        $(ProjectDir)..\bin\$(Configuration);
-        $(ProjectDir)..\vendor\SDL\lib\$(Configuration);
-        %(AdditionalLibraryDirectories)
-      </AdditionalLibraryDirectories>
-      <AdditionalDependencies>
-        BodyRenderer.lib;
-        SDL3_static.lib;
-        opengl32.lib;
-        glu32.lib;
-        winmm.lib;
-        imm32.lib;
-        version.lib;
-        setupapi.lib;
-        cfgmgr32.lib;
-        ole32.lib;
-        oleaut32.lib;
-        uuid.lib;
-        shell32.lib;
-        advapi32.lib;
-        user32.lib;
-        gdi32.lib;
-        %(AdditionalDependencies)
-      </AdditionalDependencies>
-    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName).lib</OutputFile>
+    </Lib>
   </ItemDefinitionGroup>
 
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -104,51 +82,39 @@
       <LanguageStandard>stdcpp14</LanguageStandard>
       <PreprocessorDefinitions>
         NDEBUG;
+        TILE_RENDERER_LIB;
+        _LIB;
         SDL_STATIC_LIB;
         %(PreprocessorDefinitions)
       </PreprocessorDefinitions>
       <AdditionalIncludeDirectories>
-        $(ProjectDir)..\body_renderer\include;
-        $(ProjectDir)..\math_lib\include;
-        $(ProjectDir)..\vendor\SDL\include;
-        $(ProjectDir)..\vendor\picojson;
+        $(SolutionDir)tile_renderer\include;
+        $(SolutionDir)vendor\SDL\include;
+        $(SolutionDir)vendor\SDL_image\include;
+        $(SolutionDir)vendor\picojson;
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>
-        $(ProjectDir)..\bin\$(Configuration);
-        $(ProjectDir)..\vendor\SDL\lib\$(Configuration);
-        %(AdditionalLibraryDirectories)
-      </AdditionalLibraryDirectories>
-      <AdditionalDependencies>
-        BodyRenderer.lib;
-        SDL3_static.lib;
-        opengl32.lib;
-        glu32.lib;
-        winmm.lib;
-        imm32.lib;
-        version.lib;
-        setupapi.lib;
-        cfgmgr32.lib;
-        ole32.lib;
-        oleaut32.lib;
-        uuid.lib;
-        shell32.lib;
-        advapi32.lib;
-        user32.lib;
-        gdi32.lib;
-        %(AdditionalDependencies)
-      </AdditionalDependencies>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-    </Link>
+    <Lib>
+      <OutputFile>$(OutDir)$(TargetName).lib</OutputFile>
+    </Lib>
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\Renderer.cpp" />
+    <ClCompile Include="src\JsonUtil.cpp" />
+    <ClCompile Include="src\GlobalConfig.cpp" />
+    <ClCompile Include="src\TilesetLoader.cpp" />
+    <ClCompile Include="src\MapLoader.cpp" />
+    <ClCompile Include="src\MapLayer.cpp" />
+    <ClCompile Include="src\Viewport.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\TileRenderer.cpp" />
+    <ClCompile Include="src\WFCGenerator.cpp" />
+    <ClCompile Include="src\SpatialIndex.cpp" />
+    <ClCompile Include="src\JigsawMap.cpp" />
+    <ClCompile Include="src\ChunkManager.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
