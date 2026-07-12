@@ -19,6 +19,9 @@
 #include <windows.h>
 #include <vector>
 #include <string>
+#include <set>
+#include <random>
+#include <cmath>
 
 // ---------------------------------------------------------------------------
 // Discover all JSON sidecar files recursively under assets/tilesets/
@@ -265,89 +268,62 @@ int main(int argc, char* argv[])
     const float ZOOM_MAX = 4.0f;
     const float ZOOM_STEP = 0.25f;
 
-    // --- WFC Generator ---
-    WFCGenerator wfcGenerator;
-
-    // --- Jigsaw Map (default rendering mode) ---
-    JigsawMap jigsawMap;
-
-    // Generate map using jigsaw WFC (handles both uniform and variable tile sizes)
-    auto generateJigsaw = [&]() {
-        jigsawMap = JigsawMap(); // reset
-        jigsawMap.SetTilesetId(tilesetDef.name);
-
-        if (tilesetDef.tiles.empty()) {
-            SDL_Log("[PoC] No tiles to place.");
-            return;
-        }
-
-        float sheetScale = tilesetDef.sheetScale;
-        const TileDef& firstTile = tilesetDef.tiles[0];
-        float tileW = static_cast<float>(firstTile.sourceRect.w) * sheetScale * firstTile.scale;
-        float tileH = static_cast<float>(firstTile.sourceRect.h) * sheetScale * firstTile.scale;
-
-        // Target area slightly larger than viewport to fill edges
-        float targetW = 800.0f + tileW * 2;
-        float targetH = 600.0f + tileH * 2;
-
-        SDL_Log("[PoC] Running jigsaw WFC: %.0fx%.0f target area (%d tiles available)",
-                targetW, targetH, (int)tilesetDef.tiles.size());
-
-        JigsawWFCParams jParams;
-        jParams.targetWidth = targetW;
-        jParams.targetHeight = targetH;
-        jParams.originX = -tileW;
-        jParams.originY = -tileH;
-        jParams.seed = 0; // non-deterministic
-        jParams.tileset = &tilesetDef;
-        jParams.layerScale = 1.0f;
-        jParams.maxBacktracks = cfg.wfc_max_backtracks;
-
-        JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
-
-        if (jResult.status == WFCStatus::Success) {
-            jigsawMap = jResult.map;
-            SDL_Log("[PoC] Jigsaw WFC succeeded: %d tiles placed", (int)jigsawMap.GetTileCount());
-        } else {
-            SDL_Log("[PoC] Jigsaw WFC failed (status %d), using random placement",
-                    (int)jResult.status);
-            // Fallback: random placement on a grid
-            int gridW = static_cast<int>(targetW / tileW) + 1;
-            int gridH = static_cast<int>(targetH / tileH) + 1;
-            unsigned int seed = static_cast<unsigned int>(SDL_GetTicks());
-            int numTiles = static_cast<int>(tilesetDef.tiles.size());
-            for (int row = 0; row < gridH; ++row) {
-                for (int col = 0; col < gridW; ++col) {
-                    seed = seed * 1103515245 + 12345;
-                    int idx = static_cast<int>((seed >> 16) % numTiles);
-                    PlacedTile pt;
-                    pt.tileId = tilesetDef.tiles[idx].id;
-                    pt.x = static_cast<float>(col) * tileW - tileW;
-                    pt.y = static_cast<float>(row) * tileH - tileH;
-                    pt.w = tileW;
-                    pt.h = tileH;
-                    jigsawMap.AddTile(pt);
-                }
-            }
-        }
+    // --- Streaming tile generation (all layers) ---
+    // Each tileset becomes a layer with its own JigsawMap and generation state.
+    struct LayerState {
+        TilesetDef def;
+        Tileset* tileset;
+        JigsawMap map;
+        std::set<std::pair<int, int>> generatedCells; // (col, row) of generated cells
+        float cellW, cellH; // tile cell size for this layer
+        std::mt19937 rng;
     };
-    generateJigsaw();
+    std::vector<LayerState> layers;
+    for (size_t i = 0; i < allTilesets.size(); ++i) {
+        LayerState layer;
+        layer.tileset = &allTilesets[i];
+        layer.def = BuildTilesetDef(*layer.tileset);
+        layer.map.SetTilesetId(layer.def.name);
+
+        // Determine cell size from first tile
+        float sheetScale = layer.def.sheetScale;
+        if (!layer.def.tiles.empty()) {
+            const TileDef& ft = layer.def.tiles[0];
+            layer.cellW = static_cast<float>(ft.sourceRect.w) * sheetScale * ft.scale;
+            layer.cellH = static_cast<float>(ft.sourceRect.h) * sheetScale * ft.scale;
+        } else {
+            layer.cellW = 16.0f;
+            layer.cellH = 16.0f;
+        }
+        if (layer.cellW < 1.0f) layer.cellW = 1.0f;
+        if (layer.cellH < 1.0f) layer.cellH = 1.0f;
+
+        std::random_device rd;
+        layer.rng.seed(rd());
+
+        layers.push_back(std::move(layer));
+    }
+
+    // Per-frame tile generation budget
+    const int TILES_PER_FRAME = 80;
+    // Margin around viewport (in pixels) to pre-generate
+    const float MARGIN = 64.0f;
+
+    // Which layer is actively rendered (Q/E to switch view, all generate)
+    int activeLayerIdx = 0;
 
     // --- Main Loop ---
     bool running = true;
     Uint64 lastTicks = SDL_GetTicks();
-    SDL_Log("[PoC] Running. WASD=scroll, G=grid WFC, J=jigsaw WFC, Q/E=swap tileset, +/-=zoom, ESC/close=quit");
+    SDL_Log("[PoC] Running. WASD=scroll, Q/E=swap layer view, +/-=zoom, ESC=quit");
+    SDL_Log("[PoC] %d layers loaded, streaming generation active.", (int)layers.size());
 
     while (running) {
         // --- Delta time ---
         Uint64 currentTicks = SDL_GetTicks();
         float deltaTime = static_cast<float>(currentTicks - lastTicks) / 1000.0f;
         lastTicks = currentTicks;
-
-        // Clamp delta to avoid huge jumps (e.g., after breakpoint)
-        if (deltaTime > 0.1f) {
-            deltaTime = 0.1f;
-        }
+        if (deltaTime > 0.1f) deltaTime = 0.1f;
 
         // --- Event Polling ---
         SDL_Event event;
@@ -359,79 +335,173 @@ int main(int argc, char* argv[])
                 if (event.key.scancode == SDL_SCANCODE_ESCAPE) {
                     running = false;
                 }
-                // G: regenerate jigsaw with current tileset
-                else if (event.key.scancode == SDL_SCANCODE_G && !event.key.repeat) {
-                    SDL_Log("[PoC] Regenerating jigsaw...");
-                    generateJigsaw();
-                }
-                // Q/E: swap active tileset and regenerate
                 else if (event.key.scancode == SDL_SCANCODE_Q && !event.key.repeat) {
-                    if (allTilesets.size() > 1) {
-                        activeTilesetIdx = (activeTilesetIdx + static_cast<int>(allTilesets.size()) - 1) % static_cast<int>(allTilesets.size());
-                        tileset = &allTilesets[activeTilesetIdx];
-                        tilesetDef = BuildTilesetDef(*tileset);
-                        generateJigsaw();
-                        SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
+                    if (layers.size() > 1) {
+                        activeLayerIdx = (activeLayerIdx + static_cast<int>(layers.size()) - 1) % static_cast<int>(layers.size());
+                        SDL_Log("[PoC] Viewing layer %d: '%s'", activeLayerIdx, layers[activeLayerIdx].def.name.c_str());
                     }
                 }
                 else if (event.key.scancode == SDL_SCANCODE_E && !event.key.repeat) {
-                    if (allTilesets.size() > 1) {
-                        activeTilesetIdx = (activeTilesetIdx + 1) % static_cast<int>(allTilesets.size());
-                        tileset = &allTilesets[activeTilesetIdx];
-                        tilesetDef = BuildTilesetDef(*tileset);
-                        generateJigsaw();
-                        SDL_Log("[PoC] Switched to tileset %d: '%s' (%d tiles)", activeTilesetIdx, tileset->name.c_str(), (int)tileset->tiles.size());
+                    if (layers.size() > 1) {
+                        activeLayerIdx = (activeLayerIdx + 1) % static_cast<int>(layers.size());
+                        SDL_Log("[PoC] Viewing layer %d: '%s'", activeLayerIdx, layers[activeLayerIdx].def.name.c_str());
                     }
                 }
-                // +/- : zoom in/out
                 else if ((event.key.scancode == SDL_SCANCODE_EQUALS || event.key.scancode == SDL_SCANCODE_KP_PLUS) && !event.key.repeat) {
                     zoomLevel += ZOOM_STEP;
                     if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
-                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
                 }
                 else if ((event.key.scancode == SDL_SCANCODE_MINUS || event.key.scancode == SDL_SCANCODE_KP_MINUS) && !event.key.repeat) {
                     zoomLevel -= ZOOM_STEP;
                     if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
-                    SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
                 }
             }
-            // Mouse wheel zoom
             else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
-                if (event.wheel.y > 0) {
-                    zoomLevel += ZOOM_STEP;
-                    if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX;
-                } else if (event.wheel.y < 0) {
-                    zoomLevel -= ZOOM_STEP;
-                    if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN;
-                }
-                SDL_Log("[PoC] Zoom: %.2fx", zoomLevel);
+                if (event.wheel.y > 0) { zoomLevel += ZOOM_STEP; if (zoomLevel > ZOOM_MAX) zoomLevel = ZOOM_MAX; }
+                else if (event.wheel.y < 0) { zoomLevel -= ZOOM_STEP; if (zoomLevel < ZOOM_MIN) zoomLevel = ZOOM_MIN; }
             }
         }
 
-        // --- Camera Update (Task 9.3) ---
+        // --- Camera Update ---
         const bool* keyState = SDL_GetKeyboardState(NULL);
         camera.Update(deltaTime, cfg.scroll_speed, keyState);
+
+        // --- Streaming generation: fill visible cells for ALL layers ---
+        {
+            // Compute visible world area from camera
+            float camX = camera.GetX();
+            float camY = camera.GetY();
+            float viewW = static_cast<float>(cfg.viewport_width) / zoomLevel;
+            float viewH = static_cast<float>(cfg.viewport_height) / zoomLevel;
+            float worldLeft = camX - viewW * camera.GetPivotX() - MARGIN;
+            float worldTop = camY - viewH * camera.GetPivotY() - MARGIN;
+            float worldRight = worldLeft + viewW + MARGIN * 2.0f;
+            float worldBottom = worldTop + viewH + MARGIN * 2.0f;
+
+            int budget = TILES_PER_FRAME;
+
+            for (LayerState& layer : layers) {
+                if (budget <= 0) break;
+                if (layer.def.tiles.empty()) continue;
+
+                float cw = layer.cellW;
+                float ch = layer.cellH;
+                int numTiles = static_cast<int>(layer.def.tiles.size());
+
+                // Grid cell range that covers the visible area
+                int colMin = static_cast<int>(std::floor(worldLeft / cw));
+                int colMax = static_cast<int>(std::ceil(worldRight / cw));
+                int rowMin = static_cast<int>(std::floor(worldTop / ch));
+                int rowMax = static_cast<int>(std::ceil(worldBottom / ch));
+
+                for (int row = rowMin; row <= rowMax && budget > 0; ++row) {
+                    for (int col = colMin; col <= colMax && budget > 0; ++col) {
+                        auto key = std::make_pair(col, row);
+                        if (layer.generatedCells.count(key) > 0) continue;
+
+                        // Mark as generated (even if we leave a gap)
+                        layer.generatedCells.insert(key);
+
+                        // Find candidates based on placed neighbors
+                        float px = static_cast<float>(col) * cw;
+                        float py = static_cast<float>(row) * ch;
+
+                        // Check placed neighbors
+                        std::vector<int> candidates;
+                        for (int t = 0; t < numTiles; ++t) {
+                            const TileDef& cand = layer.def.tiles[t];
+                            bool valid = true;
+
+                            // Check left neighbor
+                            auto leftKey = std::make_pair(col - 1, row);
+                            if (layer.generatedCells.count(leftKey) > 0) {
+                                const PlacedTile* leftTile = layer.map.QueryPoint(px - cw * 0.5f, py + ch * 0.5f);
+                                if (leftTile) {
+                                    auto it = layer.def.idIndex.find(leftTile->tileId);
+                                    if (it != layer.def.idIndex.end()) {
+                                        const TileDef& nb = layer.def.tiles[it->second];
+                                        if (!nb.adjacency.right.empty()) {
+                                            bool found = false;
+                                            for (const auto& id : nb.adjacency.right) { if (id == cand.id) { found = true; break; } }
+                                            if (!found) valid = false;
+                                        }
+                                        if (valid && !cand.adjacency.left.empty()) {
+                                            bool found = false;
+                                            for (const auto& id : cand.adjacency.left) { if (id == nb.id) { found = true; break; } }
+                                            if (!found) valid = false;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Check top neighbor
+                            if (valid) {
+                                auto topKey = std::make_pair(col, row - 1);
+                                if (layer.generatedCells.count(topKey) > 0) {
+                                    const PlacedTile* topTile = layer.map.QueryPoint(px + cw * 0.5f, py - ch * 0.5f);
+                                    if (topTile) {
+                                        auto it = layer.def.idIndex.find(topTile->tileId);
+                                        if (it != layer.def.idIndex.end()) {
+                                            const TileDef& nb = layer.def.tiles[it->second];
+                                            if (!nb.adjacency.down.empty()) {
+                                                bool found = false;
+                                                for (const auto& id : nb.adjacency.down) { if (id == cand.id) { found = true; break; } }
+                                                if (!found) valid = false;
+                                            }
+                                            if (valid && !cand.adjacency.up.empty()) {
+                                                bool found = false;
+                                                for (const auto& id : cand.adjacency.up) { if (id == nb.id) { found = true; break; } }
+                                                if (!found) valid = false;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (valid) candidates.push_back(t);
+                        }
+
+                        // Place a random valid tile (or leave gap)
+                        if (!candidates.empty()) {
+                            std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
+                            const TileDef& chosen = layer.def.tiles[candidates[dist(layer.rng)]];
+                            PlacedTile pt;
+                            pt.tileId = chosen.id;
+                            pt.x = px;
+                            pt.y = py;
+                            pt.w = cw;
+                            pt.h = ch;
+                            layer.map.AddTile(pt);
+                        }
+                        --budget;
+                    }
+                }
+            }
+        }
 
         // --- Render ---
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
 
-        // Elapsed time for tile animation (absolute ms since SDL init)
         Uint32 elapsed_ms = static_cast<Uint32>(currentTicks);
 
-        // Jigsaw rendering — tiles at native size, no grid forcing
-        MapLayerConfig jigsawCfg;
-        jigsawCfg.z_depth = 0;
-        jigsawCfg.alpha = 255;
-        jigsawCfg.pivot_x = camera.GetPivotX();
-        jigsawCfg.pivot_y = camera.GetPivotY();
-        jigsawCfg.offset_x = 0.0f;
-        jigsawCfg.offset_y = 0.0f;
-        jigsawCfg.scale = zoomLevel;
-        jigsawCfg.sampling = SamplingMode::Nearest;
+        // Render the active layer
+        if (!layers.empty()) {
+            LayerState& activeLayer = layers[activeLayerIdx];
 
-        tileRenderer.RenderJigsawLayer(
-            renderer, *tileset, jigsawMap, viewport, camera, jigsawCfg, elapsed_ms);
+            MapLayerConfig jigsawCfg;
+            jigsawCfg.z_depth = 0;
+            jigsawCfg.alpha = 255;
+            jigsawCfg.pivot_x = camera.GetPivotX();
+            jigsawCfg.pivot_y = camera.GetPivotY();
+            jigsawCfg.offset_x = 0.0f;
+            jigsawCfg.offset_y = 0.0f;
+            jigsawCfg.scale = zoomLevel;
+            jigsawCfg.sampling = SamplingMode::Nearest;
+
+            tileRenderer.RenderJigsawLayer(
+                renderer, *activeLayer.tileset, activeLayer.map, viewport, camera, jigsawCfg, elapsed_ms);
+        }
 
         SDL_RenderPresent(renderer);
     }
