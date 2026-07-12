@@ -34,18 +34,18 @@ struct Gap {
 };
 
 struct JigsawWFCParams {
-    float target_width;             // target area width (pixels)
-    float target_height;            // target area height (pixels)
-    float origin_x, origin_y;      // top-left of target area
+    float targetWidth;             // target area width (pixels)
+    float targetHeight;            // target area height (pixels)
+    float originX, originY;      // top-left of target area
     unsigned int seed;              // 0 = non-deterministic
     const TilesetDef* tileset;      // must not be null
-    float layer_scale;              // default 1.0 (applied during generation)
+    float layerScale;              // default 1.0 (applied during generation)
 
     JigsawWFCParams()
-        : target_width(0), target_height(0)
-        , origin_x(0), origin_y(0)
+        : targetWidth(0), targetHeight(0)
+        , originX(0), originY(0)
         , seed(0), tileset(nullptr)
-        , layer_scale(1.0f) {}
+        , layerScale(1.0f) {}
 };
 
 struct JigsawWFCResult {

@@ -40,11 +40,11 @@ void RunConnectionSolverTests()
         // Connect via top cap (face 8) to bottom cap (face 9)
         // Both are 8-gons (8 vertices) — topologically compatible
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = 8; // top cap
-        conn.child_face_index = 9;  // bottom cap
-        conn.offset_u = 0.5f;
-        conn.offset_v = 0.5f;
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = 8; // top cap
+        conn.childFaceIndex = 9;  // bottom cap
+        conn.offsetU = 0.5f;
+        conn.offsetV = 0.5f;
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);

@@ -42,8 +42,8 @@ private:
         // Path from root to this node (indices into children arrays)
         std::vector<int> path;
         std::string name;
-        ConnectionType conn_type;
-        float base_rotation; // original rotation value from the connection
+        ConnectionType connType;
+        float baseRotation; // original rotation value from the connection
     };
 
     void CollectJoints(const BodyNode* node, std::vector<int>& current_path);

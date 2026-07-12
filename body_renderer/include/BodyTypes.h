@@ -34,27 +34,27 @@ struct ShapeParams {
     float radius;
     float height;
     int segments;
-    int height_segments; // vertical rings for cylinder/capsule (1 = no subdivision)
+    int heightSegments; // vertical rings for cylinder/capsule (1 = no subdivision)
 
-    // Sphere: radius, lat_segments, lon_segments
-    int lat_segments, lon_segments;
+    // Sphere: radius, latSegments, lonSegments
+    int latSegments, lonSegments;
 
-    // Torus: major_radius, minor_radius, ring_segments, side_segments
-    float major_radius, minor_radius;
-    int ring_segments, side_segments;
+    // Torus: majorRadius, minorRadius, ringSegments, sideSegments
+    float majorRadius, minorRadius;
+    int ringSegments, sideSegments;
 
     // Non-uniform row boundaries for height subdivision.
     // If non-empty, these normalized Y-positions (0-1 from bottom to top) define where
-    // horizontal ring boundaries are placed. Size should be height_segments+1 (includes
+    // horizontal ring boundaries are placed. Size should be heightSegments+1 (includes
     // 0.0 and 1.0 endpoints). When empty, uniform spacing is used.
-    std::vector<float> row_boundaries;
+    std::vector<float> rowBoundaries;
 
     ShapeParams()
         : type(ShapeType::Cylinder)
-        , radius(0.5f), height(1.0f), segments(16), height_segments(1)
-        , lat_segments(12), lon_segments(16)
-        , major_radius(1.0f), minor_radius(0.25f)
-        , ring_segments(16), side_segments(8)
+        , radius(0.5f), height(1.0f), segments(16), heightSegments(1)
+        , latSegments(12), lonSegments(16)
+        , majorRadius(1.0f), minorRadius(0.25f)
+        , ringSegments(16), sideSegments(8)
     {}
 };
 
@@ -90,9 +90,9 @@ struct AttachmentPoint {
 // ============================================================================
 
 enum class ConnectionType {
-    Face_Connection,
-    Edge_Connection,
-    Point_Connection
+    FaceConnection,
+    EdgeConnection,
+    PointConnection
 };
 
 // ============================================================================
@@ -101,24 +101,24 @@ enum class ConnectionType {
 
 struct Connection {
     // v2 parametric connection
-    AttachmentPoint parent_attach;
-    AttachmentPoint child_attach;
+    AttachmentPoint parentAttach;
+    AttachmentPoint childAttach;
     float rotation;           // rotation around connection normal (degrees)
 
     // v1 legacy fields (used only when loading old format)
     ConnectionType type;
-    int parent_face_index;
-    int child_face_index;
-    float offset_u, offset_v;
-    bool is_legacy;           // true if loaded from v1 format
+    int parentFaceIndex;
+    int childFaceIndex;
+    float offsetU, offsetV;
+    bool isLegacy;           // true if loaded from v1 format
 
     Connection()
         : rotation(0.0f)
-        , type(ConnectionType::Face_Connection)
-        , parent_face_index(0)
-        , child_face_index(0)
-        , offset_u(0.5f), offset_v(0.5f)
-        , is_legacy(false)
+        , type(ConnectionType::FaceConnection)
+        , parentFaceIndex(0)
+        , childFaceIndex(0)
+        , offsetU(0.5f), offsetV(0.5f)
+        , isLegacy(false)
     {}
 };
 
@@ -131,7 +131,7 @@ struct BodyNode {
     ShapeParams shape;
     Vec3 color;               // RGB 0.0-1.0
     Connection connection;    // how this node attaches to parent (ignored for root)
-    Mat4 local_transform;     // computed from connection by ConnectionSolver
+    Mat4 localTransform;     // computed from connection by ConnectionSolver
     std::vector<BodyNode> children;
 
     BodyNode() : color(0.7f, 0.7f, 0.7f) {}
@@ -156,9 +156,9 @@ struct Body {
     std::string name;
     BodyNode root;
     Material material;
-    int format_version;       // 1 = legacy face indices, 2 = parametric
+    int formatVersion;       // 1 = legacy face indices, 2 = parametric
 
-    Body() : format_version(2) {}
+    Body() : formatVersion(2) {}
 };
 
 } // namespace BodyRenderer

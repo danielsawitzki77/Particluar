@@ -23,21 +23,21 @@ static const float EPSILON = 0.001f;
 static TilesetDef MakeUniformTileset(int tilePixels, int numTiles) {
     TilesetDef ts;
     ts.name = "test_uniform";
-    ts.sheet_scale = 1.0f;
-    ts.texture_width = tilePixels * numTiles;
-    ts.texture_height = tilePixels;
+    ts.sheetScale = 1.0f;
+    ts.textureWidth = tilePixels * numTiles;
+    ts.textureHeight = tilePixels;
 
     for (int i = 0; i < numTiles; ++i) {
         TileDef def;
         def.id = "tile_" + std::to_string(i);
-        def.source_rect.x = i * tilePixels;
-        def.source_rect.y = 0;
-        def.source_rect.w = tilePixels;
-        def.source_rect.h = tilePixels;
+        def.sourceRect.x = i * tilePixels;
+        def.sourceRect.y = 0;
+        def.sourceRect.w = tilePixels;
+        def.sourceRect.h = tilePixels;
         def.scale = 1.0f;
         // Empty adjacency lists = unconstrained (wildcard)
         ts.tiles.push_back(def);
-        ts.id_index[def.id] = static_cast<size_t>(i);
+        ts.idIndex[def.id] = static_cast<size_t>(i);
     }
     return ts;
 }
@@ -47,20 +47,20 @@ static TilesetDef MakeUniformTileset(int tilePixels, int numTiles) {
 static TilesetDef MakeVariableTileset(const std::vector<std::pair<int, int>>& sizes) {
     TilesetDef ts;
     ts.name = "test_variable";
-    ts.sheet_scale = 1.0f;
-    ts.texture_width = 1024;
-    ts.texture_height = 1024;
+    ts.sheetScale = 1.0f;
+    ts.textureWidth = 1024;
+    ts.textureHeight = 1024;
 
     for (size_t i = 0; i < sizes.size(); ++i) {
         TileDef def;
         def.id = "tile_" + std::to_string(i);
-        def.source_rect.x = 0;
-        def.source_rect.y = 0;
-        def.source_rect.w = sizes[i].first;
-        def.source_rect.h = sizes[i].second;
+        def.sourceRect.x = 0;
+        def.sourceRect.y = 0;
+        def.sourceRect.w = sizes[i].first;
+        def.sourceRect.h = sizes[i].second;
         def.scale = 1.0f;
         ts.tiles.push_back(def);
-        ts.id_index[def.id] = i;
+        ts.idIndex[def.id] = i;
     }
     return ts;
 }
@@ -70,33 +70,33 @@ static TilesetDef MakeVariableTileset(const std::vector<std::pair<int, int>>& si
 static TilesetDef MakeConstrainedTileset(int tilePixels) {
     TilesetDef ts;
     ts.name = "test_constrained";
-    ts.sheet_scale = 1.0f;
-    ts.texture_width = tilePixels * 2;
-    ts.texture_height = tilePixels;
+    ts.sheetScale = 1.0f;
+    ts.textureWidth = tilePixels * 2;
+    ts.textureHeight = tilePixels;
 
     // Tile A: right=B, down=A|B, left=B, up=A|B
     TileDef a;
     a.id = "A";
-    a.source_rect = {0, 0, tilePixels, tilePixels};
+    a.sourceRect = {0, 0, tilePixels, tilePixels};
     a.scale = 1.0f;
     a.adjacency.right = {"B"};
     a.adjacency.left = {"B"};
     a.adjacency.up = {"A", "B"};
     a.adjacency.down = {"A", "B"};
     ts.tiles.push_back(a);
-    ts.id_index["A"] = 0;
+    ts.idIndex["A"] = 0;
 
     // Tile B: right=A, down=A|B, left=A, up=A|B
     TileDef b;
     b.id = "B";
-    b.source_rect = {tilePixels, 0, tilePixels, tilePixels};
+    b.sourceRect = {tilePixels, 0, tilePixels, tilePixels};
     b.scale = 1.0f;
     b.adjacency.right = {"A"};
     b.adjacency.left = {"A"};
     b.adjacency.up = {"A", "B"};
     b.adjacency.down = {"A", "B"};
     ts.tiles.push_back(b);
-    ts.id_index["B"] = 1;
+    ts.idIndex["B"] = 1;
 
     return ts;
 }
@@ -128,13 +128,13 @@ static void testProperty4_GapFreeCoverage() {
             TilesetDef tileset = MakeUniformTileset(tileSize, numTiles);
 
             JigsawWFCParams params;
-            params.target_width = targetW;
-            params.target_height = targetH;
-            params.origin_x = 0.0f;
-            params.origin_y = 0.0f;
+            params.targetWidth = targetW;
+            params.targetHeight = targetH;
+            params.originX = 0.0f;
+            params.originY = 0.0f;
             params.seed = seed;
             params.tileset = &tileset;
-            params.layer_scale = 1.0f;
+            params.layerScale = 1.0f;
 
             WFCGenerator gen;
             JigsawWFCResult result = gen.GenerateJigsaw(params);
@@ -180,13 +180,13 @@ static void testProperty6_AdjacencyValidation() {
             TilesetDef tileset = MakeConstrainedTileset(tileSize);
 
             JigsawWFCParams params;
-            params.target_width = targetW;
-            params.target_height = targetH;
-            params.origin_x = 0.0f;
-            params.origin_y = 0.0f;
+            params.targetWidth = targetW;
+            params.targetHeight = targetH;
+            params.originX = 0.0f;
+            params.originY = 0.0f;
             params.seed = seed;
             params.tileset = &tileset;
-            params.layer_scale = 1.0f;
+            params.layerScale = 1.0f;
 
             WFCGenerator gen;
             JigsawWFCResult result = gen.GenerateJigsaw(params);
@@ -200,13 +200,13 @@ static void testProperty6_AdjacencyValidation() {
                 auto neighbors = result.map.GetEdgeNeighbors(tile);
 
                 // Find this tile's definition
-                auto tileIt = tileset.id_index.find(tile.tile_id);
-                RC_ASSERT(tileIt != tileset.id_index.end());
+                auto tileIt = tileset.idIndex.find(tile.tileId);
+                RC_ASSERT(tileIt != tileset.idIndex.end());
                 const TileDef& tileDef = tileset.tiles[tileIt->second];
 
                 for (const PlacedTile* neighbor : neighbors) {
-                    auto neighborIt = tileset.id_index.find(neighbor->tile_id);
-                    RC_ASSERT(neighborIt != tileset.id_index.end());
+                    auto neighborIt = tileset.idIndex.find(neighbor->tileId);
+                    RC_ASSERT(neighborIt != tileset.idIndex.end());
                     const TileDef& neighborDef = tileset.tiles[neighborIt->second];
 
                     // Determine direction relationship
@@ -329,13 +329,13 @@ static void testProperty7_DeterministicGeneration() {
             TilesetDef tileset = MakeUniformTileset(tileSize, numTiles);
 
             JigsawWFCParams params;
-            params.target_width = targetW;
-            params.target_height = targetH;
-            params.origin_x = 0.0f;
-            params.origin_y = 0.0f;
+            params.targetWidth = targetW;
+            params.targetHeight = targetH;
+            params.originX = 0.0f;
+            params.originY = 0.0f;
             params.seed = seed;
             params.tileset = &tileset;
-            params.layer_scale = 1.0f;
+            params.layerScale = 1.0f;
 
             WFCGenerator gen1;
             JigsawWFCResult result1 = gen1.GenerateJigsaw(params);
@@ -355,7 +355,7 @@ static void testProperty7_DeterministicGeneration() {
 
                 // Each tile must match exactly
                 for (size_t i = 0; i < tiles1.size(); ++i) {
-                    RC_ASSERT(tiles1[i].tile_id == tiles2[i].tile_id);
+                    RC_ASSERT(tiles1[i].tileId == tiles2[i].tileId);
                     RC_ASSERT(std::fabs(tiles1[i].x - tiles2[i].x) < EPSILON);
                     RC_ASSERT(std::fabs(tiles1[i].y - tiles2[i].y) < EPSILON);
                     RC_ASSERT(std::fabs(tiles1[i].w - tiles2[i].w) < EPSILON);

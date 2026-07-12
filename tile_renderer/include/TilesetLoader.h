@@ -22,14 +22,14 @@ struct AdjacencyRules {
 };
 
 struct AnimationFrame {
-    int tileid;        // tile ID within the tileset (used to compute source_rect)
+    int tileid;        // tile ID within the tileset (used to compute sourceRect)
     int duration_ms;   // frame display duration in milliseconds
     SourceRect rect;   // resolved source rect for this frame
 };
 
 struct TileDef {
     std::string id;            // unique within tileset, 1-64 chars
-    SourceRect source_rect;
+    SourceRect sourceRect;
     AdjacencyRules adjacency;
     float scale;               // per-tile scale from JSON, default 1.0
     std::vector<AnimationFrame> animation; // empty = static tile
@@ -37,13 +37,13 @@ struct TileDef {
     TileDef() : scale(1.0f) {}
 
     // Returns the source rect for the current frame given elapsed time (ms).
-    // If no animation, returns the static source_rect.
+    // If no animation, returns the static sourceRect.
     SourceRect GetCurrentRect(Uint32 elapsed_ms) const {
-        if (animation.empty()) return source_rect;
+        if (animation.empty()) return sourceRect;
         // Compute total animation cycle duration
         int total = 0;
         for (const auto& f : animation) total += f.duration_ms;
-        if (total <= 0) return source_rect;
+        if (total <= 0) return sourceRect;
         int t = static_cast<int>(elapsed_ms % static_cast<Uint32>(total));
         int accum = 0;
         for (const auto& f : animation) {
@@ -57,27 +57,27 @@ struct TileDef {
 // Pure data version (no SDL_Texture) for CLI tools and WFC generator
 struct TilesetDef {
     std::string name;
-    int texture_width;     // 0 = not validated (LoadTilesetDef doesn't load texture)
-    int texture_height;    // 0 = not validated
-    float sheet_scale;     // per-sheet scale from JSON root, default 1.0
+    int textureWidth;     // 0 = not validated (LoadTilesetDef doesn't load texture)
+    int textureHeight;    // 0 = not validated
+    float sheetScale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
-    std::map<std::string, size_t> id_index; // id -> index in tiles vector
+    std::map<std::string, size_t> idIndex; // id -> index in tiles vector
     picojson::value rawJson; // preserved for round-trip fidelity
 
-    TilesetDef() : texture_width(0), texture_height(0), sheet_scale(1.0f) {}
+    TilesetDef() : textureWidth(0), textureHeight(0), sheetScale(1.0f) {}
 };
 
 // Full version with texture for runtime rendering
 struct Tileset {
     std::string name;
     SDL_Texture* texture;
-    int texture_width, texture_height;
-    float sheet_scale;     // per-sheet scale from JSON root, default 1.0
+    int textureWidth, textureHeight;
+    float sheetScale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
-    std::map<std::string, size_t> id_index; // id -> index in tiles vector
+    std::map<std::string, size_t> idIndex; // id -> index in tiles vector
     picojson::value rawJson; // preserved for round-trip fidelity
 
-    Tileset() : texture(nullptr), texture_width(0), texture_height(0), sheet_scale(1.0f) {}
+    Tileset() : texture(nullptr), textureWidth(0), textureHeight(0), sheetScale(1.0f) {}
 };
 
 class TilesetLoader {

@@ -1,12 +1,6 @@
-refactor: rename test files to PascalCase (#23)
+refactor: standardize code identifiers to camelCase (#23)
 
-- test_wfc_jigsaw.cpp -> TestWfcJigsaw.cpp
-- test_main.cpp -> TestMain.cpp
-- test_body_loader.cpp -> TestBodyLoader.cpp
-- test_connection_face_matcher.cpp -> TestConnectionFaceMatcher.cpp
-- test_connection_solver.cpp -> TestConnectionSolver.cpp
-- test_connection_validator.cpp -> TestConnectionValidator.cpp
-- test_face_generator.cpp -> TestFaceGenerator.cpp
-- test_model_switcher.cpp -> TestModelSwitcher.cpp
-- test_triangulator.cpp -> TestTriangulator.cpp
-- Updated vcxproj file references
+- Enum values: Face_Connection -> FaceConnection, Edge_Connection -> EdgeConnection, Point_Connection -> PointConnection
+- Struct fields: snake_case -> camelCase (height_segments -> heightSegments, parent_face_index -> parentFaceIndex, etc.)
+- Member variables: m_pivot_x -> m_pivotX (m_ prefix + camelCase)
+- 40 source files updated across body_renderer, tile_renderer, tests, and tools

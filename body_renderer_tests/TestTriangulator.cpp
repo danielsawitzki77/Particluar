@@ -28,11 +28,11 @@ void RunTriangulatorTests()
             s.radius = 1.0f; s.height = 2.0f; s.segments = *rc::gen::inRange(3, 16);
             break;
         case ShapeType::Sphere:
-            s.radius = 1.0f; s.lon_segments = *rc::gen::inRange(4, 12); s.lat_segments = *rc::gen::inRange(3, 8);
+            s.radius = 1.0f; s.lonSegments = *rc::gen::inRange(4, 12); s.latSegments = *rc::gen::inRange(3, 8);
             break;
         case ShapeType::Torus:
-            s.major_radius = 2.0f; s.minor_radius = 0.5f;
-            s.ring_segments = *rc::gen::inRange(3, 12); s.side_segments = *rc::gen::inRange(3, 8);
+            s.majorRadius = 2.0f; s.minorRadius = 0.5f;
+            s.ringSegments = *rc::gen::inRange(3, 12); s.sideSegments = *rc::gen::inRange(3, 8);
             break;
         }
 

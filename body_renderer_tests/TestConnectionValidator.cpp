@@ -38,9 +38,9 @@ void RunConnectionValidatorTests()
 
         // Try to connect 8-gon cap to 12-gon cap — should fail
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = 8;   // parent top cap (8 vertices)
-        conn.child_face_index = 12;   // child top cap (12 vertices)
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = 8;   // parent top cap (8 vertices)
+        conn.childFaceIndex = 12;   // child top cap (12 vertices)
 
         auto result = validator.ValidateConnection(conn, parent_faces, child_faces, "parent", "child");
         RC_ASSERT(!result.valid);
@@ -72,9 +72,9 @@ void RunConnectionValidatorTests()
 
         // Connect cylinder top cap (face N, N vertices) to cone base (face N, N vertices)
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = n;   // cylinder top cap
-        conn.child_face_index = n;    // cone base
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = n;   // cylinder top cap
+        conn.childFaceIndex = n;    // cone base
 
         auto result = validator.ValidateConnection(conn, parent_faces, child_faces, "parent", "child");
         RC_ASSERT(result.valid);
@@ -93,9 +93,9 @@ void RunConnectionValidatorTests()
         auto faces = faceGen.Generate(shape);
 
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = 99;  // out of range
-        conn.child_face_index = 0;
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = 99;  // out of range
+        conn.childFaceIndex = 0;
 
         auto result = validator.ValidateConnection(conn, faces, faces, "parent", "child");
         RC_ASSERT(!result.valid);
@@ -103,7 +103,7 @@ void RunConnectionValidatorTests()
     });
 
     // Property: Edge and Point connections skip topology check
-    rc::check("Property: Point_Connection bypasses topology check", []() {
+    rc::check("Property: PointConnection bypasses topology check", []() {
         ConnectionValidator validator;
         FaceGenerator faceGen;
 
@@ -119,15 +119,15 @@ void RunConnectionValidatorTests()
         ShapeParams child_shape;
         child_shape.type = ShapeType::Sphere;
         child_shape.radius = 0.5f;
-        child_shape.lon_segments = 8;
-        child_shape.lat_segments = 6;
+        child_shape.lonSegments = 8;
+        child_shape.latSegments = 6;
         auto child_faces = faceGen.Generate(child_shape);
 
         // Point connection should not check topology
         Connection conn;
-        conn.type = ConnectionType::Point_Connection;
-        conn.parent_face_index = 8;
-        conn.child_face_index = 0;
+        conn.type = ConnectionType::PointConnection;
+        conn.parentFaceIndex = 8;
+        conn.childFaceIndex = 0;
 
         auto result = validator.ValidateConnection(conn, parent_faces, child_faces, "parent", "child");
         RC_ASSERT(result.valid);
@@ -139,7 +139,7 @@ void RunConnectionValidatorTests()
 
         Body body;
         body.name = "test";
-        body.format_version = 1;
+        body.formatVersion = 1;
         body.root.name = "parent";
         body.root.shape.type = ShapeType::Cylinder;
         body.root.shape.radius = 1.0f;
@@ -154,9 +154,9 @@ void RunConnectionValidatorTests()
         child.shape.segments = 12; // different segment count
 
         // Connect parent top cap (8-gon) to child top cap (12-gon) — incompatible
-        child.connection.type = ConnectionType::Face_Connection;
-        child.connection.parent_face_index = 8;
-        child.connection.child_face_index = 12;
+        child.connection.type = ConnectionType::FaceConnection;
+        child.connection.parentFaceIndex = 8;
+        child.connection.childFaceIndex = 12;
 
         body.root.children.push_back(child);
 
@@ -194,9 +194,9 @@ void RunConnectionValidatorTests()
 
         // Connect parent top cap (face N) to child bottom cap (face N+1)
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = n;     // parent top cap
-        conn.child_face_index = n + 1;  // child bottom cap
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = n;     // parent top cap
+        conn.childFaceIndex = n + 1;  // child bottom cap
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
@@ -231,9 +231,9 @@ void RunConnectionValidatorTests()
         // Connect parent top cap to child top cap — solver flips child upside down
         // so it extends outward (upward). This should be valid.
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = n;  // parent top cap
-        conn.child_face_index = n;   // child top cap
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = n;  // parent top cap
+        conn.childFaceIndex = n;   // child top cap
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
@@ -261,19 +261,19 @@ void RunConnectionValidatorTests()
         // one of its lateral quad faces, the torus extends on BOTH sides of that face.
         ShapeParams child_shape;
         child_shape.type = ShapeType::Torus;
-        child_shape.major_radius = 1.0f;
-        child_shape.minor_radius = 0.4f;
-        child_shape.ring_segments = 8;
-        child_shape.side_segments = 8;
+        child_shape.majorRadius = 1.0f;
+        child_shape.minorRadius = 0.4f;
+        child_shape.ringSegments = 8;
+        child_shape.sideSegments = 8;
         auto child_faces = faceGen.Generate(child_shape);
 
         // Connect parent top cap (face 8, N=8-gon) to torus face 0 (a quad)
         // The torus face is a quad but the parent top cap is an 8-gon — topology mismatch.
         // Use a lateral parent face (quad) to a torus face (quad) instead.
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = 0;  // parent lateral quad face
-        conn.child_face_index = 0;   // torus quad face
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = 0;  // parent lateral quad face
+        conn.childFaceIndex = 0;   // torus quad face
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
@@ -309,9 +309,9 @@ void RunConnectionValidatorTests()
 
         // Cone base (face N, last face) connects to cylinder top cap (face N)
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = n;  // cylinder top cap
-        conn.child_face_index = n;   // cone base
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = n;  // cylinder top cap
+        conn.childFaceIndex = n;   // cone base
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
@@ -321,8 +321,8 @@ void RunConnectionValidatorTests()
         RC_ASSERT(result.valid);
     });
 
-    // Property: Point_Connection skips volume overlap check
-    rc::check("Property: Point_Connection skips volume overlap check", []() {
+    // Property: PointConnection skips volume overlap check
+    rc::check("Property: PointConnection skips volume overlap check", []() {
         ConnectionValidator validator;
         ConnectionSolver solver;
         FaceGenerator faceGen;
@@ -337,20 +337,20 @@ void RunConnectionValidatorTests()
         ShapeParams child_shape;
         child_shape.type = ShapeType::Sphere;
         child_shape.radius = 0.5f;
-        child_shape.lon_segments = 8;
-        child_shape.lat_segments = 6;
+        child_shape.lonSegments = 8;
+        child_shape.latSegments = 6;
         auto child_faces = faceGen.Generate(child_shape);
 
         Connection conn;
-        conn.type = ConnectionType::Point_Connection;
-        conn.parent_face_index = 8;
-        conn.child_face_index = 0;
+        conn.type = ConnectionType::PointConnection;
+        conn.parentFaceIndex = 8;
+        conn.childFaceIndex = 0;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);
 
         auto result = validator.ValidateNoVolumeOverlap(
             conn, parent_faces, child_faces, transform, "parent", "child");
-        RC_ASSERT(result.valid); // skipped, always valid for Point_Connection
+        RC_ASSERT(result.valid); // skipped, always valid for PointConnection
     });
 
     // Property: ValidateBody passes for correctly defined bodies
@@ -372,9 +372,9 @@ void RunConnectionValidatorTests()
         head.shape.radius = 0.3f;
         head.shape.height = 0.6f;
         head.shape.segments = 12;
-        head.connection.type = ConnectionType::Face_Connection;
-        head.connection.parent_face_index = 12;  // torso top cap
-        head.connection.child_face_index = 13;   // head bottom cap
+        head.connection.type = ConnectionType::FaceConnection;
+        head.connection.parentFaceIndex = 12;  // torso top cap
+        head.connection.childFaceIndex = 13;   // head bottom cap
         head.connection.rotation = 0.0f;
 
         body.root.children.push_back(head);
@@ -389,7 +389,7 @@ void RunConnectionValidatorTests()
 
         Body body;
         body.name = "test_overlap";
-        body.format_version = 1;
+        body.formatVersion = 1;
         body.root.name = "base";
         body.root.shape.type = ShapeType::Cylinder;
         body.root.shape.radius = 1.0f;
@@ -400,15 +400,15 @@ void RunConnectionValidatorTests()
         BodyNode child;
         child.name = "overlapping_torus";
         child.shape.type = ShapeType::Torus;
-        child.shape.major_radius = 1.0f;
-        child.shape.minor_radius = 0.4f;
-        child.shape.ring_segments = 8;
-        child.shape.side_segments = 8;
+        child.shape.majorRadius = 1.0f;
+        child.shape.minorRadius = 0.4f;
+        child.shape.ringSegments = 8;
+        child.shape.sideSegments = 8;
 
         // Connect cylinder lateral quad (face 0) to torus quad (face 0)
-        child.connection.type = ConnectionType::Face_Connection;
-        child.connection.parent_face_index = 0;  // lateral quad
-        child.connection.child_face_index = 0;   // torus face
+        child.connection.type = ConnectionType::FaceConnection;
+        child.connection.parentFaceIndex = 0;  // lateral quad
+        child.connection.childFaceIndex = 0;   // torus face
         child.connection.rotation = 0.0f;
 
         body.root.children.push_back(child);
@@ -446,9 +446,9 @@ void RunConnectionValidatorTests()
         // Note: topology mismatch (quad vs N-gon) — this would fail topology check.
         // Use lateral-to-lateral instead (both are quads for same N).
         Connection conn;
-        conn.type = ConnectionType::Face_Connection;
-        conn.parent_face_index = 3;  // parent lateral quad
-        conn.child_face_index = 3;   // child lateral quad
+        conn.type = ConnectionType::FaceConnection;
+        conn.parentFaceIndex = 3;  // parent lateral quad
+        conn.childFaceIndex = 3;   // child lateral quad
         conn.rotation = 0.0f;
 
         Mat4 transform = solver.ComputeLegacyTransform(conn, parent_faces, child_faces);

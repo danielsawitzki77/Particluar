@@ -21,5 +21,5 @@ public:
 
 private:
     float m_x, m_y;
-    float m_pivot_x, m_pivot_y;
+    float m_pivotX, m_pivotY;
 };

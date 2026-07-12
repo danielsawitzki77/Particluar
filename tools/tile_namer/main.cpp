@@ -5,7 +5,7 @@
 // Steps:
 //   1. Parse sidecar JSON from the folder (using JsonUtil::ParseFile)
 //   2. Iterate tiles array, find entries with empty or missing "id"
-//   3. For each unnamed tile, generate name: tile_<x>_<y> (from source_rect)
+//   3. For each unnamed tile, generate name: tile_<x>_<y> (from sourceRect)
 //   4. Ensure no collision with existing names (append _2, _3, etc.)
 //   5. If all tiles already named: exit(0) without modifying file
 //   6. Otherwise: update JSON in place and write back using JsonUtil::WriteFile
@@ -101,9 +101,9 @@ int main(int argc, char* argv[]) {
 
         if (!needsName) continue;
 
-        // Get source_rect x,y for deterministic naming
+        // Get sourceRect x,y for deterministic naming
         int srcX = 0, srcY = 0;
-        auto srIt = tileObj.find("source_rect");
+        auto srIt = tileObj.find("sourceRect");
         if (srIt != tileObj.end() && srIt->second.is<picojson::object>()) {
             const picojson::object& sr = srIt->second.get<picojson::object>();
             auto xIt = sr.find("x");

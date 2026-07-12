@@ -105,10 +105,10 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
             continue;
         }
 
-        // Extract source_rect
+        // Extract sourceRect
         const picojson::object* srcRectObj = nullptr;
-        if (!JsonUtil::GetObject(tileObj, "source_rect", srcRectObj)) {
-            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): missing 'source_rect', skipping.",
+        if (!JsonUtil::GetObject(tileObj, "sourceRect", srcRectObj)) {
+            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): missing 'sourceRect', skipping.",
                     id.c_str(), i);
             continue;
         }
@@ -118,22 +118,22 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
             !JsonUtil::GetInt(*srcRectObj, "y", sr.y) ||
             !JsonUtil::GetInt(*srcRectObj, "w", sr.w) ||
             !JsonUtil::GetInt(*srcRectObj, "h", sr.h)) {
-            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): source_rect missing x/y/w/h, skipping.",
+            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): sourceRect missing x/y/w/h, skipping.",
                     id.c_str(), i);
             continue;
         }
 
         // Validate w >= 1, h >= 1
         if (sr.w < 1 || sr.h < 1) {
-            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): source_rect w=%d h=%d invalid (must be >= 1), skipping.",
+            SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): sourceRect w=%d h=%d invalid (must be >= 1), skipping.",
                     id.c_str(), i, sr.w, sr.h);
             continue;
         }
 
-        // Validate source_rect fits within texture dimensions (only if texW/texH > 0)
+        // Validate sourceRect fits within texture dimensions (only if texW/texH > 0)
         if (texW > 0 && texH > 0) {
             if (sr.x + sr.w > texW || sr.y + sr.h > texH) {
-                SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): source_rect (%d,%d,%d,%d) exceeds texture %dx%d, skipping.",
+                SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): sourceRect (%d,%d,%d,%d) exceeds texture %dx%d, skipping.",
                         id.c_str(), i, sr.x, sr.y, sr.w, sr.h, texW, texH);
                 continue;
             }
@@ -186,7 +186,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
                     const picojson::object& frameObj = frameVal.get<picojson::object>();
 
                     AnimationFrame frame;
-                    frame.tileid = -1; // not used when parsed from JSON (source_rect is explicit)
+                    frame.tileid = -1; // not used when parsed from JSON (sourceRect is explicit)
 
                     // Parse duration_ms
                     int durationMs = 0;
@@ -197,10 +197,10 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
                     }
                     frame.duration_ms = durationMs;
 
-                    // Parse source_rect for this frame
+                    // Parse sourceRect for this frame
                     const picojson::object* frameSrcObj = nullptr;
-                    if (!JsonUtil::GetObject(frameObj, "source_rect", frameSrcObj)) {
-                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: missing source_rect, skipping frame.",
+                    if (!JsonUtil::GetObject(frameObj, "sourceRect", frameSrcObj)) {
+                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: missing sourceRect, skipping frame.",
                                 id.c_str(), ai);
                         continue;
                     }
@@ -210,7 +210,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
                         !JsonUtil::GetInt(*frameSrcObj, "y", fsr.y) ||
                         !JsonUtil::GetInt(*frameSrcObj, "w", fsr.w) ||
                         !JsonUtil::GetInt(*frameSrcObj, "h", fsr.h)) {
-                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: source_rect missing fields, skipping.",
+                        SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: sourceRect missing fields, skipping.",
                                 id.c_str(), ai);
                         continue;
                     }
@@ -220,7 +220,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
                     // Validate against texture bounds if available
                     if (texW > 0 && texH > 0) {
                         if (fsr.x + fsr.w > texW || fsr.y + fsr.h > texH) {
-                            SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: source_rect exceeds texture, skipping.",
+                            SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: sourceRect exceeds texture, skipping.",
                                     id.c_str(), ai);
                             continue;
                         }
@@ -235,7 +235,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
         // Tile is valid - add it
         TileDef tileDef;
         tileDef.id = id;
-        tileDef.source_rect = sr;
+        tileDef.sourceRect = sr;
         tileDef.adjacency = adj;
         tileDef.scale = tileScale;
         tileDef.animation = std::move(animFrames);
@@ -276,39 +276,39 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
     // Build output
     out.name = name;
     out.texture = tex;
-    out.texture_width = texW;
-    out.texture_height = texH;
+    out.textureWidth = texW;
+    out.textureHeight = texH;
     out.tiles = std::move(tiles);
     out.rawJson = rawJson;
 
     // Extract per-sheet scale from JSON root (optional, default 1.0)
-    // Accepts both "scale" and "sheet_scale" field names for compatibility
-    out.sheet_scale = 1.0f;
+    // Accepts both "scale" and "sheetScale" field names for compatibility
+    out.sheetScale = 1.0f;
     if (rawJson.is<picojson::object>()) {
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
-        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
+        // Try "scale" first (per issue #91 spec), then "sheetScale" for backward compat
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
-            out.sheet_scale = static_cast<float>(sheetScaleVal);
-            if (out.sheet_scale <= 0.0f) {
-                SDL_Log("[TilesetLoader] Invalid sheet_scale %.2f, using 1.0.", out.sheet_scale);
-                out.sheet_scale = 1.0f;
+            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            out.sheetScale = static_cast<float>(sheetScaleVal);
+            if (out.sheetScale <= 0.0f) {
+                SDL_Log("[TilesetLoader] Invalid sheetScale %.2f, using 1.0.", out.sheetScale);
+                out.sheetScale = 1.0f;
             }
         }
     }
 
     // Build id -> index map
-    out.id_index.clear();
+    out.idIndex.clear();
     for (size_t i = 0; i < out.tiles.size(); ++i) {
-        out.id_index[out.tiles[i].id] = i;
+        out.idIndex[out.tiles[i].id] = i;
     }
 
     // Parse TSX files in the folder for animation data
     // columns = texW / tileWidth (approximate from first tile if available)
     int columns = 0;
-    if (!out.tiles.empty() && out.tiles[0].source_rect.w > 0) {
-        columns = texW / out.tiles[0].source_rect.w;
+    if (!out.tiles.empty() && out.tiles[0].sourceRect.w > 0) {
+        columns = texW / out.tiles[0].sourceRect.w;
     }
     ParseTsxAnimations(folderPath, out.tiles, texW, columns);
 
@@ -351,26 +351,26 @@ bool TilesetLoader::LoadTilesetFromJson(SDL_Renderer* renderer, const std::strin
 
     out.name = name;
     out.texture = tex;
-    out.texture_width = texW;
-    out.texture_height = texH;
+    out.textureWidth = texW;
+    out.textureHeight = texH;
     out.tiles = std::move(tiles);
     out.rawJson = rawJson;
 
     // Extract per-sheet scale
-    out.sheet_scale = 1.0f;
+    out.sheetScale = 1.0f;
     if (rawJson.is<picojson::object>()) {
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
-            out.sheet_scale = static_cast<float>(sheetScaleVal);
-            if (out.sheet_scale <= 0.0f) out.sheet_scale = 1.0f;
+            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            out.sheetScale = static_cast<float>(sheetScaleVal);
+            if (out.sheetScale <= 0.0f) out.sheetScale = 1.0f;
         }
     }
 
-    out.id_index.clear();
+    out.idIndex.clear();
     for (size_t i = 0; i < out.tiles.size(); ++i) {
-        out.id_index[out.tiles[i].id] = i;
+        out.idIndex[out.tiles[i].id] = i;
     }
 
     return true;
@@ -381,7 +381,7 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     std::string pngPath, jsonPath, name;
     FindTilesetFiles(folderPath, pngPath, jsonPath, name);
 
-    // Data-only load: skip texture loading, skip source_rect dimension validation
+    // Data-only load: skip texture loading, skip sourceRect dimension validation
     // Pass texW=0, texH=0 to indicate "no dimension validation"
     std::vector<TileDef> tiles;
     picojson::value rawJson;
@@ -391,32 +391,32 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
 
     // Build output
     out.name = name;
-    out.texture_width = 0;
-    out.texture_height = 0;
+    out.textureWidth = 0;
+    out.textureHeight = 0;
     out.tiles = std::move(tiles);
     out.rawJson = rawJson;
 
     // Extract per-sheet scale from JSON root (optional, default 1.0)
-    // Accepts both "scale" and "sheet_scale" field names for compatibility
-    out.sheet_scale = 1.0f;
+    // Accepts both "scale" and "sheetScale" field names for compatibility
+    out.sheetScale = 1.0f;
     if (rawJson.is<picojson::object>()) {
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
-        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
+        // Try "scale" first (per issue #91 spec), then "sheetScale" for backward compat
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
-            out.sheet_scale = static_cast<float>(sheetScaleVal);
-            if (out.sheet_scale <= 0.0f) {
-                SDL_Log("[TilesetLoader] Invalid sheet_scale %.2f, using 1.0.", out.sheet_scale);
-                out.sheet_scale = 1.0f;
+            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            out.sheetScale = static_cast<float>(sheetScaleVal);
+            if (out.sheetScale <= 0.0f) {
+                SDL_Log("[TilesetLoader] Invalid sheetScale %.2f, using 1.0.", out.sheetScale);
+                out.sheetScale = 1.0f;
             }
         }
     }
 
     // Build id -> index map
-    out.id_index.clear();
+    out.idIndex.clear();
     for (size_t i = 0; i < out.tiles.size(); ++i) {
-        out.id_index[out.tiles[i].id] = i;
+        out.idIndex[out.tiles[i].id] = i;
     }
 
     return true;
@@ -528,17 +528,17 @@ void TilesetLoader::ParseTsxAnimations(const std::string& folderPath,
                 inAnimation = false;
                 // Apply animation frames to matching tile
                 if (currentTileId >= 0 && !currentFrames.empty()) {
-                    // Find the tile with a source_rect that matches this TSX tile id
+                    // Find the tile with a sourceRect that matches this TSX tile id
                     int col = currentTileId % tsxColumns;
                     int row = currentTileId / tsxColumns;
                     int expectedX = col * tileWidth;
                     int expectedY = row * tileHeight;
 
                     for (auto& tile : tiles) {
-                        if (tile.source_rect.x == expectedX &&
-                            tile.source_rect.y == expectedY &&
-                            tile.source_rect.w == tileWidth &&
-                            tile.source_rect.h == tileHeight) {
+                        if (tile.sourceRect.x == expectedX &&
+                            tile.sourceRect.y == expectedY &&
+                            tile.sourceRect.w == tileWidth &&
+                            tile.sourceRect.h == tileHeight) {
                             tile.animation = currentFrames;
                             break;
                         }

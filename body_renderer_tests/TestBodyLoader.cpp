@@ -26,14 +26,14 @@ static ShapeParams GenValidShape(ShapeType type)
         break;
     case ShapeType::Sphere:
         s.radius = *rc::gen::inRange(1, 50) / 10.0f;
-        s.lon_segments = *rc::gen::inRange(4, 32);
-        s.lat_segments = *rc::gen::inRange(3, 16);
+        s.lonSegments = *rc::gen::inRange(4, 32);
+        s.latSegments = *rc::gen::inRange(3, 16);
         break;
     case ShapeType::Torus:
-        s.major_radius = *rc::gen::inRange(20, 100) / 10.0f;
-        s.minor_radius = *rc::gen::inRange(1, 19) / 10.0f;
-        s.ring_segments = *rc::gen::inRange(3, 32);
-        s.side_segments = *rc::gen::inRange(3, 16);
+        s.majorRadius = *rc::gen::inRange(20, 100) / 10.0f;
+        s.minorRadius = *rc::gen::inRange(1, 19) / 10.0f;
+        s.ringSegments = *rc::gen::inRange(3, 32);
+        s.sideSegments = *rc::gen::inRange(3, 16);
         break;
     }
     return s;
@@ -76,8 +76,8 @@ void RunBodyLoaderTests()
             RC_ASSERT(std::fabs(result.body.root.shape.radius - body.root.shape.radius) < eps);
             break;
         case ShapeType::Torus:
-            RC_ASSERT(std::fabs(result.body.root.shape.major_radius - body.root.shape.major_radius) < eps);
-            RC_ASSERT(std::fabs(result.body.root.shape.minor_radius - body.root.shape.minor_radius) < eps);
+            RC_ASSERT(std::fabs(result.body.root.shape.majorRadius - body.root.shape.majorRadius) < eps);
+            RC_ASSERT(std::fabs(result.body.root.shape.minorRadius - body.root.shape.minorRadius) < eps);
             break;
         }
     });

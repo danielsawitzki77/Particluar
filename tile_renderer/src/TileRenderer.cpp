@@ -32,8 +32,8 @@ void TileRenderer::RenderLayer(
     const float pivot_y = camera.GetPivotY();
 
     // Screen offset: where the camera world position maps to on screen
-    const float screen_origin_x = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width);
-    const float screen_origin_y = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height);
+    const float screen_originX = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width);
+    const float screen_originY = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height);
 
     const int grid_height = static_cast<int>(mapData.grid.size());
 
@@ -55,18 +55,18 @@ void TileRenderer::RenderLayer(
             const std::string& tileId = mapData.grid[row][col];
 
             // Compute destination rect — snap to integer pixels to avoid sub-pixel gaps
-            float dest_x = SDL_floorf(screen_origin_x + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x));
-            float dest_y = SDL_floorf(screen_origin_y + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y));
+            float dest_x = SDL_floorf(screen_originX + (static_cast<float>(col) * static_cast<float>(tile_width) - cam_x));
+            float dest_y = SDL_floorf(screen_originY + (static_cast<float>(row) * static_cast<float>(tile_height) - cam_y));
 
             // Look up tile ID in tileset
-            auto it = tileset.id_index.find(tileId);
-            if (it != tileset.id_index.end()) {
+            auto it = tileset.idIndex.find(tileId);
+            if (it != tileset.idIndex.end()) {
                 // Resolved tile — render texture at native source size (scaled)
                 const TileDef& tileDef = tileset.tiles[it->second];
                 const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);
 
-                // Destination size = source pixel size * sheet_scale * tile_scale
-                float finalScale = tileset.sheet_scale * tileDef.scale;
+                // Destination size = source pixel size * sheetScale * tile_scale
+                float finalScale = tileset.sheetScale * tileDef.scale;
                 float destW = static_cast<float>(src.w) * finalScale;
                 float destH = static_cast<float>(src.h) * finalScale;
 
@@ -166,7 +166,7 @@ void TileRenderer::RenderLayers(
         SDL_SetTextureScaleMode(tileset->texture, scaleMode);
 
         // Compute effective tile size for this layer's grid cells
-        // The grid cell size is base_tile * layer_scale (tiles fill their cell)
+        // The grid cell size is base_tile * layerScale (tiles fill their cell)
         const float layerScale = cfg.scale;
         const float cellW = static_cast<float>(base_tile_width) * layerScale;
         const float cellH = static_cast<float>(base_tile_height) * layerScale;
@@ -179,8 +179,8 @@ void TileRenderer::RenderLayers(
         const float offset_x = cfg.offset_x;
         const float offset_y = cfg.offset_y;
 
-        const float screen_origin_x = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width) + offset_x;
-        const float screen_origin_y = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height) + offset_y;
+        const float screen_originX = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width) + offset_x;
+        const float screen_originY = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height) + offset_y;
 
         // Compute visible tile range for this layer using its scaled cell size
         // (we need integer tile_width/height for ComputeVisibleTiles, so use ceiling)
@@ -211,18 +211,18 @@ void TileRenderer::RenderLayers(
                 const std::string& tileId = mapData.grid[row][col];
 
                 // Compute destination rect (grid cell position)
-                float dest_x = screen_origin_x + (static_cast<float>(col) * cellW - cam_x * layerScale);
-                float dest_y = screen_origin_y + (static_cast<float>(row) * cellH - cam_y * layerScale);
+                float dest_x = screen_originX + (static_cast<float>(col) * cellW - cam_x * layerScale);
+                float dest_y = screen_originY + (static_cast<float>(row) * cellH - cam_y * layerScale);
 
                 // Look up tile ID in tileset
-                auto it = tileset->id_index.find(tileId);
-                if (it != tileset->id_index.end()) {
+                auto it = tileset->idIndex.find(tileId);
+                if (it != tileset->idIndex.end()) {
                     const TileDef& tileDef = tileset->tiles[it->second];
                     const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);
 
                     // Three-level scaling:
-                    // final_size = base_tile_size * layer_scale * sheet_scale * tile_scale
-                    float finalScale = layerScale * tileset->sheet_scale * tileDef.scale;
+                    // final_size = base_tile_size * layerScale * sheetScale * tile_scale
+                    float finalScale = layerScale * tileset->sheetScale * tileDef.scale;
                     float finalW = static_cast<float>(base_tile_width) * finalScale;
                     float finalH = static_cast<float>(base_tile_height) * finalScale;
 
@@ -296,20 +296,20 @@ void TileRenderer::RenderJigsawLayer(
 
     // Compute the world-space rect visible in the viewport.
     // Screen origin: the screen point where world (cam_x, cam_y) maps to.
-    // screen_origin_x = vp.x + pivot_x * vp.width + offset_x
+    // screen_originX = vp.x + pivot_x * vp.width + offset_x
     // A world point (wx, wy) maps to screen:
-    //   sx = screen_origin_x + (wx - cam_x) * scale
-    //   sy = screen_origin_y + (wy - cam_y) * scale
+    //   sx = screen_originX + (wx - cam_x) * scale
+    //   sy = screen_originY + (wy - cam_y) * scale
     // Inverting to find world rect from viewport edges:
-    //   wx = cam_x + (sx - screen_origin_x) / scale
-    float screen_origin_x = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width) + offset_x;
-    float screen_origin_y = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height) + offset_y;
+    //   wx = cam_x + (sx - screen_originX) / scale
+    float screen_originX = static_cast<float>(vp.x) + pivot_x * static_cast<float>(vp.width) + offset_x;
+    float screen_originY = static_cast<float>(vp.y) + pivot_y * static_cast<float>(vp.height) + offset_y;
 
     // World-space coordinates at viewport edges
-    float world_left = cam_x + (static_cast<float>(vp.x) - screen_origin_x) / scale;
-    float world_top = cam_y + (static_cast<float>(vp.y) - screen_origin_y) / scale;
-    float world_right = cam_x + (static_cast<float>(vp.x + vp.width) - screen_origin_x) / scale;
-    float world_bottom = cam_y + (static_cast<float>(vp.y + vp.height) - screen_origin_y) / scale;
+    float world_left = cam_x + (static_cast<float>(vp.x) - screen_originX) / scale;
+    float world_top = cam_y + (static_cast<float>(vp.y) - screen_originY) / scale;
+    float world_right = cam_x + (static_cast<float>(vp.x + vp.width) - screen_originX) / scale;
+    float world_bottom = cam_y + (static_cast<float>(vp.y + vp.height) - screen_originY) / scale;
 
     float query_w = world_right - world_left;
     float query_h = world_bottom - world_top;
@@ -329,16 +329,16 @@ void TileRenderer::RenderJigsawLayer(
         const PlacedTile& tile = *visibleTiles[i];
 
         // Compute screen position from world position
-        float dest_x = screen_origin_x + (tile.x - cam_x) * scale;
-        float dest_y = screen_origin_y + (tile.y - cam_y) * scale;
+        float dest_x = screen_originX + (tile.x - cam_x) * scale;
+        float dest_y = screen_originY + (tile.y - cam_y) * scale;
         float dest_w = tile.w * scale;
         float dest_h = tile.h * scale;
 
         SDL_FRect destRect = { dest_x, dest_y, dest_w, dest_h };
 
-        // Look up tile_id in tileset
-        auto it = tileset.id_index.find(tile.tile_id);
-        if (it != tileset.id_index.end()) {
+        // Look up tileId in tileset
+        auto it = tileset.idIndex.find(tile.tileId);
+        if (it != tileset.idIndex.end()) {
             // Resolved tile — render texture with source rect
             const TileDef& tileDef = tileset.tiles[it->second];
             const SourceRect& src = tileDef.GetCurrentRect(elapsed_ms);

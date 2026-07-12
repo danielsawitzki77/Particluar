@@ -38,27 +38,27 @@ void RunFaceGeneratorTests()
             RC_ASSERT(static_cast<int>(faces.size()) == s.segments + 2);
         }
 
-        // Sphere: lat_segments * lon_segments
+        // Sphere: latSegments * lonSegments
         {
             ShapeParams s;
             s.type = ShapeType::Sphere;
             s.radius = *rc::gen::inRange(1, 50) / 10.0f;
-            s.lon_segments = *rc::gen::inRange(4, 16);
-            s.lat_segments = *rc::gen::inRange(3, 8);
+            s.lonSegments = *rc::gen::inRange(4, 16);
+            s.latSegments = *rc::gen::inRange(3, 8);
             auto faces = gen.Generate(s);
-            RC_ASSERT(static_cast<int>(faces.size()) == s.lat_segments * s.lon_segments);
+            RC_ASSERT(static_cast<int>(faces.size()) == s.latSegments * s.lonSegments);
         }
 
-        // Torus: ring_segments * side_segments
+        // Torus: ringSegments * sideSegments
         {
             ShapeParams s;
             s.type = ShapeType::Torus;
-            s.major_radius = *rc::gen::inRange(20, 50) / 10.0f;
-            s.minor_radius = *rc::gen::inRange(1, 19) / 10.0f;
-            s.ring_segments = *rc::gen::inRange(3, 16);
-            s.side_segments = *rc::gen::inRange(3, 8);
+            s.majorRadius = *rc::gen::inRange(20, 50) / 10.0f;
+            s.minorRadius = *rc::gen::inRange(1, 19) / 10.0f;
+            s.ringSegments = *rc::gen::inRange(3, 16);
+            s.sideSegments = *rc::gen::inRange(3, 8);
             auto faces = gen.Generate(s);
-            RC_ASSERT(static_cast<int>(faces.size()) == s.ring_segments * s.side_segments);
+            RC_ASSERT(static_cast<int>(faces.size()) == s.ringSegments * s.sideSegments);
         }
     });
 
@@ -77,10 +77,10 @@ void RunFaceGeneratorTests()
             s.radius = 1.0f; s.height = 2.0f; s.segments = 8;
             break;
         case ShapeType::Sphere:
-            s.radius = 1.0f; s.lon_segments = 8; s.lat_segments = 6;
+            s.radius = 1.0f; s.lonSegments = 8; s.latSegments = 6;
             break;
         case ShapeType::Torus:
-            s.major_radius = 2.0f; s.minor_radius = 0.5f; s.ring_segments = 8; s.side_segments = 6;
+            s.majorRadius = 2.0f; s.minorRadius = 0.5f; s.ringSegments = 8; s.sideSegments = 6;
             break;
         }
 

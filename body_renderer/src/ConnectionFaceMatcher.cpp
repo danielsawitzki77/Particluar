@@ -26,7 +26,7 @@ float ConnectionFaceMatcher::ComputeConnectionRadius(const ShapeParams& shape, c
             return shape.radius;
         return shape.radius * (1.0f - attach.v);
     case ShapeType::Torus:
-        return shape.minor_radius;
+        return shape.minorRadius;
     }
     return 0.1f;
 }
@@ -41,11 +41,11 @@ float ConnectionFaceMatcher::ComputeSphereLocalRadius(const ShapeParams& shape, 
 }
 
 float ConnectionFaceMatcher::ComputeMatchedRadius(
-    const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
-    const ShapeParams& child_shape, const AttachmentPoint& child_attach) const
+    const ShapeParams& parent_shape, const AttachmentPoint& parentAttach,
+    const ShapeParams& child_shape, const AttachmentPoint& childAttach) const
 {
-    float parent_r = ComputeConnectionRadius(parent_shape, parent_attach);
-    float child_r = ComputeConnectionRadius(child_shape, child_attach);
+    float parent_r = ComputeConnectionRadius(parent_shape, parentAttach);
+    float child_r = ComputeConnectionRadius(child_shape, childAttach);
     float matched = (parent_r + child_r) * 0.5f;
     if (matched < 0.01f) matched = 0.01f;
     return matched;
@@ -59,19 +59,19 @@ int ConnectionFaceMatcher::GetSegmentsAtRegion(const ShapeParams& shape, const A
     case ShapeType::Cone:
         return shape.segments;
     case ShapeType::Sphere:
-        return shape.lon_segments;
+        return shape.lonSegments;
     case ShapeType::Torus:
-        return shape.side_segments;
+        return shape.sideSegments;
     }
     return 8;
 }
 
 int ConnectionFaceMatcher::ComputeMatchedSegments(
-    const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
-    const ShapeParams& child_shape, const AttachmentPoint& child_attach) const
+    const ShapeParams& parent_shape, const AttachmentPoint& parentAttach,
+    const ShapeParams& child_shape, const AttachmentPoint& childAttach) const
 {
-    int parent_n = GetSegmentsAtRegion(parent_shape, parent_attach);
-    int child_n = GetSegmentsAtRegion(child_shape, child_attach);
+    int parent_n = GetSegmentsAtRegion(parent_shape, parentAttach);
+    int child_n = GetSegmentsAtRegion(child_shape, childAttach);
     return std::max(parent_n, child_n);
 }
 
@@ -91,7 +91,7 @@ int ConnectionFaceMatcher::ComputeGridIndex(const ShapeParams& shape, const Atta
     switch (shape.type) {
     case ShapeType::Cylinder: {
         int N = shape.segments;
-        int H = std::max(1, shape.height_segments);
+        int H = std::max(1, shape.heightSegments);
         if (attach.region == AttachRegion::Top)
             return N * H;  // Top cap is after all lateral quads
         if (attach.region == AttachRegion::Bottom)
@@ -110,15 +110,15 @@ int ConnectionFaceMatcher::ComputeGridIndex(const ShapeParams& shape, const Atta
         return col;
     }
     case ShapeType::Torus: {
-        int R = shape.ring_segments;
-        int T = shape.side_segments;
+        int R = shape.ringSegments;
+        int T = shape.sideSegments;
         int ring_idx = static_cast<int>(u * R) % R;
         int tube_idx = static_cast<int>(v * T) % T;
         return ring_idx * T + tube_idx;
     }
     case ShapeType::Sphere: {
-        int S = shape.lon_segments;
-        int T = shape.lat_segments;
+        int S = shape.lonSegments;
+        int T = shape.latSegments;
         int col = static_cast<int>(u * S) % S;
         float stack_f = v * T;
         if (stack_f < 1.0f) {
@@ -137,7 +137,7 @@ int ConnectionFaceMatcher::ComputeGridIndex(const ShapeParams& shape, const Atta
     }
     case ShapeType::Capsule: {
         int N = shape.segments;
-        int H = std::max(1, shape.height_segments);
+        int H = std::max(1, shape.heightSegments);
         int hemi_stacks = N / 2;
         if (hemi_stacks < 2) hemi_stacks = 2;
 

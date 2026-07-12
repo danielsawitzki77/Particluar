@@ -137,10 +137,10 @@ void JointFaceAnalyzer::AnalyzeNodeRecursive(
 {
     if (!node) return;
 
-    Mat4 world = parent_world * node->local_transform;
+    Mat4 world = parent_world * node->localTransform;
 
     // If this is a child node, analyze the joint connection
-    if (parent && !node->connection.is_legacy) {
+    if (parent && !node->connection.isLegacy) {
         JointFaceReport report;
         report.parent_name = parent->name;
         report.child_name = node->name;
@@ -154,23 +154,23 @@ void JointFaceAnalyzer::AnalyzeNodeRecursive(
         std::vector<ConnectionRing> parent_rings;
         for (int i = 0; i < static_cast<int>(parent->children.size()); ++i) {
             const BodyNode& sibling = parent->children[i];
-            if (sibling.connection.is_legacy) continue;
+            if (sibling.connection.isLegacy) continue;
 
             float mr = faceMatcher.ComputeMatchedRadius(
-                parent->shape, sibling.connection.parent_attach,
-                sibling.shape, sibling.connection.child_attach);
+                parent->shape, sibling.connection.parentAttach,
+                sibling.shape, sibling.connection.childAttach);
             int ms = faceMatcher.ComputeMatchedSegments(
-                parent->shape, sibling.connection.parent_attach,
-                sibling.shape, sibling.connection.child_attach);
+                parent->shape, sibling.connection.parentAttach,
+                sibling.shape, sibling.connection.childAttach);
 
-            SurfacePoint pt = resolver.Resolve(parent->shape, sibling.connection.parent_attach);
+            SurfacePoint pt = resolver.Resolve(parent->shape, sibling.connection.parentAttach);
             ConnectionRing ring;
             ring.center = pt.position;
             ring.normal = pt.normal;
             ring.radius = mr;
             ring.segments = ms;
             ring.child_index = i;
-            ring.attach = sibling.connection.parent_attach;
+            ring.attach = sibling.connection.parentAttach;
             parent_rings.push_back(ring);
         }
 
@@ -195,41 +195,41 @@ void JointFaceAnalyzer::AnalyzeNodeRecursive(
         std::vector<ConnectionRing> child_rings;
         {
             float mr = faceMatcher.ComputeMatchedRadius(
-                parent->shape, node->connection.parent_attach,
-                node->shape, node->connection.child_attach);
+                parent->shape, node->connection.parentAttach,
+                node->shape, node->connection.childAttach);
             int ms = faceMatcher.ComputeMatchedSegments(
-                parent->shape, node->connection.parent_attach,
-                node->shape, node->connection.child_attach);
-            SurfacePoint child_pt = resolver.Resolve(node->shape, node->connection.child_attach);
+                parent->shape, node->connection.parentAttach,
+                node->shape, node->connection.childAttach);
+            SurfacePoint child_pt = resolver.Resolve(node->shape, node->connection.childAttach);
             ConnectionRing ring;
             ring.center = child_pt.position;
             ring.normal = child_pt.normal;
             ring.radius = mr;
             ring.segments = ms;
             ring.child_index = -1;
-            ring.attach = node->connection.child_attach;
+            ring.attach = node->connection.childAttach;
             child_rings.push_back(ring);
         }
         // Also add rings for this node's own children
         for (int i = 0; i < static_cast<int>(node->children.size()); ++i) {
             const BodyNode& grandchild = node->children[i];
-            if (grandchild.connection.is_legacy) continue;
+            if (grandchild.connection.isLegacy) continue;
 
             float mr = faceMatcher.ComputeMatchedRadius(
-                node->shape, grandchild.connection.parent_attach,
-                grandchild.shape, grandchild.connection.child_attach);
+                node->shape, grandchild.connection.parentAttach,
+                grandchild.shape, grandchild.connection.childAttach);
             int ms = faceMatcher.ComputeMatchedSegments(
-                node->shape, grandchild.connection.parent_attach,
-                grandchild.shape, grandchild.connection.child_attach);
+                node->shape, grandchild.connection.parentAttach,
+                grandchild.shape, grandchild.connection.childAttach);
 
-            SurfacePoint pt = resolver.Resolve(node->shape, grandchild.connection.parent_attach);
+            SurfacePoint pt = resolver.Resolve(node->shape, grandchild.connection.parentAttach);
             ConnectionRing ring;
             ring.center = pt.position;
             ring.normal = pt.normal;
             ring.radius = mr;
             ring.segments = ms;
             ring.child_index = i;
-            ring.attach = grandchild.connection.parent_attach;
+            ring.attach = grandchild.connection.parentAttach;
             child_rings.push_back(ring);
         }
 
@@ -241,7 +241,7 @@ void JointFaceAnalyzer::AnalyzeNodeRecursive(
             int pfi = parent_matched.connection_face_indices[parent_ring_idx];
             if (pfi >= 0 && pfi < static_cast<int>(parent_matched.faces.size())) {
                 const Face& pface = parent_matched.faces[pfi];
-                report.parent_face_index = pfi;
+                report.parentFaceIndex = pfi;
                 report.parent_face_vertex_count = static_cast<int>(pface.vertices.size());
                 report.parent_face_area = ComputeFaceArea(pface);
 
@@ -256,7 +256,7 @@ void JointFaceAnalyzer::AnalyzeNodeRecursive(
             int cfi = child_matched.connection_face_indices[0];
             if (cfi >= 0 && cfi < static_cast<int>(child_matched.faces.size())) {
                 const Face& cface = child_matched.faces[cfi];
-                report.child_face_index = cfi;
+                report.childFaceIndex = cfi;
                 report.child_face_vertex_count = static_cast<int>(cface.vertices.size());
                 report.child_face_area = ComputeFaceArea(cface);
 

@@ -113,30 +113,30 @@ static bool CreateTestTileset(SDL_Renderer* renderer, Tileset& out)
     // Build tileset struct
     out.name = "test";
     out.texture = tex;
-    out.texture_width = TEX_W;
-    out.texture_height = TEX_H;
+    out.textureWidth = TEX_W;
+    out.textureHeight = TEX_H;
 
     // Define 4 tiles with adjacency rules allowing all neighbors
     std::vector<std::string> allIds = { "red", "green", "blue", "yellow" };
 
     TileDef redTile;
     redTile.id = "red";
-    redTile.source_rect = { 0, 0, TILE_SIZE, TILE_SIZE };
+    redTile.sourceRect = { 0, 0, TILE_SIZE, TILE_SIZE };
     redTile.adjacency = { allIds, allIds, allIds, allIds };
 
     TileDef greenTile;
     greenTile.id = "green";
-    greenTile.source_rect = { TILE_SIZE, 0, TILE_SIZE, TILE_SIZE };
+    greenTile.sourceRect = { TILE_SIZE, 0, TILE_SIZE, TILE_SIZE };
     greenTile.adjacency = { allIds, allIds, allIds, allIds };
 
     TileDef blueTile;
     blueTile.id = "blue";
-    blueTile.source_rect = { 0, TILE_SIZE, TILE_SIZE, TILE_SIZE };
+    blueTile.sourceRect = { 0, TILE_SIZE, TILE_SIZE, TILE_SIZE };
     blueTile.adjacency = { allIds, allIds, allIds, allIds };
 
     TileDef yellowTile;
     yellowTile.id = "yellow";
-    yellowTile.source_rect = { TILE_SIZE, TILE_SIZE, TILE_SIZE, TILE_SIZE };
+    yellowTile.sourceRect = { TILE_SIZE, TILE_SIZE, TILE_SIZE, TILE_SIZE };
     yellowTile.adjacency = { allIds, allIds, allIds, allIds };
 
     out.tiles.push_back(redTile);
@@ -145,9 +145,9 @@ static bool CreateTestTileset(SDL_Renderer* renderer, Tileset& out)
     out.tiles.push_back(yellowTile);
 
     // Build id -> index map
-    out.id_index.clear();
+    out.idIndex.clear();
     for (size_t i = 0; i < out.tiles.size(); ++i) {
-        out.id_index[out.tiles[i].id] = i;
+        out.idIndex[out.tiles[i].id] = i;
     }
 
     return true;
@@ -160,10 +160,10 @@ static TilesetDef BuildTilesetDef(const Tileset& ts)
 {
     TilesetDef def;
     def.name = ts.name;
-    def.texture_width = ts.texture_width;
-    def.texture_height = ts.texture_height;
+    def.textureWidth = ts.textureWidth;
+    def.textureHeight = ts.textureHeight;
     def.tiles = ts.tiles;
-    def.id_index = ts.id_index;
+    def.idIndex = ts.idIndex;
     return def;
 }
 
@@ -282,10 +282,10 @@ int main(int argc, char* argv[])
         }
 
         // Use grid WFC — determine grid dimensions from tile size and target area
-        float sheetScale = tilesetDef.sheet_scale;
+        float sheetScale = tilesetDef.sheetScale;
         const TileDef& firstTile = tilesetDef.tiles[0];
-        float tileW = static_cast<float>(firstTile.source_rect.w) * sheetScale * firstTile.scale;
-        float tileH = static_cast<float>(firstTile.source_rect.h) * sheetScale * firstTile.scale;
+        float tileW = static_cast<float>(firstTile.sourceRect.w) * sheetScale * firstTile.scale;
+        float tileH = static_cast<float>(firstTile.sourceRect.h) * sheetScale * firstTile.scale;
 
         int gridW = static_cast<int>(800.0f / tileW) + 2;
         int gridH = static_cast<int>(600.0f / tileH) + 2;
@@ -312,7 +312,7 @@ int main(int argc, char* argv[])
                     seed = seed * 1103515245 + 12345;
                     int idx = static_cast<int>((seed >> 16) % numTiles);
                     PlacedTile pt;
-                    pt.tile_id = tilesetDef.tiles[idx].id;
+                    pt.tileId = tilesetDef.tiles[idx].id;
                     pt.x = static_cast<float>(col) * tileW;
                     pt.y = static_cast<float>(row) * tileH;
                     pt.w = tileW;
@@ -332,15 +332,15 @@ int main(int argc, char* argv[])
 
                 // Look up actual tile size (may vary per tile if not uniform)
                 float tw = tileW, th = tileH;
-                auto it = tilesetDef.id_index.find(tileId);
-                if (it != tilesetDef.id_index.end()) {
+                auto it = tilesetDef.idIndex.find(tileId);
+                if (it != tilesetDef.idIndex.end()) {
                     const TileDef& td = tilesetDef.tiles[it->second];
-                    tw = static_cast<float>(td.source_rect.w) * sheetScale * td.scale;
-                    th = static_cast<float>(td.source_rect.h) * sheetScale * td.scale;
+                    tw = static_cast<float>(td.sourceRect.w) * sheetScale * td.scale;
+                    th = static_cast<float>(td.sourceRect.h) * sheetScale * td.scale;
                 }
 
                 PlacedTile pt;
-                pt.tile_id = tileId;
+                pt.tileId = tileId;
                 pt.x = static_cast<float>(col) * tileW;
                 pt.y = static_cast<float>(row) * tileH;
                 pt.w = tw;

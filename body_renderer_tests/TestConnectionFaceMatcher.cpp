@@ -28,27 +28,27 @@ void RunConnectionFaceMatcherTests()
         parent.radius = *rc::gen::inRange(20, 100) / 100.0f;
         parent.height = *rc::gen::inRange(50, 200) / 100.0f;
         parent.segments = *rc::gen::inRange(6, 20);
-        parent.lon_segments = *rc::gen::inRange(6, 20);
-        parent.lat_segments = *rc::gen::inRange(4, 16);
-        parent.major_radius = *rc::gen::inRange(50, 150) / 100.0f;
-        parent.minor_radius = *rc::gen::inRange(10, 40) / 100.0f;
+        parent.lonSegments = *rc::gen::inRange(6, 20);
+        parent.latSegments = *rc::gen::inRange(4, 16);
+        parent.majorRadius = *rc::gen::inRange(50, 150) / 100.0f;
+        parent.minorRadius = *rc::gen::inRange(10, 40) / 100.0f;
 
         ShapeParams child;
         child.type = static_cast<ShapeType>(*rc::gen::inRange(0, 5));
         child.radius = *rc::gen::inRange(10, 80) / 100.0f;
         child.height = *rc::gen::inRange(30, 150) / 100.0f;
         child.segments = *rc::gen::inRange(6, 20);
-        child.lon_segments = *rc::gen::inRange(6, 20);
-        child.lat_segments = *rc::gen::inRange(4, 16);
-        child.major_radius = *rc::gen::inRange(40, 120) / 100.0f;
-        child.minor_radius = *rc::gen::inRange(10, 35) / 100.0f;
+        child.lonSegments = *rc::gen::inRange(6, 20);
+        child.latSegments = *rc::gen::inRange(4, 16);
+        child.majorRadius = *rc::gen::inRange(40, 120) / 100.0f;
+        child.minorRadius = *rc::gen::inRange(10, 35) / 100.0f;
 
-        AttachmentPoint parent_attach(AttachRegion::Top, 0.5f, 0.5f);
-        AttachmentPoint child_attach(AttachRegion::Bottom, 0.5f, 0.5f);
+        AttachmentPoint parentAttach(AttachRegion::Top, 0.5f, 0.5f);
+        AttachmentPoint childAttach(AttachRegion::Bottom, 0.5f, 0.5f);
 
-        float parent_r = matcher.ComputeConnectionRadius(parent, parent_attach);
-        float child_r = matcher.ComputeConnectionRadius(child, child_attach);
-        float matched = matcher.ComputeMatchedRadius(parent, parent_attach, child, child_attach);
+        float parent_r = matcher.ComputeConnectionRadius(parent, parentAttach);
+        float child_r = matcher.ComputeConnectionRadius(child, childAttach);
+        float matched = matcher.ComputeMatchedRadius(parent, parentAttach, child, childAttach);
 
         // Matched radius should be between the two sides' radii (with tolerance)
         float max_r = (std::max)(parent_r, child_r);
@@ -63,17 +63,17 @@ void RunConnectionFaceMatcherTests()
         ShapeParams parent;
         parent.type = ShapeType::Cylinder;
         parent.segments = *rc::gen::inRange(3, 30);
-        parent.lon_segments = parent.segments;
+        parent.lonSegments = parent.segments;
 
         ShapeParams child;
         child.type = ShapeType::Sphere;
         child.segments = *rc::gen::inRange(3, 30);
-        child.lon_segments = *rc::gen::inRange(3, 30);
+        child.lonSegments = *rc::gen::inRange(3, 30);
 
-        AttachmentPoint parent_attach(AttachRegion::Top, 0.5f, 0.5f);
-        AttachmentPoint child_attach(AttachRegion::Surface, 0.5f, 1.0f);
+        AttachmentPoint parentAttach(AttachRegion::Top, 0.5f, 0.5f);
+        AttachmentPoint childAttach(AttachRegion::Surface, 0.5f, 1.0f);
 
-        int matched = matcher.ComputeMatchedSegments(parent, parent_attach, child, child_attach);
+        int matched = matcher.ComputeMatchedSegments(parent, parentAttach, child, childAttach);
         RC_ASSERT(matched >= 3);
     });
 
@@ -85,8 +85,8 @@ void RunConnectionFaceMatcherTests()
         node.name = "test_sphere";
         node.shape.type = ShapeType::Sphere;
         node.shape.radius = 1.0f;
-        node.shape.lon_segments = 12;
-        node.shape.lat_segments = 8;
+        node.shape.lonSegments = 12;
+        node.shape.latSegments = 8;
 
         // No rings — should produce same as FaceGenerator
         MatchedFaces result = matcher.GenerateWithConnections(node, {});
@@ -159,7 +159,7 @@ void RunConnectionFaceMatcherTests()
         node.shape.radius = 1.0f;
         node.shape.height = 3.0f;
         node.shape.segments = 12;
-        node.shape.height_segments = 4; // subdivided for tapering
+        node.shape.heightSegments = 4; // subdivided for tapering
 
         // Add a ring at the top cap with half the cylinder radius — triggers tapering
         ConnectionRing ring;
@@ -199,7 +199,7 @@ void RunConnectionFaceMatcherTests()
     });
 
     // Test: Height-segmented cylinder produces correct face count
-    rc::check("Cylinder with height_segments produces correct face count", []() {
+    rc::check("Cylinder with heightSegments produces correct face count", []() {
         FaceGenerator gen;
 
         ShapeParams s;
@@ -207,11 +207,11 @@ void RunConnectionFaceMatcherTests()
         s.radius = 1.0f;
         s.height = 2.0f;
         s.segments = *rc::gen::inRange(3, 20);
-        s.height_segments = *rc::gen::inRange(1, 8);
+        s.heightSegments = *rc::gen::inRange(1, 8);
 
         auto faces = gen.Generate(s);
-        // Expected: segments * height_segments lateral quads + 2 caps
-        int expected = s.segments * s.height_segments + 2;
+        // Expected: segments * heightSegments lateral quads + 2 caps
+        int expected = s.segments * s.heightSegments + 2;
         RC_ASSERT(static_cast<int>(faces.size()) == expected);
     });
 

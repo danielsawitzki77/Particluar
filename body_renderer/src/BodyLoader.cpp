@@ -44,11 +44,11 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     const picojson::object& obj = root.get<picojson::object>();
 
     // Detect format version
-    int format_version = 1; // default to legacy
-    if (obj.count("format_version") && obj.at("format_version").is<double>()) {
-        format_version = static_cast<int>(obj.at("format_version").get<double>());
+    int formatVersion = 1; // default to legacy
+    if (obj.count("formatVersion") && obj.at("formatVersion").is<double>()) {
+        formatVersion = static_cast<int>(obj.at("formatVersion").get<double>());
     }
-    result.body.format_version = format_version;
+    result.body.formatVersion = formatVersion;
 
     // Parse name
     if (obj.count("name") && obj.at("name").is<std::string>()) {
@@ -90,7 +90,7 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     }
 
     std::string parse_err;
-    if (!ParseNode(static_cast<const void*>(node_obj), &result.body.root, 0, format_version, parse_err)) {
+    if (!ParseNode(static_cast<const void*>(node_obj), &result.body.root, 0, formatVersion, parse_err)) {
         result.success = false;
         result.error = parse_err;
         return result;
@@ -109,7 +109,7 @@ LoadResult BodyLoader::LoadFromString(const std::string& json)
     return result;
 }
 
-bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, int format_version, std::string& error)
+bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, int formatVersion, std::string& error)
 {
     if (depth > MAX_DEPTH) {
         error = "Maximum nesting depth exceeded (32 levels)";
@@ -182,7 +182,7 @@ bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, i
             // Parse connection for this child
             if (child_obj.count("connection") && child_obj.at("connection").is<picojson::object>()) {
                 const picojson::object& conn_obj = child_obj.at("connection").get<picojson::object>();
-                if (format_version >= 2) {
+                if (formatVersion >= 2) {
                     if (!ParseConnectionV2(static_cast<const void*>(&conn_obj), &child_node.connection, error)) {
                         return false;
                     }
@@ -204,7 +204,7 @@ bool BodyLoader::ParseNode(const void* json_obj_ptr, BodyNode* out, int depth, i
                 return false;
             }
 
-            if (!ParseNode(static_cast<const void*>(child_node_obj), &child_node, depth + 1, format_version, error)) {
+            if (!ParseNode(static_cast<const void*>(child_node_obj), &child_node, depth + 1, formatVersion, error)) {
                 return false;
             }
 
@@ -281,17 +281,17 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
 
     case ShapeType::Sphere:
         if (!readFloat("radius", out->radius)) return false;
-        if (!readOptionalInt("slices", out->lon_segments, 4, 128)) return false;
-        if (!readOptionalInt("stacks", out->lat_segments, 3, 64)) return false;
+        if (!readOptionalInt("slices", out->lonSegments, 4, 128)) return false;
+        if (!readOptionalInt("stacks", out->latSegments, 3, 64)) return false;
         break;
 
     case ShapeType::Torus:
-        if (!readFloat("major_radius", out->major_radius)) return false;
-        if (!readFloat("minor_radius", out->minor_radius)) return false;
-        if (!readOptionalInt("ring_segments", out->ring_segments, 3, 128)) return false;
-        if (!readOptionalInt("tube_segments", out->side_segments, 3, 64)) return false;
-        if (out->minor_radius >= out->major_radius) {
-            error = "'minor_radius' must be less than 'major_radius'";
+        if (!readFloat("majorRadius", out->majorRadius)) return false;
+        if (!readFloat("minorRadius", out->minorRadius)) return false;
+        if (!readOptionalInt("ringSegments", out->ringSegments, 3, 128)) return false;
+        if (!readOptionalInt("tube_segments", out->sideSegments, 3, 64)) return false;
+        if (out->minorRadius >= out->majorRadius) {
+            error = "'minorRadius' must be less than 'majorRadius'";
             return false;
         }
         break;
@@ -313,17 +313,17 @@ bool BodyLoader::ParseShapeParams(const void* dims_ptr, const std::string& type_
 bool BodyLoader::ParseConnectionV1(const void* conn_ptr, Connection* out, std::string& error)
 {
     const picojson::object& obj = *static_cast<const picojson::object*>(conn_ptr);
-    out->is_legacy = true;
+    out->isLegacy = true;
 
     // Parse type
     if (obj.count("type") && obj.at("type").is<std::string>()) {
         std::string t = obj.at("type").get<std::string>();
-        if (t == "Face_Connection") {
-            out->type = ConnectionType::Face_Connection;
-        } else if (t == "Edge_Connection") {
-            out->type = ConnectionType::Edge_Connection;
-        } else if (t == "Point_Connection") {
-            out->type = ConnectionType::Point_Connection;
+        if (t == "FaceConnection") {
+            out->type = ConnectionType::FaceConnection;
+        } else if (t == "EdgeConnection") {
+            out->type = ConnectionType::EdgeConnection;
+        } else if (t == "PointConnection") {
+            out->type = ConnectionType::PointConnection;
         } else {
             error = "Unknown connection type: '" + t + "'";
             return false;
@@ -332,18 +332,18 @@ bool BodyLoader::ParseConnectionV1(const void* conn_ptr, Connection* out, std::s
 
     // Parse face indices
     if (obj.count("parent_face") && obj.at("parent_face").is<double>()) {
-        out->parent_face_index = static_cast<int>(obj.at("parent_face").get<double>());
+        out->parentFaceIndex = static_cast<int>(obj.at("parent_face").get<double>());
     }
     if (obj.count("child_face") && obj.at("child_face").is<double>()) {
-        out->child_face_index = static_cast<int>(obj.at("child_face").get<double>());
+        out->childFaceIndex = static_cast<int>(obj.at("child_face").get<double>());
     }
 
     // Parse offsets
-    if (obj.count("offset_u") && obj.at("offset_u").is<double>()) {
-        out->offset_u = static_cast<float>(obj.at("offset_u").get<double>());
+    if (obj.count("offsetU") && obj.at("offsetU").is<double>()) {
+        out->offsetU = static_cast<float>(obj.at("offsetU").get<double>());
     }
-    if (obj.count("offset_v") && obj.at("offset_v").is<double>()) {
-        out->offset_v = static_cast<float>(obj.at("offset_v").get<double>());
+    if (obj.count("offsetV") && obj.at("offsetV").is<double>()) {
+        out->offsetV = static_cast<float>(obj.at("offsetV").get<double>());
     }
 
     // Parse rotation
@@ -357,27 +357,27 @@ bool BodyLoader::ParseConnectionV1(const void* conn_ptr, Connection* out, std::s
 bool BodyLoader::ParseConnectionV2(const void* conn_ptr, Connection* out, std::string& error)
 {
     const picojson::object& obj = *static_cast<const picojson::object*>(conn_ptr);
-    out->is_legacy = false;
+    out->isLegacy = false;
 
-    // Parse parent_attach
-    if (obj.count("parent_attach") && obj.at("parent_attach").is<picojson::object>()) {
-        const picojson::object& pa = obj.at("parent_attach").get<picojson::object>();
-        if (!ParseAttachmentPoint(static_cast<const void*>(&pa), &out->parent_attach, error)) {
+    // Parse parentAttach
+    if (obj.count("parentAttach") && obj.at("parentAttach").is<picojson::object>()) {
+        const picojson::object& pa = obj.at("parentAttach").get<picojson::object>();
+        if (!ParseAttachmentPoint(static_cast<const void*>(&pa), &out->parentAttach, error)) {
             return false;
         }
     } else {
-        error = "Missing 'parent_attach' in v2 connection";
+        error = "Missing 'parentAttach' in v2 connection";
         return false;
     }
 
-    // Parse child_attach
-    if (obj.count("child_attach") && obj.at("child_attach").is<picojson::object>()) {
-        const picojson::object& ca = obj.at("child_attach").get<picojson::object>();
-        if (!ParseAttachmentPoint(static_cast<const void*>(&ca), &out->child_attach, error)) {
+    // Parse childAttach
+    if (obj.count("childAttach") && obj.at("childAttach").is<picojson::object>()) {
+        const picojson::object& ca = obj.at("childAttach").get<picojson::object>();
+        if (!ParseAttachmentPoint(static_cast<const void*>(&ca), &out->childAttach, error)) {
             return false;
         }
     } else {
-        error = "Missing 'child_attach' in v2 connection";
+        error = "Missing 'childAttach' in v2 connection";
         return false;
     }
 
@@ -481,8 +481,8 @@ static picojson::value SerializeNode(const BodyNode& node)
         break;
     case ShapeType::Torus:
         shape["type"] = picojson::value(std::string("torus"));
-        shape["major_radius"] = picojson::value(static_cast<double>(node.shape.major_radius));
-        shape["minor_radius"] = picojson::value(static_cast<double>(node.shape.minor_radius));
+        shape["majorRadius"] = picojson::value(static_cast<double>(node.shape.majorRadius));
+        shape["minorRadius"] = picojson::value(static_cast<double>(node.shape.minorRadius));
         break;
     case ShapeType::Capsule:
         shape["type"] = picojson::value(std::string("capsule"));
@@ -507,8 +507,8 @@ static picojson::value SerializeNode(const BodyNode& node)
 
             // Connection (v2 parametric)
             picojson::object conn;
-            conn["parent_attach"] = SerializeAttachmentPoint(child.connection.parent_attach);
-            conn["child_attach"] = SerializeAttachmentPoint(child.connection.child_attach);
+            conn["parentAttach"] = SerializeAttachmentPoint(child.connection.parentAttach);
+            conn["childAttach"] = SerializeAttachmentPoint(child.connection.childAttach);
             conn["rotation"] = picojson::value(static_cast<double>(child.connection.rotation));
 
             child_conn_obj["connection"] = picojson::value(conn);
@@ -525,7 +525,7 @@ static picojson::value SerializeNode(const BodyNode& node)
 std::string BodyLoader::Serialize(const Body& body) const
 {
     picojson::object root;
-    root["format_version"] = picojson::value(2.0);
+    root["formatVersion"] = picojson::value(2.0);
     root["name"] = picojson::value(body.name);
 
     // Material

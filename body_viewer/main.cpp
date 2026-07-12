@@ -292,12 +292,12 @@ static void DumpNodeRecursive(
 {
     if (!node) return;
 
-    BodyRenderer::Mat4 world = parent_world * node->local_transform;
+    BodyRenderer::Mat4 world = parent_world * node->localTransform;
 
-    // Extract translation from local_transform
-    float tx = node->local_transform.m[12];
-    float ty = node->local_transform.m[13];
-    float tz = node->local_transform.m[14];
+    // Extract translation from localTransform
+    float tx = node->localTransform.m[12];
+    float ty = node->localTransform.m[13];
+    float tz = node->localTransform.m[14];
 
     // Print header
     std::string indent(depth * 2, ' ');
@@ -319,48 +319,48 @@ static void DumpNodeRecursive(
     std::vector<BodyRenderer::ConnectionRing> rings;
 
     // If this node IS a child, include its own child-side ring first
-    if (parent && !node->connection.is_legacy) {
+    if (parent && !node->connection.isLegacy) {
         float matched_radius = faceMatcher.ComputeMatchedRadius(
-            parent->shape, node->connection.parent_attach,
-            node->shape, node->connection.child_attach
+            parent->shape, node->connection.parentAttach,
+            node->shape, node->connection.childAttach
         );
         int matched_segments = faceMatcher.ComputeMatchedSegments(
-            parent->shape, node->connection.parent_attach,
-            node->shape, node->connection.child_attach
+            parent->shape, node->connection.parentAttach,
+            node->shape, node->connection.childAttach
         );
-        BodyRenderer::SurfacePoint child_pt = resolver.Resolve(node->shape, node->connection.child_attach);
+        BodyRenderer::SurfacePoint child_pt = resolver.Resolve(node->shape, node->connection.childAttach);
         BodyRenderer::ConnectionRing child_ring;
         child_ring.center = child_pt.position;
         child_ring.normal = child_pt.normal;
         child_ring.radius = matched_radius;
         child_ring.segments = matched_segments;
         child_ring.child_index = -1;
-        child_ring.attach = node->connection.child_attach;
+        child_ring.attach = node->connection.childAttach;
         rings.push_back(child_ring);
     }
 
     // Add rings for each child (parent-side attachment on this node)
     for (int i = 0; i < static_cast<int>(node->children.size()); ++i) {
         const BodyRenderer::BodyNode& child = node->children[i];
-        if (child.connection.is_legacy) continue;
+        if (child.connection.isLegacy) continue;
 
         float matched_radius = faceMatcher.ComputeMatchedRadius(
-            node->shape, child.connection.parent_attach,
-            child.shape, child.connection.child_attach
+            node->shape, child.connection.parentAttach,
+            child.shape, child.connection.childAttach
         );
         int matched_segments = faceMatcher.ComputeMatchedSegments(
-            node->shape, child.connection.parent_attach,
-            child.shape, child.connection.child_attach
+            node->shape, child.connection.parentAttach,
+            child.shape, child.connection.childAttach
         );
 
-        BodyRenderer::SurfacePoint pt = resolver.Resolve(node->shape, child.connection.parent_attach);
+        BodyRenderer::SurfacePoint pt = resolver.Resolve(node->shape, child.connection.parentAttach);
         BodyRenderer::ConnectionRing ring;
         ring.center = pt.position;
         ring.normal = pt.normal;
         ring.radius = matched_radius;
         ring.segments = matched_segments;
         ring.child_index = i;
-        ring.attach = child.connection.parent_attach;
+        ring.attach = child.connection.parentAttach;
         rings.push_back(ring);
     }
 
@@ -399,7 +399,7 @@ static void DumpNodeRecursive(
     }
 
     // Connection analysis: if this is a child node, compare parent/child face contact
-    if (parent && !node->connection.is_legacy) {
+    if (parent && !node->connection.isLegacy) {
         printf("\n%s  --- Connection Analysis ---\n", indent.c_str());
 
         // Compute parent's connection face for this child
@@ -407,25 +407,25 @@ static void DumpNodeRecursive(
         std::vector<BodyRenderer::ConnectionRing> parent_rings;
         for (int i = 0; i < static_cast<int>(parent->children.size()); ++i) {
             const BodyRenderer::BodyNode& sibling = parent->children[i];
-            if (sibling.connection.is_legacy) continue;
+            if (sibling.connection.isLegacy) continue;
 
             float mr = faceMatcher.ComputeMatchedRadius(
-                parent->shape, sibling.connection.parent_attach,
-                sibling.shape, sibling.connection.child_attach
+                parent->shape, sibling.connection.parentAttach,
+                sibling.shape, sibling.connection.childAttach
             );
             int ms = faceMatcher.ComputeMatchedSegments(
-                parent->shape, sibling.connection.parent_attach,
-                sibling.shape, sibling.connection.child_attach
+                parent->shape, sibling.connection.parentAttach,
+                sibling.shape, sibling.connection.childAttach
             );
 
-            BodyRenderer::SurfacePoint pt = resolver.Resolve(parent->shape, sibling.connection.parent_attach);
+            BodyRenderer::SurfacePoint pt = resolver.Resolve(parent->shape, sibling.connection.parentAttach);
             BodyRenderer::ConnectionRing ring;
             ring.center = pt.position;
             ring.normal = pt.normal;
             ring.radius = mr;
             ring.segments = ms;
             ring.child_index = i;
-            ring.attach = sibling.connection.parent_attach;
+            ring.attach = sibling.connection.parentAttach;
             parent_rings.push_back(ring);
         }
 
@@ -506,7 +506,7 @@ static int RunDumpMode(const std::string& model_path)
         return 1;
     }
 
-    printf("Body: %s (format v%d)\n", result.body.name.c_str(), result.body.format_version);
+    printf("Body: %s (format v%d)\n", result.body.name.c_str(), result.body.formatVersion);
 
     // Prepare body: derive subdivision + resolve connections
     BodyRenderer::SubdivisionSolver subdivSolver;

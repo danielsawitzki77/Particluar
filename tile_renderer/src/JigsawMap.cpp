@@ -116,7 +116,7 @@ std::vector<const PlacedTile*> JigsawMap::GetEdgeNeighbors(const PlacedTile& til
         // provided tile references that aren't literally the same object).
         if (candidate.x == tile.x && candidate.y == tile.y &&
             candidate.w == tile.w && candidate.h == tile.h &&
-            candidate.tile_id == tile.tile_id) {
+            candidate.tileId == tile.tileId) {
             continue;
         }
 

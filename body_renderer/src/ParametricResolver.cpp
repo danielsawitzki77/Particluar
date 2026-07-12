@@ -109,8 +109,8 @@ SurfacePoint ParametricResolver::ResolveTorus(const ShapeParams& s, const Attach
     float theta = a.u * 2.0f * static_cast<float>(M_PI);
     float phi = a.v * 2.0f * static_cast<float>(M_PI);
 
-    float R = s.major_radius;
-    float r = s.minor_radius;
+    float R = s.majorRadius;
+    float r = s.minorRadius;
 
     float x = (R + r * std::cos(phi)) * std::cos(theta);
     float y = r * std::sin(phi);

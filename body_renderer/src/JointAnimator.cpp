@@ -38,8 +38,8 @@ void JointAnimator::CollectJoints(const BodyNode* node, std::vector<int>& curren
         JointInfo info;
         info.path = current_path;
         info.name = node->children[i].name;
-        info.conn_type = node->children[i].connection.type;
-        info.base_rotation = node->children[i].connection.rotation;
+        info.connType = node->children[i].connection.type;
+        info.baseRotation = node->children[i].connection.rotation;
         m_joints.push_back(info);
 
         // Recurse into children
@@ -112,7 +112,7 @@ void JointAnimator::ApplyTo(Body& body) const
     // Map to rotation offset: [-90, +90] degrees
     float rotation_offset = anim_t * 90.0f;
 
-    node->connection.rotation = info.base_rotation + rotation_offset;
+    node->connection.rotation = info.baseRotation + rotation_offset;
 }
 
 } // namespace BodyRenderer

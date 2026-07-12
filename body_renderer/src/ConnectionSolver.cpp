@@ -11,14 +11,14 @@ namespace BodyRenderer {
 static void ResolveChildrenRecursive(BodyNode* node, const FaceGenerator& faceGen, const ConnectionSolver& solver)
 {
     for (auto& child : node->children) {
-        if (child.connection.is_legacy) {
+        if (child.connection.isLegacy) {
             // Legacy v1: use face indices
             std::vector<Face> node_faces = faceGen.Generate(node->shape);
             std::vector<Face> child_faces = faceGen.Generate(child.shape);
-            child.local_transform = solver.ComputeLegacyTransform(child.connection, node_faces, child_faces);
+            child.localTransform = solver.ComputeLegacyTransform(child.connection, node_faces, child_faces);
         } else {
             // v2 parametric
-            child.local_transform = solver.ComputeParametricTransform(child.connection, node->shape, child.shape);
+            child.localTransform = solver.ComputeParametricTransform(child.connection, node->shape, child.shape);
         }
         ResolveChildrenRecursive(&child, faceGen, solver);
     }
@@ -29,7 +29,7 @@ void ConnectionSolver::ResolveTree(BodyNode* root) const
     if (!root) return;
 
     // Root has identity transform
-    root->local_transform.Identity();
+    root->localTransform.Identity();
 
     FaceGenerator faceGen;
     ResolveChildrenRecursive(root, faceGen, *this);
@@ -45,8 +45,8 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     const ShapeParams& child_shape) const
 {
     // Resolve parent and child attachment points on continuous surface
-    SurfacePoint parent_pt = m_resolver.Resolve(parent_shape, conn.parent_attach);
-    SurfacePoint child_pt = m_resolver.Resolve(child_shape, conn.child_attach);
+    SurfacePoint parent_pt = m_resolver.Resolve(parent_shape, conn.parentAttach);
+    SurfacePoint child_pt = m_resolver.Resolve(child_shape, conn.childAttach);
 
     // Snap to actual face center for shapes with discrete face grids.
     // This ensures the child is positioned at the face center (where the
@@ -57,7 +57,7 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     // Get parent face center
     {
         std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
-        int grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parent_attach);
+        int grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parentAttach);
         if (grid_idx >= 0 && grid_idx < static_cast<int>(parent_faces.size())) {
             Vec3 fc(0, 0, 0);
             for (const auto& v : parent_faces[grid_idx].vertices) fc = fc + v;
@@ -71,7 +71,7 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     // Get child face center
     {
         std::vector<Face> child_faces = faceGen.Generate(child_shape);
-        int grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.child_attach);
+        int grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.childAttach);
         if (grid_idx >= 0 && grid_idx < static_cast<int>(child_faces.size())) {
             Vec3 fc(0, 0, 0);
             for (const auto& v : child_faces[grid_idx].vertices) fc = fc + v;
@@ -107,9 +107,9 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     // For cap↔cap connections, use the specified rotation from JSON.
     float rot_angle = 0.0f;
     bool is_side_connection = 
-        (conn.child_attach.region == AttachRegion::Side ||
-         conn.parent_attach.region == AttachRegion::Surface ||
-         conn.parent_attach.region == AttachRegion::Side);
+        (conn.childAttach.region == AttachRegion::Side ||
+         conn.parentAttach.region == AttachRegion::Surface ||
+         conn.parentAttach.region == AttachRegion::Side);
     
     if (!is_side_connection) {
         rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
@@ -117,7 +117,7 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
         // Compute alignment rotation from face edge directions.
         // Get parent face's first edge direction (tangent along the face grid)
         std::vector<Face> parent_faces = faceGen.Generate(parent_shape);
-        int parent_grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parent_attach);
+        int parent_grid_idx = faceMatcher.ComputeGridIndex(parent_shape, conn.parentAttach);
         if (parent_grid_idx >= 0 && parent_grid_idx < static_cast<int>(parent_faces.size()) &&
             parent_faces[parent_grid_idx].vertices.size() >= 2) {
             Vec3 parent_edge = (parent_faces[parent_grid_idx].vertices[1] - 
@@ -125,7 +125,7 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
             
             // Get child face's first edge direction after applying rot
             std::vector<Face> child_faces = faceGen.Generate(child_shape);
-            int child_grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.child_attach);
+            int child_grid_idx = faceMatcher.ComputeGridIndex(child_shape, conn.childAttach);
             if (child_grid_idx >= 0 && child_grid_idx < static_cast<int>(child_faces.size()) &&
                 child_faces[child_grid_idx].vertices.size() >= 2) {
                 Vec3 child_edge_local = (child_faces[child_grid_idx].vertices[1] - 
@@ -159,10 +159,10 @@ Mat4 ConnectionSolver::ComputeParametricTransform(
     Mat4 orientation = spin * rot;
 
     // After rotating the child, its attachment point moves
-    Vec3 rotated_child_attach = orientation.TransformPoint(child_pt.position);
+    Vec3 rotated_childAttach = orientation.TransformPoint(child_pt.position);
 
     // Translate so the child's attachment point lands on the parent's attachment point
-    Vec3 final_pos = parent_pt.position - rotated_child_attach;
+    Vec3 final_pos = parent_pt.position - rotated_childAttach;
     Mat4 trans = Mat4::Translation(final_pos.x, final_pos.y, final_pos.z);
 
     return trans * spin * rot;
@@ -178,21 +178,21 @@ Mat4 ConnectionSolver::ComputeLegacyTransform(
     const std::vector<Face>& child_faces) const
 {
     switch (conn.type) {
-    case ConnectionType::Face_Connection: {
-        if (conn.parent_face_index < 0 || conn.parent_face_index >= static_cast<int>(parent_faces.size()))
+    case ConnectionType::FaceConnection: {
+        if (conn.parentFaceIndex < 0 || conn.parentFaceIndex >= static_cast<int>(parent_faces.size()))
             return Mat4();
-        if (conn.child_face_index < 0 || conn.child_face_index >= static_cast<int>(child_faces.size()))
+        if (conn.childFaceIndex < 0 || conn.childFaceIndex >= static_cast<int>(child_faces.size()))
             return Mat4();
-        return ComputeFaceConnection(conn, parent_faces[conn.parent_face_index], child_faces[conn.child_face_index]);
+        return ComputeFaceConnection(conn, parent_faces[conn.parentFaceIndex], child_faces[conn.childFaceIndex]);
     }
-    case ConnectionType::Edge_Connection: {
-        if (conn.parent_face_index < 0 || conn.parent_face_index >= static_cast<int>(parent_faces.size()))
+    case ConnectionType::EdgeConnection: {
+        if (conn.parentFaceIndex < 0 || conn.parentFaceIndex >= static_cast<int>(parent_faces.size()))
             return Mat4();
-        if (conn.child_face_index < 0 || conn.child_face_index >= static_cast<int>(child_faces.size()))
+        if (conn.childFaceIndex < 0 || conn.childFaceIndex >= static_cast<int>(child_faces.size()))
             return Mat4();
-        return ComputeEdgeConnection(conn, parent_faces[conn.parent_face_index], child_faces[conn.child_face_index]);
+        return ComputeEdgeConnection(conn, parent_faces[conn.parentFaceIndex], child_faces[conn.childFaceIndex]);
     }
-    case ConnectionType::Point_Connection: {
+    case ConnectionType::PointConnection: {
         return ComputePointConnection(conn, parent_faces);
     }
     }
@@ -263,7 +263,7 @@ Mat4 ConnectionSolver::ComputeFaceConnection(const Connection& conn, const Face&
 
 Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face& parent_face, const Face& child_face) const
 {
-    Vec3 edge_point = ComputeEdgePoint(parent_face, conn.offset_u);
+    Vec3 edge_point = ComputeEdgePoint(parent_face, conn.offsetU);
 
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;
     Vec3 edge_dir(0, 1, 0);
@@ -284,8 +284,8 @@ Mat4 ConnectionSolver::ComputeEdgeConnection(const Connection& conn, const Face&
 Mat4 ConnectionSolver::ComputePointConnection(const Connection& conn, const std::vector<Face>& parent_faces) const
 {
     Vec3 point(0, 0, 0);
-    if (conn.parent_face_index >= 0 && conn.parent_face_index < static_cast<int>(parent_faces.size())) {
-        point = ComputeFaceCenter(parent_faces[conn.parent_face_index]);
+    if (conn.parentFaceIndex >= 0 && conn.parentFaceIndex < static_cast<int>(parent_faces.size())) {
+        point = ComputeFaceCenter(parent_faces[conn.parentFaceIndex]);
     }
 
     float rot_angle = conn.rotation * static_cast<float>(M_PI) / 180.0f;

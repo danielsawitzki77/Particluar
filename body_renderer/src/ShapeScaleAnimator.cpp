@@ -42,8 +42,8 @@ void ShapeScaleAnimator::SetBody(const Body& body)
             ss.dimensions.push_back({ScaleDimension::Radius, body.root.shape.radius});
             break;
         case ShapeType::Torus:
-            ss.dimensions.push_back({ScaleDimension::MajorRadius, body.root.shape.major_radius});
-            ss.dimensions.push_back({ScaleDimension::MinorRadius, body.root.shape.minor_radius});
+            ss.dimensions.push_back({ScaleDimension::MajorRadius, body.root.shape.majorRadius});
+            ss.dimensions.push_back({ScaleDimension::MinorRadius, body.root.shape.minorRadius});
             break;
         }
 
@@ -79,8 +79,8 @@ void ShapeScaleAnimator::CollectShapes(const BodyNode* node, std::vector<int>& c
             ss.dimensions.push_back({ScaleDimension::Radius, child.shape.radius});
             break;
         case ShapeType::Torus:
-            ss.dimensions.push_back({ScaleDimension::MajorRadius, child.shape.major_radius});
-            ss.dimensions.push_back({ScaleDimension::MinorRadius, child.shape.minor_radius});
+            ss.dimensions.push_back({ScaleDimension::MajorRadius, child.shape.majorRadius});
+            ss.dimensions.push_back({ScaleDimension::MinorRadius, child.shape.minorRadius});
             break;
         }
 
@@ -133,8 +133,8 @@ std::string ShapeScaleAnimator::GetCurrentDimensionName() const
     switch (shape.dimensions[m_current_dimension].type) {
     case ScaleDimension::Radius: return "radius";
     case ScaleDimension::Height: return "height";
-    case ScaleDimension::MajorRadius: return "major_radius";
-    case ScaleDimension::MinorRadius: return "minor_radius";
+    case ScaleDimension::MajorRadius: return "majorRadius";
+    case ScaleDimension::MinorRadius: return "minorRadius";
     }
     return "";
 }
@@ -186,17 +186,17 @@ void ShapeScaleAnimator::ApplyTo(Body& body) const
         }
         break;
     case ScaleDimension::MajorRadius:
-        node->shape.major_radius = scaled_value;
+        node->shape.majorRadius = scaled_value;
         // Ensure major > minor for torus
-        if (node->shape.type == ShapeType::Torus && node->shape.major_radius <= node->shape.minor_radius) {
-            node->shape.major_radius = node->shape.minor_radius + 0.01f;
+        if (node->shape.type == ShapeType::Torus && node->shape.majorRadius <= node->shape.minorRadius) {
+            node->shape.majorRadius = node->shape.minorRadius + 0.01f;
         }
         break;
     case ScaleDimension::MinorRadius:
-        node->shape.minor_radius = scaled_value;
+        node->shape.minorRadius = scaled_value;
         // Ensure minor < major for torus
-        if (node->shape.type == ShapeType::Torus && node->shape.minor_radius >= node->shape.major_radius) {
-            node->shape.minor_radius = node->shape.major_radius - 0.01f;
+        if (node->shape.type == ShapeType::Torus && node->shape.minorRadius >= node->shape.majorRadius) {
+            node->shape.minorRadius = node->shape.majorRadius - 0.01f;
         }
         break;
     }
@@ -218,10 +218,10 @@ void ShapeScaleAnimator::ResetTo(Body& body) const
                 node->shape.height = dim.base_value;
                 break;
             case ScaleDimension::MajorRadius:
-                node->shape.major_radius = dim.base_value;
+                node->shape.majorRadius = dim.base_value;
                 break;
             case ScaleDimension::MinorRadius:
-                node->shape.minor_radius = dim.base_value;
+                node->shape.minorRadius = dim.base_value;
                 break;
             }
         }

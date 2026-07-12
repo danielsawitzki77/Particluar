@@ -50,8 +50,8 @@ void ChunkManager::EnsureGenerated(float wx, float wy, float ww, float wh,
             }
 
             // Compute the world-space origin for this chunk.
-            float origin_x = static_cast<float>(cx) * static_cast<float>(m_chunkSize);
-            float origin_y = static_cast<float>(cy) * static_cast<float>(m_chunkSize);
+            float originX = static_cast<float>(cx) * static_cast<float>(m_chunkSize);
+            float originY = static_cast<float>(cy) * static_cast<float>(m_chunkSize);
 
             // Derive a per-chunk seed from baseSeed + chunk coords for determinism.
             // Uses a simple hash combining function.
@@ -63,13 +63,13 @@ void ChunkManager::EnsureGenerated(float wx, float wy, float ww, float wh,
 
             // Set up jigsaw WFC params for this chunk.
             JigsawWFCParams params;
-            params.target_width = static_cast<float>(m_chunkSize);
-            params.target_height = static_cast<float>(m_chunkSize);
-            params.origin_x = origin_x;
-            params.origin_y = origin_y;
+            params.targetWidth = static_cast<float>(m_chunkSize);
+            params.targetHeight = static_cast<float>(m_chunkSize);
+            params.originX = originX;
+            params.originY = originY;
             params.seed = chunkSeed;
             params.tileset = &tileset;
-            params.layer_scale = 1.0f;
+            params.layerScale = 1.0f;
 
             JigsawWFCResult result = generator.GenerateJigsaw(params);
 

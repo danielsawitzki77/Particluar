@@ -177,7 +177,7 @@ std::vector<MapLoader::UnresolvedTile> MapLoader::ValidateAgainstTileset(
     for (int row = 0; row < static_cast<int>(mapData.grid.size()); ++row) {
         for (int col = 0; col < static_cast<int>(mapData.grid[row].size()); ++col) {
             const std::string& tileId = mapData.grid[row][col];
-            if (tileset.id_index.find(tileId) == tileset.id_index.end()) {
+            if (tileset.idIndex.find(tileId) == tileset.idIndex.end()) {
                 UnresolvedTile ut;
                 ut.id = tileId;
                 ut.row = row;
@@ -219,12 +219,12 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
         if (!std::isfinite(tile.x) || !std::isfinite(tile.y) ||
             !std::isfinite(tile.w) || !std::isfinite(tile.h)) {
             SDL_Log("[MapLoader] Skipping tile with non-finite values during serialization: %s",
-                    tile.tile_id.c_str());
+                    tile.tileId.c_str());
             continue;
         }
 
         picojson::object tileObj;
-        tileObj["tile_id"] = picojson::value(tile.tile_id);
+        tileObj["tileId"] = picojson::value(tile.tileId);
         tileObj["x"] = picojson::value(static_cast<double>(tile.x));
         tileObj["y"] = picojson::value(static_cast<double>(tile.y));
         tileObj["w"] = picojson::value(static_cast<double>(tile.w));
@@ -315,10 +315,10 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
 
         const picojson::object& tileObj = tileVal.get<picojson::object>();
 
-        // Validate tile_id (must be a non-empty string)
+        // Validate tileId (must be a non-empty string)
         std::string tileId;
-        if (!JsonUtil::GetString(tileObj, "tile_id", tileId) || tileId.empty()) {
-            SDL_Log("[MapLoader] Jigsaw map tile[%zu] missing or empty 'tile_id', skipping: %s",
+        if (!JsonUtil::GetString(tileObj, "tileId", tileId) || tileId.empty()) {
+            SDL_Log("[MapLoader] Jigsaw map tile[%zu] missing or empty 'tileId', skipping: %s",
                     i, filepath.c_str());
             continue;
         }
@@ -348,7 +348,7 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
         }
 
         PlacedTile tile;
-        tile.tile_id = tileId;
+        tile.tileId = tileId;
         tile.x = fx;
         tile.y = fy;
         tile.w = fw;
@@ -379,9 +379,9 @@ std::vector<MapLoader::UnresolvedJigsawTile> MapLoader::ValidateAgainstTileset(
     std::vector<UnresolvedJigsawTile> unresolved;
 
     for (const PlacedTile& tile : map.GetAllTiles()) {
-        if (tileset.id_index.find(tile.tile_id) == tileset.id_index.end()) {
+        if (tileset.idIndex.find(tile.tileId) == tileset.idIndex.end()) {
             UnresolvedJigsawTile ut;
-            ut.id = tile.tile_id;
+            ut.id = tile.tileId;
             ut.x = tile.x;
             ut.y = tile.y;
             unresolved.push_back(ut);

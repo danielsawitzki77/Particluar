@@ -9,7 +9,7 @@ ValidationResult ConnectionValidator::ValidateBody(const Body& body) const
 {
     FaceGenerator faceGen;
 
-    if (body.format_version >= 2) {
+    if (body.formatVersion >= 2) {
         return ValidateNodeParametric(body.root);
     } else {
         return ValidateNode(body.root, faceGen);
@@ -27,7 +27,7 @@ ValidationResult ConnectionValidator::ValidateNode(const BodyNode& node, const F
         if (!r.valid) return r;
 
         // Check volume overlap for face connections
-        if (child.connection.type == ConnectionType::Face_Connection) {
+        if (child.connection.type == ConnectionType::FaceConnection) {
             // Need to compute the transform to check overlap
             ConnectionSolver solver;
             Mat4 transform = solver.ComputeLegacyTransform(child.connection, node_faces, child_faces);
@@ -47,7 +47,7 @@ ValidationResult ConnectionValidator::ValidateNode(const BodyNode& node, const F
 ValidationResult ConnectionValidator::ValidateNodeParametric(const BodyNode& node) const
 {
     for (const auto& child : node.children) {
-        if (!child.connection.is_legacy) {
+        if (!child.connection.isLegacy) {
             ValidationResult r = ValidateParametricConnection(
                 child.connection, node.shape, child.shape, node.name, child.name);
             if (!r.valid) return r;
@@ -68,26 +68,26 @@ ValidationResult ConnectionValidator::ValidateConnection(
     const std::string& parent_name,
     const std::string& child_name) const
 {
-    if (conn.type == ConnectionType::Face_Connection || conn.type == ConnectionType::Point_Connection) {
-        if (conn.parent_face_index < 0 || conn.parent_face_index >= static_cast<int>(parent_faces.size())) {
+    if (conn.type == ConnectionType::FaceConnection || conn.type == ConnectionType::PointConnection) {
+        if (conn.parentFaceIndex < 0 || conn.parentFaceIndex >= static_cast<int>(parent_faces.size())) {
             return ValidationResult(false,
                 "Connection from '" + parent_name + "' to '" + child_name +
-                "': parent_face index " + std::to_string(conn.parent_face_index) +
+                "': parent_face index " + std::to_string(conn.parentFaceIndex) +
                 " out of range [0, " + std::to_string(parent_faces.size() - 1) + "]");
         }
     }
 
-    if (conn.type == ConnectionType::Face_Connection) {
-        if (conn.child_face_index < 0 || conn.child_face_index >= static_cast<int>(child_faces.size())) {
+    if (conn.type == ConnectionType::FaceConnection) {
+        if (conn.childFaceIndex < 0 || conn.childFaceIndex >= static_cast<int>(child_faces.size())) {
             return ValidationResult(false,
                 "Connection from '" + parent_name + "' to '" + child_name +
-                "': child_face index " + std::to_string(conn.child_face_index) +
+                "': child_face index " + std::to_string(conn.childFaceIndex) +
                 " out of range [0, " + std::to_string(child_faces.size() - 1) + "]");
         }
 
         // Face topology compatibility check
-        size_t parent_verts = parent_faces[conn.parent_face_index].vertices.size();
-        size_t child_verts = child_faces[conn.child_face_index].vertices.size();
+        size_t parent_verts = parent_faces[conn.parentFaceIndex].vertices.size();
+        size_t child_verts = child_faces[conn.childFaceIndex].vertices.size();
         if (parent_verts != child_verts) {
             return ValidationResult(false,
                 "Connection from '" + parent_name + "' to '" + child_name +
@@ -108,14 +108,14 @@ ValidationResult ConnectionValidator::ValidateNoVolumeOverlap(
     const std::string& parent_name,
     const std::string& child_name) const
 {
-    if (conn.type != ConnectionType::Face_Connection) {
+    if (conn.type != ConnectionType::FaceConnection) {
         return ValidationResult(); // only check for face connections
     }
-    if (conn.parent_face_index < 0 || conn.parent_face_index >= static_cast<int>(parent_faces.size())) {
+    if (conn.parentFaceIndex < 0 || conn.parentFaceIndex >= static_cast<int>(parent_faces.size())) {
         return ValidationResult(); // invalid index already caught elsewhere
     }
 
-    const Face& parent_face = parent_faces[conn.parent_face_index];
+    const Face& parent_face = parent_faces[conn.parentFaceIndex];
     Vec3 face_center(0, 0, 0);
     for (const Vec3& v : parent_face.vertices) {
         face_center = face_center + v;
@@ -151,28 +151,28 @@ ValidationResult ConnectionValidator::ValidateParametricConnection(
     const std::string& child_name) const
 {
     // Validate parent attachment region is valid for parent shape type
-    if (!IsRegionValidForShape(conn.parent_attach.region, parent_shape.type)) {
+    if (!IsRegionValidForShape(conn.parentAttach.region, parent_shape.type)) {
         return ValidationResult(false,
             "Connection from '" + parent_name + "' to '" + child_name +
             "': parent attachment region is not valid for shape type");
     }
 
     // Validate child attachment region is valid for child shape type
-    if (!IsRegionValidForShape(conn.child_attach.region, child_shape.type)) {
+    if (!IsRegionValidForShape(conn.childAttach.region, child_shape.type)) {
         return ValidationResult(false,
             "Connection from '" + parent_name + "' to '" + child_name +
             "': child attachment region is not valid for shape type");
     }
 
     // Validate u/v are in range (already clamped during parsing, but double-check)
-    if (conn.parent_attach.u < 0.0f || conn.parent_attach.u > 1.0f ||
-        conn.parent_attach.v < 0.0f || conn.parent_attach.v > 1.0f) {
+    if (conn.parentAttach.u < 0.0f || conn.parentAttach.u > 1.0f ||
+        conn.parentAttach.v < 0.0f || conn.parentAttach.v > 1.0f) {
         return ValidationResult(false,
             "Connection from '" + parent_name + "' to '" + child_name +
             "': parent attachment u/v out of [0,1] range");
     }
-    if (conn.child_attach.u < 0.0f || conn.child_attach.u > 1.0f ||
-        conn.child_attach.v < 0.0f || conn.child_attach.v > 1.0f) {
+    if (conn.childAttach.u < 0.0f || conn.childAttach.u > 1.0f ||
+        conn.childAttach.v < 0.0f || conn.childAttach.v > 1.0f) {
         return ValidationResult(false,
             "Connection from '" + parent_name + "' to '" + child_name +
             "': child attachment u/v out of [0,1] range");
@@ -181,8 +181,8 @@ ValidationResult ConnectionValidator::ValidateParametricConnection(
     // Warn (not reject) if sphere attachment v lands in a pole region.
     // Sphere poles produce triangles; only mid-band latitudes produce quads.
     auto warnSpherePole = [&](const char* role, const ShapeParams& shape, float v) {
-        if (shape.type == ShapeType::Sphere && shape.lat_segments > 0) {
-            float pole_threshold = 1.0f / static_cast<float>(shape.lat_segments);
+        if (shape.type == ShapeType::Sphere && shape.latSegments > 0) {
+            float pole_threshold = 1.0f / static_cast<float>(shape.latSegments);
             if (v < pole_threshold || v > (1.0f - pole_threshold)) {
                 fprintf(stderr, "[ConnectionValidator] WARNING: %s '%s' -> '%s': "
                     "sphere %s attachment v=%.3f lands in pole region (triangles). "
@@ -192,14 +192,14 @@ ValidationResult ConnectionValidator::ValidateParametricConnection(
             }
         }
     };
-    warnSpherePole("parent", parent_shape, conn.parent_attach.v);
-    warnSpherePole("child", child_shape, conn.child_attach.v);
+    warnSpherePole("parent", parent_shape, conn.parentAttach.v);
+    warnSpherePole("child", child_shape, conn.childAttach.v);
 
     // Warn if rotation is specified for side/surface connections (has no effect)
     if (conn.rotation != 0.0f) {
-        bool is_side = (conn.child_attach.region == AttachRegion::Side ||
-                        conn.parent_attach.region == AttachRegion::Surface ||
-                        conn.parent_attach.region == AttachRegion::Side);
+        bool is_side = (conn.childAttach.region == AttachRegion::Side ||
+                        conn.parentAttach.region == AttachRegion::Surface ||
+                        conn.parentAttach.region == AttachRegion::Side);
         if (is_side) {
             fprintf(stderr, "[ConnectionValidator] WARNING: '%s' -> '%s': "
                 "rotation=%.1f specified for side/surface connection (ignored — "

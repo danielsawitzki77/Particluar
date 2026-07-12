@@ -295,8 +295,8 @@ std::vector<size_t> WFCGenerator::GetCandidates(
 
         // Compute effective size for this tile
         auto eff = ComputeEffectiveSize(
-            static_cast<float>(def.source_rect.w),
-            static_cast<float>(def.source_rect.h),
+            static_cast<float>(def.sourceRect.w),
+            static_cast<float>(def.sourceRect.h),
             def.scale, sheetScale, layerScale);
         float ew = eff.first;
         float eh = eff.second;
@@ -308,7 +308,7 @@ std::vector<size_t> WFCGenerator::GetCandidates(
 
         // Construct a hypothetical placed tile at the gap's position
         PlacedTile hypothetical;
-        hypothetical.tile_id = def.id;
+        hypothetical.tileId = def.id;
         hypothetical.x = gap.x;
         hypothetical.y = gap.y;
         hypothetical.w = ew;
@@ -336,8 +336,8 @@ bool WFCGenerator::ValidateAdjacency(
 
     for (const PlacedTile* neighbor : neighbors) {
         // Find the neighbor's TileDef
-        auto it = tileset.id_index.find(neighbor->tile_id);
-        if (it == tileset.id_index.end()) {
+        auto it = tileset.idIndex.find(neighbor->tileId);
+        if (it == tileset.idIndex.end()) {
             continue;  // unknown tile, skip (shouldn't happen)
         }
         const TileDef& neighborDef = tileset.tiles[it->second];
@@ -497,14 +497,14 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
         SDL_Log("[JigsawWFC] Invalid input: tileset has zero tiles");
         return result;
     }
-    if (params.target_width <= 0.0f || params.target_height <= 0.0f) {
+    if (params.targetWidth <= 0.0f || params.targetHeight <= 0.0f) {
         SDL_Log("[JigsawWFC] Invalid input: target area must be > 0");
         return result;
     }
 
     const TilesetDef& tileset = *params.tileset;
-    float sheetScale = tileset.sheet_scale;
-    float layerScale = params.layer_scale;
+    float sheetScale = tileset.sheetScale;
+    float layerScale = params.layerScale;
 
     // --- Seed RNG ---
     std::mt19937 rng;
@@ -518,17 +518,17 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
     // --- Set up the map with boundary ---
     result.map.SetTilesetId(tileset.name);
     MapBoundary boundary;
-    boundary.width_pixels = params.target_width;
-    boundary.height_pixels = params.target_height;
+    boundary.width_pixels = params.targetWidth;
+    boundary.height_pixels = params.targetHeight;
     result.map.SetBoundary(boundary);
 
     // --- Initialize gap queue with one gap = entire target area ---
     GapQueue gapQueue;
     Gap initialGap;
-    initialGap.x = params.origin_x;
-    initialGap.y = params.origin_y;
-    initialGap.w = params.target_width;
-    initialGap.h = params.target_height;
+    initialGap.x = params.originX;
+    initialGap.y = params.originY;
+    initialGap.w = params.targetWidth;
+    initialGap.h = params.targetHeight;
     gapQueue.push(initialGap);
 
     // --- Backtracking state ---
@@ -589,12 +589,12 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
 
                 const TileDef& def = tileset.tiles[nextIdx];
                 auto eff = ComputeEffectiveSize(
-                    static_cast<float>(def.source_rect.w),
-                    static_cast<float>(def.source_rect.h),
+                    static_cast<float>(def.sourceRect.w),
+                    static_cast<float>(def.sourceRect.h),
                     def.scale, sheetScale, layerScale);
 
                 PlacedTile tile;
-                tile.tile_id = def.id;
+                tile.tileId = def.id;
                 tile.x = snap.gap.x;
                 tile.y = snap.gap.y;
                 tile.w = eff.first;
@@ -628,12 +628,12 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
         size_t chosenIdx = candidates[0];
         const TileDef& chosenDef = tileset.tiles[chosenIdx];
         auto eff = ComputeEffectiveSize(
-            static_cast<float>(chosenDef.source_rect.w),
-            static_cast<float>(chosenDef.source_rect.h),
+            static_cast<float>(chosenDef.sourceRect.w),
+            static_cast<float>(chosenDef.sourceRect.h),
             chosenDef.scale, sheetScale, layerScale);
 
         PlacedTile placedTile;
-        placedTile.tile_id = chosenDef.id;
+        placedTile.tileId = chosenDef.id;
         placedTile.x = currentGap.x;
         placedTile.y = currentGap.y;
         placedTile.w = eff.first;

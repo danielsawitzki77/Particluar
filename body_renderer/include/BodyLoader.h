@@ -20,7 +20,7 @@ public:
     std::string Serialize(const Body& body) const;
 
 private:
-    bool ParseNode(const void* json_obj, BodyNode* out, int depth, int format_version, std::string& error);
+    bool ParseNode(const void* json_obj, BodyNode* out, int depth, int formatVersion, std::string& error);
     bool ParseShapeParams(const void* dims_obj, const std::string& type_str, ShapeParams* out, std::string& error);
     bool ParseConnectionV1(const void* conn_obj, Connection* out, std::string& error);
     bool ParseConnectionV2(const void* conn_obj, Connection* out, std::string& error);

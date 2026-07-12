@@ -35,14 +35,14 @@ public:
 
     // Compute the matched connection radius between parent and child (midpoint average).
     float ComputeMatchedRadius(
-        const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
-        const ShapeParams& child_shape, const AttachmentPoint& child_attach
+        const ShapeParams& parent_shape, const AttachmentPoint& parentAttach,
+        const ShapeParams& child_shape, const AttachmentPoint& childAttach
     ) const;
 
     // Compute connection segment count (N of the N-gon).
     int ComputeMatchedSegments(
-        const ShapeParams& parent_shape, const AttachmentPoint& parent_attach,
-        const ShapeParams& child_shape, const AttachmentPoint& child_attach
+        const ShapeParams& parent_shape, const AttachmentPoint& parentAttach,
+        const ShapeParams& child_shape, const AttachmentPoint& childAttach
     ) const;
 
     // Generate faces with size-matching deformation at connection points.

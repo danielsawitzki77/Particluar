@@ -43,18 +43,18 @@ static std::vector<ConnectionRing> BuildParentRingsStatic(
 
     for (int i = 0; i < static_cast<int>(node->children.size()); ++i) {
         const BodyNode& child = node->children[i];
-        if (child.connection.is_legacy) continue;
+        if (child.connection.isLegacy) continue;
 
         float matched_radius = faceMatcher.ComputeMatchedRadius(
-            node->shape, child.connection.parent_attach,
-            child.shape, child.connection.child_attach
+            node->shape, child.connection.parentAttach,
+            child.shape, child.connection.childAttach
         );
         int matched_segments = faceMatcher.ComputeMatchedSegments(
-            node->shape, child.connection.parent_attach,
-            child.shape, child.connection.child_attach
+            node->shape, child.connection.parentAttach,
+            child.shape, child.connection.childAttach
         );
 
-        SurfacePoint parent_pt = resolver.Resolve(node->shape, child.connection.parent_attach);
+        SurfacePoint parent_pt = resolver.Resolve(node->shape, child.connection.parentAttach);
 
         ConnectionRing ring;
         ring.center = parent_pt.position;
@@ -62,7 +62,7 @@ static std::vector<ConnectionRing> BuildParentRingsStatic(
         ring.radius = matched_radius;
         ring.segments = matched_segments;
         ring.child_index = i;
-        ring.attach = child.connection.parent_attach;
+        ring.attach = child.connection.parentAttach;
         rings.push_back(ring);
     }
 
@@ -77,15 +77,15 @@ static ConnectionRing BuildChildRingStatic(
     ParametricResolver resolver;
 
     float matched_radius = faceMatcher.ComputeMatchedRadius(
-        parent->shape, child->connection.parent_attach,
-        child->shape, child->connection.child_attach
+        parent->shape, child->connection.parentAttach,
+        child->shape, child->connection.childAttach
     );
     int matched_segments = faceMatcher.ComputeMatchedSegments(
-        parent->shape, child->connection.parent_attach,
-        child->shape, child->connection.child_attach
+        parent->shape, child->connection.parentAttach,
+        child->shape, child->connection.childAttach
     );
 
-    SurfacePoint child_pt = resolver.Resolve(child->shape, child->connection.child_attach);
+    SurfacePoint child_pt = resolver.Resolve(child->shape, child->connection.childAttach);
 
     ConnectionRing ring;
     ring.center = child_pt.position;
@@ -93,7 +93,7 @@ static ConnectionRing BuildChildRingStatic(
     ring.radius = matched_radius;
     ring.segments = matched_segments;
     ring.child_index = -1;
-    ring.attach = child->connection.child_attach;
+    ring.attach = child->connection.childAttach;
     return ring;
 }
 
@@ -107,7 +107,7 @@ static void BuildCacheForNode(
 {
     if (!node) return;
 
-    Mat4 world = parent_world * node->local_transform;
+    Mat4 world = parent_world * node->localTransform;
 
     std::vector<ConnectionRing> parent_rings = BuildParentRingsStatic(node, faceMatcher);
     MatchedFaces matched = faceMatcher.GenerateWithConnections(*node, parent_rings);
@@ -139,9 +139,9 @@ static void BuildCacheForChild(
 {
     if (!child) return;
 
-    Mat4 child_world = parent_world * child->local_transform;
+    Mat4 child_world = parent_world * child->localTransform;
 
-    if (!child->connection.is_legacy) {
+    if (!child->connection.isLegacy) {
         ConnectionRing child_ring = BuildChildRingStatic(child, parent, faceMatcher);
 
         std::vector<ConnectionRing> all_rings;
@@ -150,25 +150,25 @@ static void BuildCacheForChild(
         ParametricResolver resolver;
         for (int i = 0; i < static_cast<int>(child->children.size()); ++i) {
             const BodyNode& grandchild = child->children[i];
-            if (grandchild.connection.is_legacy) continue;
+            if (grandchild.connection.isLegacy) continue;
 
             float matched_radius = faceMatcher.ComputeMatchedRadius(
-                child->shape, grandchild.connection.parent_attach,
-                grandchild.shape, grandchild.connection.child_attach
+                child->shape, grandchild.connection.parentAttach,
+                grandchild.shape, grandchild.connection.childAttach
             );
             int matched_segments = faceMatcher.ComputeMatchedSegments(
-                child->shape, grandchild.connection.parent_attach,
-                grandchild.shape, grandchild.connection.child_attach
+                child->shape, grandchild.connection.parentAttach,
+                grandchild.shape, grandchild.connection.childAttach
             );
 
-            SurfacePoint pt = resolver.Resolve(child->shape, grandchild.connection.parent_attach);
+            SurfacePoint pt = resolver.Resolve(child->shape, grandchild.connection.parentAttach);
             ConnectionRing ring;
             ring.center = pt.position;
             ring.normal = pt.normal;
             ring.radius = matched_radius;
             ring.segments = matched_segments;
             ring.child_index = i;
-            ring.attach = grandchild.connection.parent_attach;
+            ring.attach = grandchild.connection.parentAttach;
             all_rings.push_back(ring);
         }
 

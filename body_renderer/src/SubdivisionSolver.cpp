@@ -77,10 +77,10 @@ static void SetShapeAngularSegments(ShapeParams& shape, int segs)
         shape.segments = segs;
         break;
     case ShapeType::Sphere:
-        shape.lon_segments = segs;
+        shape.lonSegments = segs;
         break;
     case ShapeType::Torus:
-        shape.side_segments = segs;
+        shape.sideSegments = segs;
         break;
     }
 }
@@ -93,9 +93,9 @@ static int GetShapeAngularSegments(const ShapeParams& shape)
     case ShapeType::Cone:
         return shape.segments;
     case ShapeType::Sphere:
-        return shape.lon_segments;
+        return shape.lonSegments;
     case ShapeType::Torus:
-        return shape.side_segments;
+        return shape.sideSegments;
     }
     return 8;
 }
@@ -106,11 +106,11 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
     std::vector<float> side_u_positions;
     std::vector<float> side_v_positions;
     for (const auto& child : node.children) {
-        if (child.connection.is_legacy) continue;
-        if (child.connection.parent_attach.region == AttachRegion::Side ||
-            child.connection.parent_attach.region == AttachRegion::Surface) {
-            side_u_positions.push_back(child.connection.parent_attach.u);
-            side_v_positions.push_back(child.connection.parent_attach.v);
+        if (child.connection.isLegacy) continue;
+        if (child.connection.parentAttach.region == AttachRegion::Side ||
+            child.connection.parentAttach.region == AttachRegion::Surface) {
+            side_u_positions.push_back(child.connection.parentAttach.u);
+            side_v_positions.push_back(child.connection.parentAttach.v);
         }
     }
 
@@ -123,31 +123,31 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
     // width shrinks to match the child's. Using a multiple of the child's segments
     // preserves face-center alignment at the connection point.
     for (const auto& child : node.children) {
-        if (child.connection.is_legacy) continue;
-        if (child.connection.parent_attach.region != AttachRegion::Side &&
-            child.connection.parent_attach.region != AttachRegion::Surface) continue;
-        if (child.connection.child_attach.region != AttachRegion::Side &&
-            child.connection.child_attach.region != AttachRegion::Surface) continue;
-        // Skip torus parents (handled via ring_segments separately)
+        if (child.connection.isLegacy) continue;
+        if (child.connection.parentAttach.region != AttachRegion::Side &&
+            child.connection.parentAttach.region != AttachRegion::Surface) continue;
+        if (child.connection.childAttach.region != AttachRegion::Side &&
+            child.connection.childAttach.region != AttachRegion::Surface) continue;
+        // Skip torus parents (handled via ringSegments separately)
         if (node.shape.type == ShapeType::Torus) continue;
 
         // Effective radius at the connection point on each shape
         float parent_r = node.shape.radius;
         if (node.shape.type == ShapeType::Sphere) {
-            float phi = child.connection.parent_attach.v * static_cast<float>(M_PI);
+            float phi = child.connection.parentAttach.v * static_cast<float>(M_PI);
             float local_r = node.shape.radius * std::sin(phi);
             if (local_r > 0.05f * node.shape.radius) parent_r = local_r;
         } else if (node.shape.type == ShapeType::Cone) {
-            parent_r = node.shape.radius * (1.0f - child.connection.parent_attach.v);
+            parent_r = node.shape.radius * (1.0f - child.connection.parentAttach.v);
         }
 
         float child_r = child.shape.radius;
         if (child.shape.type == ShapeType::Sphere) {
-            float phi = child.connection.child_attach.v * static_cast<float>(M_PI);
+            float phi = child.connection.childAttach.v * static_cast<float>(M_PI);
             float local_r = child.shape.radius * std::sin(phi);
             if (local_r > 0.05f * child.shape.radius) child_r = local_r;
         } else if (child.shape.type == ShapeType::Cone) {
-            child_r = child.shape.radius * (1.0f - child.connection.child_attach.v);
+            child_r = child.shape.radius * (1.0f - child.connection.childAttach.v);
         }
 
         if (parent_r > 0.001f && child_r > 0.001f && parent_r > child_r * 1.05f) {
@@ -166,102 +166,102 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
     // Set the shape's angular segments
     SetShapeAngularSegments(node.shape, required_angular);
 
-    // Also set lat_segments for spheres and ring_segments for tori based on v-positions
+    // Also set latSegments for spheres and ringSegments for tori based on v-positions
     if (node.shape.type == ShapeType::Sphere) {
-        node.shape.lat_segments = ComputeRequiredSphereLat(side_v_positions, (std::max)(3, base_res));
+        node.shape.latSegments = ComputeRequiredSphereLat(side_v_positions, (std::max)(3, base_res));
     } else if (node.shape.type == ShapeType::Torus) {
-        node.shape.ring_segments = ComputeRequiredSegments(side_u_positions, (std::max)(3, base_res));
-        node.shape.side_segments = ComputeRequiredSegments(side_v_positions, (std::max)(3, base_res));
+        node.shape.ringSegments = ComputeRequiredSegments(side_u_positions, (std::max)(3, base_res));
+        node.shape.sideSegments = ComputeRequiredSegments(side_v_positions, (std::max)(3, base_res));
     } else if (node.shape.type == ShapeType::Cylinder ||
                node.shape.type == ShapeType::Capsule ||
                node.shape.type == ShapeType::Cone) {
         if (!side_v_positions.empty()) {
-            node.shape.height_segments = ComputeRequiredSegments(side_v_positions, (std::max)(1, base_res / 4));
+            node.shape.heightSegments = ComputeRequiredSegments(side_v_positions, (std::max)(1, base_res / 4));
         }
     }
 
     // For each child: ensure child uses compatible segments at the connection boundary
     for (auto& child : node.children) {
-        if (child.connection.is_legacy) {
+        if (child.connection.isLegacy) {
             DeriveSegmentsRecursive(child, base_res, 0);
             continue;
         }
 
         // Child's angular segments must be at least parent's
-        // For torus parents: do NOT force the child's segments to torus ring_segments.
+        // For torus parents: do NOT force the child's segments to torus ringSegments.
         // The child keeps its natural segments; the torus adapts instead.
         int parent_segs;
         if (node.shape.type == ShapeType::Torus &&
-            (child.connection.parent_attach.region == AttachRegion::Surface)) {
+            (child.connection.parentAttach.region == AttachRegion::Surface)) {
             parent_segs = 0; // Don't force child segments from torus
         } else {
             parent_segs = GetShapeAngularSegments(node.shape);
         }
 
-        // Set child lat_segments / ring_segments from base_res
+        // Set child latSegments / ringSegments from base_res
         if (child.shape.type == ShapeType::Sphere) {
-            child.shape.lat_segments = (std::max)(3, base_res);
+            child.shape.latSegments = (std::max)(3, base_res);
         } else if (child.shape.type == ShapeType::Torus) {
-            child.shape.ring_segments = (std::max)(3, base_res);
+            child.shape.ringSegments = (std::max)(3, base_res);
         }
 
-        // If child connects via its side or surface, compute height_segments from v-positions
-        if (child.connection.child_attach.region == AttachRegion::Side ||
-            child.connection.child_attach.region == AttachRegion::Surface) {
+        // If child connects via its side or surface, compute heightSegments from v-positions
+        if (child.connection.childAttach.region == AttachRegion::Side ||
+            child.connection.childAttach.region == AttachRegion::Surface) {
             std::vector<float> child_v_positions;
-            child_v_positions.push_back(child.connection.child_attach.v);
+            child_v_positions.push_back(child.connection.childAttach.v);
             for (const auto& grandchild : child.children) {
-                if (grandchild.connection.is_legacy) continue;
-                if (grandchild.connection.parent_attach.region == AttachRegion::Side ||
-                    grandchild.connection.parent_attach.region == AttachRegion::Surface) {
-                    child_v_positions.push_back(grandchild.connection.parent_attach.v);
+                if (grandchild.connection.isLegacy) continue;
+                if (grandchild.connection.parentAttach.region == AttachRegion::Side ||
+                    grandchild.connection.parentAttach.region == AttachRegion::Surface) {
+                    child_v_positions.push_back(grandchild.connection.parentAttach.v);
                 }
             }
             int h_segs = ComputeRequiredSegments(child_v_positions, (std::max)(1, base_res / 4));
-            child.shape.height_segments = h_segs;
+            child.shape.heightSegments = h_segs;
         } else {
-            child.shape.height_segments = (std::max)(1, base_res / 4);
+            child.shape.heightSegments = (std::max)(1, base_res / 4);
         }
 
         // Special case: cylinder/capsule/cone side connects to a torus surface
-        // The torus needs enough ring_segments so ONE of its faces matches the
+        // The torus needs enough ringSegments so ONE of its faces matches the
         // cylinder's natural face width. The cylinder stays unchanged.
         // Formula: torus face width = 2π*major/ring_segs should equal
         //          cylinder face width = 2π*cyl_radius/cyl_segs
-        // => ring_segs = major_radius / cyl_radius * cyl_segs
-        if (child.connection.parent_attach.region == AttachRegion::Surface &&
+        // => ring_segs = majorRadius / cyl_radius * cyl_segs
+        if (child.connection.parentAttach.region == AttachRegion::Surface &&
             node.shape.type == ShapeType::Torus) {
             if (child.shape.type == ShapeType::Cylinder ||
                 child.shape.type == ShapeType::Capsule ||
                 child.shape.type == ShapeType::Cone) {
-                if (child.connection.child_attach.region == AttachRegion::Side ||
-                    child.connection.child_attach.region == AttachRegion::Surface) {
+                if (child.connection.childAttach.region == AttachRegion::Side ||
+                    child.connection.childAttach.region == AttachRegion::Surface) {
                     // Match height: cylinder row height = torus tube face height
-                    child.shape.height_segments = node.shape.side_segments;
-                    // Increase torus ring_segments so its face width matches cylinder's
+                    child.shape.heightSegments = node.shape.sideSegments;
+                    // Increase torus ringSegments so its face width matches cylinder's
                     float child_radius = child.shape.radius;
                     if (child_radius > 0.001f) {
                         int needed_ring = static_cast<int>(
-                            std::ceil(node.shape.major_radius / child_radius * child.shape.segments));
-                        if (needed_ring < node.shape.ring_segments) needed_ring = node.shape.ring_segments;
+                            std::ceil(node.shape.majorRadius / child_radius * child.shape.segments));
+                        if (needed_ring < node.shape.ringSegments) needed_ring = node.shape.ringSegments;
                         if (needed_ring > 128) needed_ring = 128;
-                        node.shape.ring_segments = needed_ring;
+                        node.shape.ringSegments = needed_ring;
                     }
                     // Do NOT change child.shape.segments — the cylinder keeps its natural geometry
                 }
             }
         }
 
-        // Sync cylinder height_segments with sphere lat_segments at side<->surface connections
-        if (child.connection.child_attach.region == AttachRegion::Side ||
-            child.connection.child_attach.region == AttachRegion::Surface) {
+        // Sync cylinder heightSegments with sphere latSegments at side<->surface connections
+        if (child.connection.childAttach.region == AttachRegion::Side ||
+            child.connection.childAttach.region == AttachRegion::Surface) {
             if (node.shape.type == ShapeType::Sphere) {
-                int synced = (std::max)(node.shape.lat_segments, child.shape.height_segments);
-                node.shape.lat_segments = synced;
-                child.shape.height_segments = synced;
+                int synced = (std::max)(node.shape.latSegments, child.shape.heightSegments);
+                node.shape.latSegments = synced;
+                child.shape.heightSegments = synced;
 
                 // Compute non-uniform row boundaries so cylinder rows match sphere latitude bands
-                int H = child.shape.height_segments;
+                int H = child.shape.heightSegments;
                 std::vector<float> boundaries;
                 boundaries.reserve(H + 1);
                 for (int k = 0; k <= H; ++k) {
@@ -269,18 +269,18 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                     float t = (1.0f + std::cos(phi)) * 0.5f;
                     boundaries.push_back(t);
                 }
-                child.shape.row_boundaries = boundaries;
+                child.shape.rowBoundaries = boundaries;
             }
         }
-        if (child.connection.parent_attach.region == AttachRegion::Side ||
-            child.connection.parent_attach.region == AttachRegion::Surface) {
+        if (child.connection.parentAttach.region == AttachRegion::Side ||
+            child.connection.parentAttach.region == AttachRegion::Surface) {
             if (child.shape.type == ShapeType::Sphere) {
-                int synced = (std::max)(child.shape.lat_segments, node.shape.height_segments);
-                child.shape.lat_segments = synced;
-                node.shape.height_segments = synced;
+                int synced = (std::max)(child.shape.latSegments, node.shape.heightSegments);
+                child.shape.latSegments = synced;
+                node.shape.heightSegments = synced;
 
                 // Compute non-uniform row boundaries so parent cylinder rows match sphere latitude bands
-                int H = node.shape.height_segments;
+                int H = node.shape.heightSegments;
                 std::vector<float> boundaries;
                 boundaries.reserve(H + 1);
                 for (int k = 0; k <= H; ++k) {
@@ -288,7 +288,7 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                     float t = (1.0f + std::cos(phi)) * 0.5f;
                     boundaries.push_back(t);
                 }
-                node.shape.row_boundaries = boundaries;
+                node.shape.rowBoundaries = boundaries;
             }
         }
 
@@ -298,16 +298,16 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         printf("[SubdivSolver] Checking generalized row spacing for %s -> %s: "
                "child_side=%d, parent_surface=%d, not_sphere=%d\n",
                node.name.c_str(), child.name.c_str(),
-               (child.connection.child_attach.region == AttachRegion::Side ||
-                child.connection.child_attach.region == AttachRegion::Surface),
-               (child.connection.parent_attach.region == AttachRegion::Surface || 
-                child.connection.parent_attach.region == AttachRegion::Side),
+               (child.connection.childAttach.region == AttachRegion::Side ||
+                child.connection.childAttach.region == AttachRegion::Surface),
+               (child.connection.parentAttach.region == AttachRegion::Surface || 
+                child.connection.parentAttach.region == AttachRegion::Side),
                node.shape.type != ShapeType::Sphere);
 #endif
-        if ((child.connection.child_attach.region == AttachRegion::Side ||
-             child.connection.child_attach.region == AttachRegion::Surface) &&
-            (child.connection.parent_attach.region == AttachRegion::Surface ||
-             child.connection.parent_attach.region == AttachRegion::Side) &&
+        if ((child.connection.childAttach.region == AttachRegion::Side ||
+             child.connection.childAttach.region == AttachRegion::Surface) &&
+            (child.connection.parentAttach.region == AttachRegion::Surface ||
+             child.connection.parentAttach.region == AttachRegion::Side) &&
             node.shape.type != ShapeType::Sphere) {
 
             // Generate parent faces to measure actual face height at connection point
@@ -315,7 +315,7 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             std::vector<Face> parent_faces = faceGen.Generate(node.shape);
 
             ConnectionFaceMatcher matcher;
-            int parent_grid_idx = matcher.ComputeGridIndex(node.shape, child.connection.parent_attach);
+            int parent_grid_idx = matcher.ComputeGridIndex(node.shape, child.connection.parentAttach);
 
 #ifdef _DEBUG
             printf("[SubdivSolver] %s -> %s: parent_faces=%d, parent_grid_idx=%d\n",
@@ -347,8 +347,8 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                            parent_grid_idx, (int)conn_face.vertices.size());
 #endif
                     if (child.shape.height > 0.0f && parent_face_height > 0.0f) {
-                        int H = child.shape.height_segments;
-                        float v_center = child.connection.child_attach.v;
+                        int H = child.shape.heightSegments;
+                        float v_center = child.connection.childAttach.v;
 
                         // Compute the row span that should match parent face height
                         float row_span = parent_face_height / child.shape.height;
@@ -421,11 +421,11 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                             boundaries.pop_back();
                         boundaries.back() = 1.0f;
 
-                        child.shape.row_boundaries = boundaries;
+                        child.shape.rowBoundaries = boundaries;
 #ifdef _DEBUG
                         printf("[SubdivSolver] %s -> %s: H=%d, v_center=%.4f, row_span=%.4f, conn_row=%d, row_bottom=%.4f, row_top=%.4f\n",
                                node.name.c_str(), child.name.c_str(), H, v_center, row_span, conn_row, row_bottom, row_top);
-                        printf("[SubdivSolver] row_boundaries: [");
+                        printf("[SubdivSolver] rowBoundaries: [");
                         for (float b : boundaries) printf("%.3f ", b);
                         printf("]\n");
 #endif
@@ -437,10 +437,10 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
             printf("[SubdivSolver] SKIPPED generalized row spacing for %s -> %s: "
                    "child_side=%d, parent_surface_or_side=%d, not_sphere=%d\n",
                    node.name.c_str(), child.name.c_str(),
-                   (child.connection.child_attach.region == AttachRegion::Side ||
-                    child.connection.child_attach.region == AttachRegion::Surface),
-                   (child.connection.parent_attach.region == AttachRegion::Surface || 
-                    child.connection.parent_attach.region == AttachRegion::Side),
+                   (child.connection.childAttach.region == AttachRegion::Side ||
+                    child.connection.childAttach.region == AttachRegion::Surface),
+                   (child.connection.parentAttach.region == AttachRegion::Surface || 
+                    child.connection.parentAttach.region == AttachRegion::Side),
                    node.shape.type != ShapeType::Sphere);
 #endif
         }
@@ -448,28 +448,28 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
         // Radius-ratio face-width matching for the child side:
         // If the child is larger than the parent at a side/surface connection,
         // inflate child's angular segments so its face width matches the parent's.
-        if ((child.connection.child_attach.region == AttachRegion::Side ||
-             child.connection.child_attach.region == AttachRegion::Surface) &&
-            (child.connection.parent_attach.region == AttachRegion::Side ||
-             child.connection.parent_attach.region == AttachRegion::Surface)) {
+        if ((child.connection.childAttach.region == AttachRegion::Side ||
+             child.connection.childAttach.region == AttachRegion::Surface) &&
+            (child.connection.parentAttach.region == AttachRegion::Side ||
+             child.connection.parentAttach.region == AttachRegion::Surface)) {
 
             float parent_r = node.shape.radius;
-            if (node.shape.type == ShapeType::Torus) parent_r = node.shape.minor_radius;
+            if (node.shape.type == ShapeType::Torus) parent_r = node.shape.minorRadius;
             if (node.shape.type == ShapeType::Sphere) {
-                float phi = child.connection.parent_attach.v * static_cast<float>(M_PI);
+                float phi = child.connection.parentAttach.v * static_cast<float>(M_PI);
                 float local_r = node.shape.radius * std::sin(phi);
                 if (local_r > 0.05f * node.shape.radius) parent_r = local_r;
             } else if (node.shape.type == ShapeType::Cone) {
-                parent_r = node.shape.radius * (1.0f - child.connection.parent_attach.v);
+                parent_r = node.shape.radius * (1.0f - child.connection.parentAttach.v);
             }
 
             float child_r = child.shape.radius;
             if (child.shape.type == ShapeType::Sphere) {
-                float phi = child.connection.child_attach.v * static_cast<float>(M_PI);
+                float phi = child.connection.childAttach.v * static_cast<float>(M_PI);
                 float local_r = child.shape.radius * std::sin(phi);
                 if (local_r > 0.05f * child.shape.radius) child_r = local_r;
             } else if (child.shape.type == ShapeType::Cone) {
-                child_r = child.shape.radius * (1.0f - child.connection.child_attach.v);
+                child_r = child.shape.radius * (1.0f - child.connection.childAttach.v);
             }
 
             if (child_r > parent_r * 1.05f && parent_r > 0.001f) {

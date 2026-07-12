@@ -14,14 +14,14 @@ struct JointFaceReport {
     int subdivision_level;
 
     // Parent-side connection face
-    int parent_face_index;
+    int parentFaceIndex;
     int parent_face_vertex_count;
     float parent_face_area;
     Vec3 parent_face_center_world;
     Vec3 parent_face_normal_world;
 
     // Child-side connection face
-    int child_face_index;
+    int childFaceIndex;
     int child_face_vertex_count;
     float child_face_area;
     Vec3 child_face_center_world;
@@ -42,8 +42,8 @@ struct JointFaceReport {
 
     JointFaceReport()
         : subdivision_level(1)
-        , parent_face_index(-1), parent_face_vertex_count(0), parent_face_area(0.0f)
-        , child_face_index(-1), child_face_vertex_count(0), child_face_area(0.0f)
+        , parentFaceIndex(-1), parent_face_vertex_count(0), parent_face_area(0.0f)
+        , childFaceIndex(-1), child_face_vertex_count(0), child_face_area(0.0f)
         , face_center_distance(0.0f), normal_dot_product(0.0f)
         , area_difference(0.0f), area_ratio(0.0f)
         , vertex_count_match(false)

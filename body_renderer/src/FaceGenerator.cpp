@@ -67,7 +67,7 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
     int n = s.segments;
     float r = s.radius;
     float hh = s.height * 0.5f;
-    int h_segs = s.height_segments;
+    int h_segs = s.heightSegments;
     if (h_segs < 1) h_segs = 1;
 
     // Generate ring vertices: (h_segs + 1) rings from bottom to top
@@ -75,8 +75,8 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
     std::vector<std::vector<Vec3>> ring_verts(h_segs + 1, std::vector<Vec3>(n));
     for (int row = 0; row <= h_segs; ++row) {
         float t;
-        if (!s.row_boundaries.empty() && row < static_cast<int>(s.row_boundaries.size())) {
-            t = s.row_boundaries[row];
+        if (!s.rowBoundaries.empty() && row < static_cast<int>(s.rowBoundaries.size())) {
+            t = s.rowBoundaries[row];
         } else {
             t = static_cast<float>(row) / h_segs;
         }
@@ -127,8 +127,8 @@ std::vector<Face> FaceGenerator::GenerateCylinder(const ShapeParams& s) const
 std::vector<Face> FaceGenerator::GenerateSphere(const ShapeParams& s) const
 {
     std::vector<Face> faces;
-    int slices = s.lon_segments;
-    int stacks = s.lat_segments;
+    int slices = s.lonSegments;
+    int stacks = s.latSegments;
     float r = s.radius;
 
     // Generate vertex grid
@@ -193,10 +193,10 @@ std::vector<Face> FaceGenerator::GenerateSphere(const ShapeParams& s) const
 std::vector<Face> FaceGenerator::GenerateTorus(const ShapeParams& s) const
 {
     std::vector<Face> faces;
-    int rings = s.ring_segments;
-    int sides = s.side_segments;
-    float R = s.major_radius;
-    float r = s.minor_radius;
+    int rings = s.ringSegments;
+    int sides = s.sideSegments;
+    float R = s.majorRadius;
+    float r = s.minorRadius;
 
     auto vertex = [&](int ring, int side) -> Vec3 {
         float theta = 2.0f * static_cast<float>(M_PI) * ring / rings;
@@ -303,7 +303,7 @@ std::vector<Face> FaceGenerator::GenerateCapsule(const ShapeParams& s) const
 
     // --- Cylinder middle ---
     if (cyl_h > 0.0f) {
-        int h_segs = s.height_segments;
+        int h_segs = s.heightSegments;
         if (h_segs < 1) h_segs = 1;
 
         // Generate ring vertices for the cylinder section

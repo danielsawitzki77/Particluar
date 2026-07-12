@@ -34,9 +34,9 @@ int BodyGenerator::EstimateFaceCount(const ShapeParams& shape) const
     case ShapeType::Cylinder:
         return shape.segments + 2;
     case ShapeType::Sphere:
-        return shape.lon_segments * shape.lat_segments;
+        return shape.lonSegments * shape.latSegments;
     case ShapeType::Torus:
-        return shape.ring_segments * shape.side_segments;
+        return shape.ringSegments * shape.sideSegments;
     case ShapeType::Capsule:
         return shape.segments * 2 + shape.segments; // hemispheres + cylinder
     }
@@ -106,15 +106,15 @@ ShapeParams BodyGenerator::RandomShape(RNG& rng) const
     case 2: // Sphere
         s.type = ShapeType::Sphere;
         s.radius = rng.FloatRange(0.2f, 0.8f);
-        s.lon_segments = rng.IntRange(8, 20);
-        s.lat_segments = rng.IntRange(6, 14);
+        s.lonSegments = rng.IntRange(8, 20);
+        s.latSegments = rng.IntRange(6, 14);
         break;
     case 3: // Torus
         s.type = ShapeType::Torus;
-        s.major_radius = rng.FloatRange(0.5f, 1.2f);
-        s.minor_radius = rng.FloatRange(0.1f, s.major_radius * 0.4f);
-        s.ring_segments = rng.IntRange(8, 20);
-        s.side_segments = rng.IntRange(6, 12);
+        s.majorRadius = rng.FloatRange(0.5f, 1.2f);
+        s.minorRadius = rng.FloatRange(0.1f, s.majorRadius * 0.4f);
+        s.ringSegments = rng.IntRange(8, 20);
+        s.sideSegments = rng.IntRange(6, 12);
         break;
     case 4: // Capsule
         s.type = ShapeType::Capsule;
@@ -129,64 +129,64 @@ ShapeParams BodyGenerator::RandomShape(RNG& rng) const
 Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_shape) const
 {
     Connection conn;
-    conn.is_legacy = false; // generate v2 parametric connections
+    conn.isLegacy = false; // generate v2 parametric connections
 
     // Select a valid region for the parent shape
     switch (parent_shape.type) {
     case ShapeType::Sphere:
-        conn.parent_attach.region = AttachRegion::Surface;
-        conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
-        conn.parent_attach.v = rng.FloatRange(0.1f, 0.9f); // avoid exact poles
+        conn.parentAttach.region = AttachRegion::Surface;
+        conn.parentAttach.u = rng.FloatRange(0.0f, 1.0f);
+        conn.parentAttach.v = rng.FloatRange(0.1f, 0.9f); // avoid exact poles
         break;
     case ShapeType::Cylinder: {
         int region_choice = rng.IntRange(0, 2);
         if (region_choice == 0) {
-            conn.parent_attach.region = AttachRegion::Top;
-            conn.parent_attach.u = 0.5f;
-            conn.parent_attach.v = 0.5f;
+            conn.parentAttach.region = AttachRegion::Top;
+            conn.parentAttach.u = 0.5f;
+            conn.parentAttach.v = 0.5f;
         } else if (region_choice == 1) {
-            conn.parent_attach.region = AttachRegion::Bottom;
-            conn.parent_attach.u = 0.5f;
-            conn.parent_attach.v = 0.5f;
+            conn.parentAttach.region = AttachRegion::Bottom;
+            conn.parentAttach.u = 0.5f;
+            conn.parentAttach.v = 0.5f;
         } else {
-            conn.parent_attach.region = AttachRegion::Side;
-            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
-            conn.parent_attach.v = rng.FloatRange(0.2f, 0.8f);
+            conn.parentAttach.region = AttachRegion::Side;
+            conn.parentAttach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parentAttach.v = rng.FloatRange(0.2f, 0.8f);
         }
         break;
     }
     case ShapeType::Cone: {
         int region_choice = rng.IntRange(0, 1);
         if (region_choice == 0) {
-            conn.parent_attach.region = AttachRegion::Base;
-            conn.parent_attach.u = 0.5f;
-            conn.parent_attach.v = 0.5f;
+            conn.parentAttach.region = AttachRegion::Base;
+            conn.parentAttach.u = 0.5f;
+            conn.parentAttach.v = 0.5f;
         } else {
-            conn.parent_attach.region = AttachRegion::Side;
-            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
-            conn.parent_attach.v = rng.FloatRange(0.1f, 0.6f); // lower half of cone side
+            conn.parentAttach.region = AttachRegion::Side;
+            conn.parentAttach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parentAttach.v = rng.FloatRange(0.1f, 0.6f); // lower half of cone side
         }
         break;
     }
     case ShapeType::Torus:
-        conn.parent_attach.region = AttachRegion::Surface;
-        conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
-        conn.parent_attach.v = rng.FloatRange(0.0f, 1.0f);
+        conn.parentAttach.region = AttachRegion::Surface;
+        conn.parentAttach.u = rng.FloatRange(0.0f, 1.0f);
+        conn.parentAttach.v = rng.FloatRange(0.0f, 1.0f);
         break;
     case ShapeType::Capsule: {
         int region_choice = rng.IntRange(0, 2);
         if (region_choice == 0) {
-            conn.parent_attach.region = AttachRegion::TopCap;
-            conn.parent_attach.u = 0.5f;
-            conn.parent_attach.v = 0.0f; // pole
+            conn.parentAttach.region = AttachRegion::TopCap;
+            conn.parentAttach.u = 0.5f;
+            conn.parentAttach.v = 0.0f; // pole
         } else if (region_choice == 1) {
-            conn.parent_attach.region = AttachRegion::BottomCap;
-            conn.parent_attach.u = 0.5f;
-            conn.parent_attach.v = 0.0f;
+            conn.parentAttach.region = AttachRegion::BottomCap;
+            conn.parentAttach.u = 0.5f;
+            conn.parentAttach.v = 0.0f;
         } else {
-            conn.parent_attach.region = AttachRegion::Side;
-            conn.parent_attach.u = rng.FloatRange(0.0f, 1.0f);
-            conn.parent_attach.v = rng.FloatRange(0.2f, 0.8f);
+            conn.parentAttach.region = AttachRegion::Side;
+            conn.parentAttach.u = rng.FloatRange(0.0f, 1.0f);
+            conn.parentAttach.v = rng.FloatRange(0.2f, 0.8f);
         }
         break;
     }
@@ -194,23 +194,23 @@ Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_s
 
     // Child attachment — typically connect at top or bottom for directional shapes
     // For spheres, use surface bottom pole
-    conn.child_attach.u = 0.5f;
-    conn.child_attach.v = 0.5f;
+    conn.childAttach.u = 0.5f;
+    conn.childAttach.v = 0.5f;
 
     // Pick a sensible child attachment based on child shape would be ideal,
     // but we don't know the child shape at this point — use defaults
     // that work for most shapes (top/bottom/surface center)
     int child_choice = rng.IntRange(0, 1);
     if (child_choice == 0) {
-        conn.child_attach.region = AttachRegion::Top;
+        conn.childAttach.region = AttachRegion::Top;
     } else {
-        conn.child_attach.region = AttachRegion::Bottom;
+        conn.childAttach.region = AttachRegion::Bottom;
     }
 
     // Rotation is only valid for cap↔cap connections.
     // For side/surface connections, face grid alignment determines orientation.
-    bool is_side = (conn.parent_attach.region == AttachRegion::Side ||
-                    conn.parent_attach.region == AttachRegion::Surface);
+    bool is_side = (conn.parentAttach.region == AttachRegion::Side ||
+                    conn.parentAttach.region == AttachRegion::Surface);
     if (is_side) {
         conn.rotation = 0.0f;
     } else {
@@ -224,7 +224,7 @@ Connection BodyGenerator::RandomConnection(RNG& rng, const ShapeParams& parent_s
 // AND enforce topology compatibility (quad↔quad, ngon↔ngon)
 static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
 {
-    AttachRegion parent_region = conn.parent_attach.region;
+    AttachRegion parent_region = conn.parentAttach.region;
 
     // Determine if parent produces quads or ngons at its attachment
     bool parent_is_quad = (parent_region == AttachRegion::Side ||
@@ -232,52 +232,52 @@ static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
 
     switch (child_shape.type) {
     case ShapeType::Sphere:
-        conn.child_attach.region = AttachRegion::Surface;
-        conn.child_attach.u = 0.5f;
-        conn.child_attach.v = 0.5f; // equator (quad), NOT pole (triangle)
+        conn.childAttach.region = AttachRegion::Surface;
+        conn.childAttach.u = 0.5f;
+        conn.childAttach.v = 0.5f; // equator (quad), NOT pole (triangle)
         break;
     case ShapeType::Cylinder:
         if (parent_is_quad) {
             // Parent has quads — child must use Side (quad)
-            conn.child_attach.region = AttachRegion::Side;
-            conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
+            conn.childAttach.region = AttachRegion::Side;
+            conn.childAttach.u = 0.5f;
+            conn.childAttach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
         } else {
             // Parent has ngons — child uses cap (ngon)
-            conn.child_attach.region = AttachRegion::Bottom;
-            conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.5f;
+            conn.childAttach.region = AttachRegion::Bottom;
+            conn.childAttach.u = 0.5f;
+            conn.childAttach.v = 0.5f;
         }
         break;
     case ShapeType::Cone:
         // Cone base is ngon, cone side is triangle
         // For quad parents: no compatible cone face exists — use base anyway
-        conn.child_attach.region = AttachRegion::Base;
-        conn.child_attach.u = 0.5f;
-        conn.child_attach.v = 0.5f;
+        conn.childAttach.region = AttachRegion::Base;
+        conn.childAttach.u = 0.5f;
+        conn.childAttach.v = 0.5f;
         break;
     case ShapeType::Torus:
-        conn.child_attach.region = AttachRegion::Surface;
-        conn.child_attach.u = 0.5f;
-        conn.child_attach.v = 0.5f;
+        conn.childAttach.region = AttachRegion::Surface;
+        conn.childAttach.u = 0.5f;
+        conn.childAttach.v = 0.5f;
         break;
     case ShapeType::Capsule:
         if (parent_is_quad) {
-            conn.child_attach.region = AttachRegion::Side;
-            conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
+            conn.childAttach.region = AttachRegion::Side;
+            conn.childAttach.u = 0.5f;
+            conn.childAttach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
         } else {
-            conn.child_attach.region = AttachRegion::BottomCap;
-            conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.5f;
+            conn.childAttach.region = AttachRegion::BottomCap;
+            conn.childAttach.u = 0.5f;
+            conn.childAttach.v = 0.5f;
         }
         break;
     }
 
     // Lock rotation to 0 for side/surface connections
-    bool is_side = (conn.child_attach.region == AttachRegion::Side ||
-                    conn.parent_attach.region == AttachRegion::Surface ||
-                    conn.parent_attach.region == AttachRegion::Side);
+    bool is_side = (conn.childAttach.region == AttachRegion::Side ||
+                    conn.parentAttach.region == AttachRegion::Surface ||
+                    conn.parentAttach.region == AttachRegion::Side);
     if (is_side) {
         conn.rotation = 0.0f;
     }
@@ -301,8 +301,8 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
 
             // Enforce topology: if parent attachment is quad, child must produce quads.
             // Cone has no quad faces (side=triangles, base=ngon) so replace with cylinder.
-            bool parent_is_quad = (child.connection.parent_attach.region == AttachRegion::Side ||
-                                   child.connection.parent_attach.region == AttachRegion::Surface);
+            bool parent_is_quad = (child.connection.parentAttach.region == AttachRegion::Side ||
+                                   child.connection.parentAttach.region == AttachRegion::Surface);
             if (parent_is_quad && child.shape.type == ShapeType::Cone) {
                 // Cone can't produce quad faces — switch to cylinder (same visual, has Side quads)
                 child.shape.type = ShapeType::Cylinder;
@@ -313,13 +313,13 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
             FixChildAttachment(child.connection, child.shape);
 
             // Enforce topology: after FixChildAttachment, verify quad↔quad compatibility
-            bool child_is_quad = (child.connection.child_attach.region == AttachRegion::Side ||
-                                  child.connection.child_attach.region == AttachRegion::Surface);
+            bool child_is_quad = (child.connection.childAttach.region == AttachRegion::Side ||
+                                  child.connection.childAttach.region == AttachRegion::Surface);
             if (parent_is_quad && !child_is_quad) {
                 // Force child to use Side region for quad compatibility
-                child.connection.child_attach.region = AttachRegion::Side;
-                child.connection.child_attach.u = 0.5f;
-                child.connection.child_attach.v = 0.2f;
+                child.connection.childAttach.region = AttachRegion::Side;
+                child.connection.childAttach.u = 0.5f;
+                child.connection.childAttach.v = 0.2f;
                 child.connection.rotation = 0.0f;
             }
 
@@ -343,7 +343,7 @@ Body BodyGenerator::Generate(unsigned int seed, int depth_limit) const
 
     Body body;
     body.name = "Generated_" + std::to_string(seed);
-    body.format_version = 2;
+    body.formatVersion = 2;
     body.material.shininess = rng.FloatRange(16.0f, 80.0f);
     body.material.ambient = Vec3(
         rng.FloatRange(0.05f, 0.2f),

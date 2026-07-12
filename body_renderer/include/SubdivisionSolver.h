@@ -9,7 +9,7 @@ namespace BodyRenderer {
 // - Angular segments match at connection boundaries
 // - Height segments produce face boundaries at connection v-positions
 // - Non-uniform row spacing matches connected shape face heights
-// - Sphere lat_segments and torus ring/side_segments are derived correctly
+// - Sphere latSegments and torus ring/sideSegments are derived correctly
 class SubdivisionSolver {
 public:
     // Derive all subdivision parameters for the body tree.
