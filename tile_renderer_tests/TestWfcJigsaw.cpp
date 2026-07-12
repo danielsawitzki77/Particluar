@@ -145,8 +145,8 @@ static void testProperty4_GapFreeCoverage() {
             // Sample random points within the boundary
             const int numSamples = 20;
             for (int s = 0; s < numSamples; ++s) {
-                float px = *rc::gen::inRange(0, static_cast<int>(targetW));
-                float py = *rc::gen::inRange(0, static_cast<int>(targetH));
+                float px = static_cast<float>(*rc::gen::inRange(0, static_cast<int>(targetW)));
+                float py = static_cast<float>(*rc::gen::inRange(0, static_cast<int>(targetH)));
 
                 // Check that some tile covers this point
                 const PlacedTile* hit = result.map.QueryPoint(px, py);

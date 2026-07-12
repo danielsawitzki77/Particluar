@@ -294,6 +294,28 @@ int main(int argc, char* argv[])
 
         SDL_Log("[PoC] Running grid WFC: %dx%d (tile %.0fx%.0f)", gridW, gridH, tileW, tileH);
 
+        // Skip expensive grid WFC for large tilesets (>100 tiles causes freeze)
+        if (static_cast<int>(tilesetDef.tiles.size()) > 100) {
+            SDL_Log("[PoC] Tileset too large for grid WFC (%d tiles), using random placement.",
+                    (int)tilesetDef.tiles.size());
+            unsigned int seed = static_cast<unsigned int>(SDL_GetTicks());
+            int numTiles = static_cast<int>(tilesetDef.tiles.size());
+            for (int row = 0; row < gridH; ++row) {
+                for (int col = 0; col < gridW; ++col) {
+                    seed = seed * 1103515245 + 12345;
+                    int idx = static_cast<int>((seed >> 16) % numTiles);
+                    PlacedTile pt;
+                    pt.tileId = tilesetDef.tiles[idx].id;
+                    pt.x = static_cast<float>(col) * tileW;
+                    pt.y = static_cast<float>(row) * tileH;
+                    pt.w = tileW;
+                    pt.h = tileH;
+                    jigsawMap.AddTile(pt);
+                }
+            }
+            return;
+        }
+
         WFCParams params;
         params.width = gridW;
         params.height = gridH;
