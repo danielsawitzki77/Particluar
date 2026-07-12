@@ -224,7 +224,7 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
         }
 
         picojson::object tileObj;
-        tileObj["tileId"] = picojson::value(tile.tileId);
+        tileObj["tile_id"] = picojson::value(tile.tileId);
         tileObj["x"] = picojson::value(static_cast<double>(tile.x));
         tileObj["y"] = picojson::value(static_cast<double>(tile.y));
         tileObj["w"] = picojson::value(static_cast<double>(tile.w));
@@ -317,7 +317,7 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
 
         // Validate tileId (must be a non-empty string)
         std::string tileId;
-        if (!JsonUtil::GetString(tileObj, "tileId", tileId) || tileId.empty()) {
+        if (!JsonUtil::GetString(tileObj, "tile_id", tileId) || tileId.empty()) {
             SDL_Log("[MapLoader] Jigsaw map tile[%zu] missing or empty 'tileId', skipping: %s",
                     i, filepath.c_str());
             continue;

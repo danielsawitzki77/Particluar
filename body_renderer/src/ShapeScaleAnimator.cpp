@@ -133,8 +133,8 @@ std::string ShapeScaleAnimator::GetCurrentDimensionName() const
     switch (shape.dimensions[m_current_dimension].type) {
     case ScaleDimension::Radius: return "radius";
     case ScaleDimension::Height: return "height";
-    case ScaleDimension::MajorRadius: return "majorRadius";
-    case ScaleDimension::MinorRadius: return "minorRadius";
+    case ScaleDimension::MajorRadius: return "major_radius";
+    case ScaleDimension::MinorRadius: return "minor_radius";
     }
     return "";
 }

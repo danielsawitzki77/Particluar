@@ -107,7 +107,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
 
         // Extract sourceRect
         const picojson::object* srcRectObj = nullptr;
-        if (!JsonUtil::GetObject(tileObj, "sourceRect", srcRectObj)) {
+        if (!JsonUtil::GetObject(tileObj, "source_rect", srcRectObj)) {
             SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): missing 'sourceRect', skipping.",
                     id.c_str(), i);
             continue;
@@ -199,7 +199,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
 
                     // Parse sourceRect for this frame
                     const picojson::object* frameSrcObj = nullptr;
-                    if (!JsonUtil::GetObject(frameObj, "sourceRect", frameSrcObj)) {
+                    if (!JsonUtil::GetObject(frameObj, "source_rect", frameSrcObj)) {
                         SDL_Log("[TilesetLoader] Tile '%s' anim frame %zu: missing sourceRect, skipping frame.",
                                 id.c_str(), ai);
                         continue;
@@ -282,14 +282,14 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
     out.rawJson = rawJson;
 
     // Extract per-sheet scale from JSON root (optional, default 1.0)
-    // Accepts both "scale" and "sheetScale" field names for compatibility
+    // Accepts both "scale" and "sheet_scale" field names for compatibility
     out.sheetScale = 1.0f;
     if (rawJson.is<picojson::object>()) {
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
-        // Try "scale" first (per issue #91 spec), then "sheetScale" for backward compat
+        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
             out.sheetScale = static_cast<float>(sheetScaleVal);
             if (out.sheetScale <= 0.0f) {
                 SDL_Log("[TilesetLoader] Invalid sheetScale %.2f, using 1.0.", out.sheetScale);
@@ -362,7 +362,7 @@ bool TilesetLoader::LoadTilesetFromJson(SDL_Renderer* renderer, const std::strin
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
             out.sheetScale = static_cast<float>(sheetScaleVal);
             if (out.sheetScale <= 0.0f) out.sheetScale = 1.0f;
         }
@@ -397,14 +397,14 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     out.rawJson = rawJson;
 
     // Extract per-sheet scale from JSON root (optional, default 1.0)
-    // Accepts both "scale" and "sheetScale" field names for compatibility
+    // Accepts both "scale" and "sheet_scale" field names for compatibility
     out.sheetScale = 1.0f;
     if (rawJson.is<picojson::object>()) {
         const picojson::object& rootObj = rawJson.get<picojson::object>();
         double sheetScaleVal = 0.0;
-        // Try "scale" first (per issue #91 spec), then "sheetScale" for backward compat
+        // Try "scale" first (per issue #91 spec), then "sheet_scale" for backward compat
         if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
-            JsonUtil::GetDouble(rootObj, "sheetScale", sheetScaleVal)) {
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
             out.sheetScale = static_cast<float>(sheetScaleVal);
             if (out.sheetScale <= 0.0f) {
                 SDL_Log("[TilesetLoader] Invalid sheetScale %.2f, using 1.0.", out.sheetScale);
@@ -500,7 +500,7 @@ void TilesetLoader::ParseTsxAnimations(const std::string& folderPath,
 
             // Parse <frame tileid="N" duration="M"/>
             if (inAnimation && line.find("<frame ") != std::string::npos) {
-                std::string frameIdStr = GetXmlAttribute(line, "tileid");
+                std::string frameIdStr = GetXmlAttribute(line, "tile_id");
                 std::string durationStr = GetXmlAttribute(line, "duration");
                 if (!frameIdStr.empty() && !durationStr.empty()) {
                     AnimationFrame frame;

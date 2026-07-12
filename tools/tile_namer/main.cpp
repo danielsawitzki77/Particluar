@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
 
         // Get sourceRect x,y for deterministic naming
         int srcX = 0, srcY = 0;
-        auto srIt = tileObj.find("sourceRect");
+        auto srIt = tileObj.find("source_rect");
         if (srIt != tileObj.end() && srIt->second.is<picojson::object>()) {
             const picojson::object& sr = srIt->second.get<picojson::object>();
             auto xIt = sr.find("x");
