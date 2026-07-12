@@ -22,6 +22,7 @@
 #include <set>
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 // ---------------------------------------------------------------------------
 // Discover all JSON sidecar files recursively under assets/tilesets/
@@ -270,22 +271,31 @@ int main(int argc, char* argv[])
 
     // --- Streaming tile generation (all layers) ---
     // Each tileset becomes a layer with its own JigsawMap and generation state.
+    struct AdjLookup {
+        std::vector<size_t> right; // indices of tiles allowed to my right
+        std::vector<size_t> down;  // indices of tiles allowed below me
+    };
+
     struct LayerState {
         TilesetDef def;
         Tileset* tileset;
         JigsawMap map;
-        std::set<std::pair<int, int>> generatedCells; // (col, row) of generated cells
-        float cellW, cellH; // tile cell size for this layer
+        std::set<std::pair<int, int>> generatedCells;
+        float cellW, cellH;
         std::mt19937 rng;
+        // Pre-built adjacency: for tile index i, adjRight[i] = set of tile indices valid to its right
+        // adjDown[i] = set of tile indices valid below it
+        std::vector<std::vector<size_t>> adjRight; // [tileIdx] -> tiles valid to right
+        std::vector<std::vector<size_t>> adjDown;  // [tileIdx] -> tiles valid below
     };
     std::vector<LayerState> layers;
+
     for (size_t i = 0; i < allTilesets.size(); ++i) {
         LayerState layer;
         layer.tileset = &allTilesets[i];
         layer.def = BuildTilesetDef(*layer.tileset);
         layer.map.SetTilesetId(layer.def.name);
 
-        // Determine cell size from first tile
         float sheetScale = layer.def.sheetScale;
         if (!layer.def.tiles.empty()) {
             const TileDef& ft = layer.def.tiles[0];
@@ -301,15 +311,53 @@ int main(int argc, char* argv[])
         std::random_device rd;
         layer.rng.seed(rd());
 
+        // Pre-build adjacency lookup tables (index-based, no string comparisons at runtime)
+        int nt = static_cast<int>(layer.def.tiles.size());
+        layer.adjRight.resize(nt);
+        layer.adjDown.resize(nt);
+
+        for (int a = 0; a < nt; ++a) {
+            const TileDef& tileA = layer.def.tiles[a];
+            for (int b = 0; b < nt; ++b) {
+                const TileDef& tileB = layer.def.tiles[b];
+
+                // Can B be to the RIGHT of A?
+                bool rightOk = true;
+                if (!tileA.adjacency.right.empty()) {
+                    bool found = false;
+                    for (const auto& id : tileA.adjacency.right) { if (id == tileB.id) { found = true; break; } }
+                    if (!found) rightOk = false;
+                }
+                if (rightOk && !tileB.adjacency.left.empty()) {
+                    bool found = false;
+                    for (const auto& id : tileB.adjacency.left) { if (id == tileA.id) { found = true; break; } }
+                    if (!found) rightOk = false;
+                }
+                if (rightOk) layer.adjRight[a].push_back(b);
+
+                // Can B be BELOW A?
+                bool downOk = true;
+                if (!tileA.adjacency.down.empty()) {
+                    bool found = false;
+                    for (const auto& id : tileA.adjacency.down) { if (id == tileB.id) { found = true; break; } }
+                    if (!found) downOk = false;
+                }
+                if (downOk && !tileB.adjacency.up.empty()) {
+                    bool found = false;
+                    for (const auto& id : tileB.adjacency.up) { if (id == tileA.id) { found = true; break; } }
+                    if (!found) downOk = false;
+                }
+                if (downOk) layer.adjDown[a].push_back(b);
+            }
+        }
+        SDL_Log("[PoC] Layer %d: '%s' adjacency tables built (%d tiles)", (int)i, layer.def.name.c_str(), nt);
+
         layers.push_back(std::move(layer));
     }
 
     // Per-frame tile generation budget
-    const int TILES_PER_FRAME = 80;
-    // Margin around viewport (in pixels) to pre-generate
-    const float MARGIN = 64.0f;
-
-    // Which layer is actively rendered (Q/E to switch view, all generate)
+    const int TILES_PER_FRAME = 200;
+    const float MARGIN = 128.0f;
     int activeLayerIdx = 0;
 
     // --- Main Loop ---
@@ -368,7 +416,6 @@ int main(int argc, char* argv[])
 
         // --- Streaming generation: fill visible cells for ALL layers ---
         {
-            // Compute visible world area from camera
             float camX = camera.GetX();
             float camY = camera.GetY();
             float viewW = static_cast<float>(cfg.viewport_width) / zoomLevel;
@@ -377,6 +424,10 @@ int main(int argc, char* argv[])
             float worldTop = camY - viewH * camera.GetPivotY() - MARGIN;
             float worldRight = worldLeft + viewW + MARGIN * 2.0f;
             float worldBottom = worldTop + viewH + MARGIN * 2.0f;
+
+            // Center of visible area (for distance sorting)
+            float visCenterX = camX;
+            float visCenterY = camY;
 
             int budget = TILES_PER_FRAME;
 
@@ -388,92 +439,107 @@ int main(int argc, char* argv[])
                 float ch = layer.cellH;
                 int numTiles = static_cast<int>(layer.def.tiles.size());
 
-                // Grid cell range that covers the visible area
                 int colMin = static_cast<int>(std::floor(worldLeft / cw));
                 int colMax = static_cast<int>(std::ceil(worldRight / cw));
                 int rowMin = static_cast<int>(std::floor(worldTop / ch));
                 int rowMax = static_cast<int>(std::ceil(worldBottom / ch));
 
-                for (int row = rowMin; row <= rowMax && budget > 0; ++row) {
-                    for (int col = colMin; col <= colMax && budget > 0; ++col) {
-                        auto key = std::make_pair(col, row);
-                        if (layer.generatedCells.count(key) > 0) continue;
+                // Collect ungenerated cells and sort by distance from center
+                struct CellEntry { int col, row; float dist; };
+                std::vector<CellEntry> pending;
 
-                        // Mark as generated (even if we leave a gap)
-                        layer.generatedCells.insert(key);
+                for (int row = rowMin; row <= rowMax; ++row) {
+                    for (int col = colMin; col <= colMax; ++col) {
+                        if (layer.generatedCells.count(std::make_pair(col, row)) > 0) continue;
+                        float cx = (static_cast<float>(col) + 0.5f) * cw;
+                        float cy = (static_cast<float>(row) + 0.5f) * ch;
+                        float dx = cx - visCenterX;
+                        float dy = cy - visCenterY;
+                        pending.push_back({ col, row, dx * dx + dy * dy });
+                    }
+                }
 
-                        // Find candidates based on placed neighbors
-                        float px = static_cast<float>(col) * cw;
-                        float py = static_cast<float>(row) * ch;
+                // Sort by distance (closest to camera center first)
+                std::sort(pending.begin(), pending.end(),
+                    [](const CellEntry& a, const CellEntry& b) { return a.dist < b.dist; });
 
-                        // Check placed neighbors
-                        std::vector<int> candidates;
-                        for (int t = 0; t < numTiles; ++t) {
-                            const TileDef& cand = layer.def.tiles[t];
-                            bool valid = true;
+                // Generate cells within budget
+                for (const CellEntry& cell : pending) {
+                    if (budget <= 0) break;
 
-                            // Check left neighbor
-                            auto leftKey = std::make_pair(col - 1, row);
-                            if (layer.generatedCells.count(leftKey) > 0) {
-                                const PlacedTile* leftTile = layer.map.QueryPoint(px - cw * 0.5f, py + ch * 0.5f);
-                                if (leftTile) {
-                                    auto it = layer.def.idIndex.find(leftTile->tileId);
-                                    if (it != layer.def.idIndex.end()) {
-                                        const TileDef& nb = layer.def.tiles[it->second];
-                                        if (!nb.adjacency.right.empty()) {
-                                            bool found = false;
-                                            for (const auto& id : nb.adjacency.right) { if (id == cand.id) { found = true; break; } }
-                                            if (!found) valid = false;
-                                        }
-                                        if (valid && !cand.adjacency.left.empty()) {
-                                            bool found = false;
-                                            for (const auto& id : cand.adjacency.left) { if (id == nb.id) { found = true; break; } }
-                                            if (!found) valid = false;
-                                        }
-                                    }
-                                }
+                    layer.generatedCells.insert(std::make_pair(cell.col, cell.row));
+                    --budget;
+
+                    // Find valid candidates using pre-built adjacency tables
+                    // Check left neighbor
+                    int leftIdx = -1;
+                    {
+                        auto lk = std::make_pair(cell.col - 1, cell.row);
+                        if (layer.generatedCells.count(lk) > 0) {
+                            float qx = (static_cast<float>(cell.col) - 0.5f) * cw;
+                            float qy = (static_cast<float>(cell.row) + 0.5f) * ch;
+                            const PlacedTile* lt = layer.map.QueryPoint(qx, qy);
+                            if (lt) {
+                                auto it = layer.def.idIndex.find(lt->tileId);
+                                if (it != layer.def.idIndex.end()) leftIdx = static_cast<int>(it->second);
                             }
+                        }
+                    }
 
-                            // Check top neighbor
-                            if (valid) {
-                                auto topKey = std::make_pair(col, row - 1);
-                                if (layer.generatedCells.count(topKey) > 0) {
-                                    const PlacedTile* topTile = layer.map.QueryPoint(px + cw * 0.5f, py - ch * 0.5f);
-                                    if (topTile) {
-                                        auto it = layer.def.idIndex.find(topTile->tileId);
-                                        if (it != layer.def.idIndex.end()) {
-                                            const TileDef& nb = layer.def.tiles[it->second];
-                                            if (!nb.adjacency.down.empty()) {
-                                                bool found = false;
-                                                for (const auto& id : nb.adjacency.down) { if (id == cand.id) { found = true; break; } }
-                                                if (!found) valid = false;
-                                            }
-                                            if (valid && !cand.adjacency.up.empty()) {
-                                                bool found = false;
-                                                for (const auto& id : cand.adjacency.up) { if (id == nb.id) { found = true; break; } }
-                                                if (!found) valid = false;
-                                            }
-                                        }
-                                    }
-                                }
+                    // Check top neighbor
+                    int topIdx = -1;
+                    {
+                        auto tk = std::make_pair(cell.col, cell.row - 1);
+                        if (layer.generatedCells.count(tk) > 0) {
+                            float qx = (static_cast<float>(cell.col) + 0.5f) * cw;
+                            float qy = (static_cast<float>(cell.row) - 0.5f) * ch;
+                            const PlacedTile* tt = layer.map.QueryPoint(qx, qy);
+                            if (tt) {
+                                auto it = layer.def.idIndex.find(tt->tileId);
+                                if (it != layer.def.idIndex.end()) topIdx = static_cast<int>(it->second);
                             }
-
-                            if (valid) candidates.push_back(t);
                         }
+                    }
 
-                        // Place a random valid tile (or leave gap)
-                        if (!candidates.empty()) {
-                            std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
-                            const TileDef& chosen = layer.def.tiles[candidates[dist(layer.rng)]];
-                            PlacedTile pt;
-                            pt.tileId = chosen.id;
-                            pt.x = px;
-                            pt.y = py;
-                            pt.w = cw;
-                            pt.h = ch;
-                            layer.map.AddTile(pt);
+                    // Intersect adjacency sets
+                    std::vector<int> candidates;
+                    if (leftIdx >= 0 && topIdx >= 0) {
+                        // Must be in adjRight[leftIdx] AND adjDown[topIdx]
+                        const auto& rightSet = layer.adjRight[leftIdx];
+                        const auto& downSet = layer.adjDown[topIdx];
+                        // Intersect (both are sorted by construction order)
+                        for (size_t ri = 0, di = 0; ri < rightSet.size() && di < downSet.size(); ) {
+                            if (rightSet[ri] == downSet[di]) {
+                                candidates.push_back(static_cast<int>(rightSet[ri]));
+                                ++ri; ++di;
+                            } else if (rightSet[ri] < downSet[di]) {
+                                ++ri;
+                            } else {
+                                ++di;
+                            }
                         }
-                        --budget;
+                    } else if (leftIdx >= 0) {
+                        for (size_t idx : layer.adjRight[leftIdx])
+                            candidates.push_back(static_cast<int>(idx));
+                    } else if (topIdx >= 0) {
+                        for (size_t idx : layer.adjDown[topIdx])
+                            candidates.push_back(static_cast<int>(idx));
+                    } else {
+                        // No constraints — any tile
+                        candidates.resize(numTiles);
+                        for (int t = 0; t < numTiles; ++t) candidates[t] = t;
+                    }
+
+                    if (!candidates.empty()) {
+                        std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
+                        int chosen = candidates[dist(layer.rng)];
+                        PlacedTile pt;
+                        pt.tileId = layer.def.tiles[chosen].id;
+                        pt.x = static_cast<float>(cell.col) * cw;
+                        pt.y = static_cast<float>(cell.row) * ch;
+                        pt.w = cw;
+                        pt.h = ch;
+                        layer.map.AddTile(pt);
                     }
                 }
             }
