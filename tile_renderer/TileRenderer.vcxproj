@@ -115,6 +115,8 @@
     <ClCompile Include="src\SpatialIndex.cpp" />
     <ClCompile Include="src\JigsawMap.cpp" />
     <ClCompile Include="src\ChunkManager.cpp" />
+    <ClCompile Include="src\StreamingMapGenerator.cpp" />
+    <ClCompile Include="src\TileWorld.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
