@@ -39,45 +39,9 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
         rng.seed(params.seed);
     }
 
-    // --- Initialize grid ---
-    std::vector<std::vector<Cell>> grid(params.height, std::vector<Cell>(params.width));
-    for (int r = 0; r < params.height; ++r) {
-        for (int c = 0; c < params.width; ++c) {
-            grid[r][c].possibilities.assign(numTiles, true);
-            grid[r][c].entropy = numTiles;
-            grid[r][c].collapsed = false;
-        }
-    }
-
-    // --- Main loop (greedy: allow gaps on contradiction) ---
-    while (true) {
-        // Select minimum entropy cell
-        std::pair<int, int> pos = SelectMinEntropy(grid, rng);
-
-        // All cells collapsed -> success
-        if (pos.first == -1) {
-            break;
-        }
-
-        // Collapse chosen cell
-        Collapse(grid[pos.first][pos.second], rng);
-
-        // Propagate constraints — on contradiction, mark the failed cell as
-        // a gap (entropy 0, collapsed with no tile) and continue greedily.
-        if (!Propagate(grid, pos.first, pos.second, tileset)) {
-            // Mark contradicted cells as gaps (collapsed, no valid tile)
-            for (int r = 0; r < params.height; ++r) {
-                for (int c = 0; c < params.width; ++c) {
-                    if (!grid[r][c].collapsed && grid[r][c].entropy <= 0) {
-                        grid[r][c].collapsed = true;
-                        // Leave possibilities all-false = gap
-                    }
-                }
-            }
-        }
-    }
-
-    // --- Build MapData on success ---
+    // --- Greedy row-by-row placement ---
+    // For each cell, collect tiles compatible with already-placed left and top
+    // neighbors. Pick one randomly. If none fit, leave as gap (empty).
     result.status = WFCStatus::Success;
     result.map.width = params.width;
     result.map.height = params.height;
@@ -87,13 +51,76 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
     for (int r = 0; r < params.height; ++r) {
         result.map.grid[r].resize(params.width);
         for (int c = 0; c < params.width; ++c) {
-            // Find the single true bit
-            for (int t = 0; t < numTiles; ++t) {
-                if (grid[r][c].possibilities[t]) {
-                    result.map.grid[r][c] = tileset.tiles[t].id;
-                    break;
-                }
+            // Determine constraints from placed neighbors
+            std::string leftId = (c > 0) ? result.map.grid[r][c - 1] : "";
+            std::string topId = (r > 0) ? result.map.grid[r - 1][c] : "";
+
+            // Find the TileDef for left and top neighbors
+            const TileDef* leftTile = nullptr;
+            const TileDef* topTile = nullptr;
+            if (!leftId.empty()) {
+                auto it = tileset.idIndex.find(leftId);
+                if (it != tileset.idIndex.end()) leftTile = &tileset.tiles[it->second];
             }
+            if (!topId.empty()) {
+                auto it = tileset.idIndex.find(topId);
+                if (it != tileset.idIndex.end()) topTile = &tileset.tiles[it->second];
+            }
+
+            // Collect candidate tiles that satisfy adjacency with both neighbors
+            std::vector<int> candidates;
+            candidates.reserve(32);
+
+            for (int t = 0; t < numTiles; ++t) {
+                const TileDef& candidate = tileset.tiles[t];
+
+                // Check: left neighbor's "right" list must allow this candidate
+                if (leftTile) {
+                    if (!leftTile->adjacency.right.empty()) {
+                        bool found = false;
+                        for (const std::string& id : leftTile->adjacency.right) {
+                            if (id == candidate.id) { found = true; break; }
+                        }
+                        if (!found) continue;
+                    }
+                    // Also check candidate's "left" allows the left neighbor
+                    if (!candidate.adjacency.left.empty()) {
+                        bool found = false;
+                        for (const std::string& id : candidate.adjacency.left) {
+                            if (id == leftId) { found = true; break; }
+                        }
+                        if (!found) continue;
+                    }
+                }
+
+                // Check: top neighbor's "down" list must allow this candidate
+                if (topTile) {
+                    if (!topTile->adjacency.down.empty()) {
+                        bool found = false;
+                        for (const std::string& id : topTile->adjacency.down) {
+                            if (id == candidate.id) { found = true; break; }
+                        }
+                        if (!found) continue;
+                    }
+                    // Also check candidate's "up" allows the top neighbor
+                    if (!candidate.adjacency.up.empty()) {
+                        bool found = false;
+                        for (const std::string& id : candidate.adjacency.up) {
+                            if (id == topId) { found = true; break; }
+                        }
+                        if (!found) continue;
+                    }
+                }
+
+                candidates.push_back(t);
+            }
+
+            // Pick a random candidate, or leave as gap
+            if (!candidates.empty()) {
+                std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
+                result.map.grid[r][c] = tileset.tiles[candidates[dist(rng)]].id;
+            }
+            // else: leave empty string = gap
         }
     }
 
