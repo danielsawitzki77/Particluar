@@ -10,6 +10,7 @@ struct GlobalConfigData {
     int viewport_width;
     int viewport_height;
     float scroll_speed;
+    int wfc_max_backtracks;
 };
 
 class GlobalConfig {

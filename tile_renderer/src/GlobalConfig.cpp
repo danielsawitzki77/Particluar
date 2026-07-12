@@ -12,6 +12,7 @@ void GlobalConfig::ApplyDefaults()
     m_data.viewport_width = 800;
     m_data.viewport_height = 600;
     m_data.scroll_speed = 200.0f;
+    m_data.wfc_max_backtracks = 4;
 }
 
 bool GlobalConfig::Validate(const GlobalConfigData& candidate) const
@@ -80,6 +81,13 @@ bool GlobalConfig::Load(const std::string& filepath)
         candidate.scroll_speed = static_cast<float>(scrollSpeedDouble);
     }
 
+    // wfc_max_backtracks is optional (defaults to 4)
+    if (!JsonUtil::GetInt(obj, "wfc_max_backtracks", candidate.wfc_max_backtracks)) {
+        candidate.wfc_max_backtracks = 4;
+    }
+    if (candidate.wfc_max_backtracks < 0) candidate.wfc_max_backtracks = 0;
+    if (candidate.wfc_max_backtracks > 1000) candidate.wfc_max_backtracks = 1000;
+
     if (!allFieldsOk) {
         ApplyDefaults();
         return false;
@@ -110,6 +118,7 @@ std::string GlobalConfig::Serialize() const
     obj["viewport_width"] = picojson::value(static_cast<double>(m_data.viewport_width));
     obj["viewport_height"] = picojson::value(static_cast<double>(m_data.viewport_height));
     obj["scroll_speed"] = picojson::value(static_cast<double>(m_data.scroll_speed));
+    obj["wfc_max_backtracks"] = picojson::value(static_cast<double>(m_data.wfc_max_backtracks));
 
     picojson::value root(obj);
     return JsonUtil::Serialize(root);

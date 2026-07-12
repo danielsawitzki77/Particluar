@@ -40,12 +40,14 @@ struct JigsawWFCParams {
     unsigned int seed;              // 0 = non-deterministic
     const TilesetDef* tileset;      // must not be null
     float layerScale;              // default 1.0 (applied during generation)
+    int maxBacktracks;             // max backtrack attempts (default 4)
 
     JigsawWFCParams()
         : targetWidth(0), targetHeight(0)
         , originX(0), originY(0)
         , seed(0), tileset(nullptr)
-        , layerScale(1.0f) {}
+        , layerScale(1.0f)
+        , maxBacktracks(4) {}
 };
 
 struct JigsawWFCResult {

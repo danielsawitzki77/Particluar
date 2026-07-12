@@ -646,19 +646,46 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
     boundary.height_pixels = params.targetHeight;
     result.map.SetBoundary(boundary);
 
-    // --- Initialize gap queue with flood-fill-from-center ordering ---
+    // --- Initialize gap queue with individual tile-sized cells, sorted by center distance ---
+    // Pre-split the target area into a grid of smallest-tile-sized gaps.
+    // This ensures true concentric ordering regardless of split behavior.
     float centerX = params.originX + params.targetWidth * 0.5f;
     float centerY = params.originY + params.targetHeight * 0.5f;
     m_centerX = centerX;
     m_centerY = centerY;
 
     GapQueue gapQueue(GapCompare(centerX, centerY));
-    Gap initialGap;
-    initialGap.x = params.originX;
-    initialGap.y = params.originY;
-    initialGap.w = params.targetWidth;
-    initialGap.h = params.targetHeight;
-    gapQueue.push(initialGap);
+
+    // Use the smallest tile dimensions as the gap cell size
+    float minTileW = 1e9f, minTileH = 1e9f;
+    for (const TileDef& td : tileset.tiles) {
+        auto eff = ComputeEffectiveSize(
+            static_cast<float>(td.sourceRect.w),
+            static_cast<float>(td.sourceRect.h),
+            td.scale, sheetScale, layerScale);
+        if (eff.first < minTileW) minTileW = eff.first;
+        if (eff.second < minTileH) minTileH = eff.second;
+    }
+    if (minTileW < 1.0f) minTileW = 1.0f;
+    if (minTileH < 1.0f) minTileH = 1.0f;
+
+    // Create gaps in a grid pattern
+    for (float gy = params.originY; gy < params.originY + params.targetHeight - EPSILON; gy += minTileH) {
+        for (float gx = params.originX; gx < params.originX + params.targetWidth - EPSILON; gx += minTileW) {
+            Gap g;
+            g.x = gx;
+            g.y = gy;
+            g.w = minTileW;
+            g.h = minTileH;
+            // Clamp to boundary
+            if (g.x + g.w > params.originX + params.targetWidth)
+                g.w = params.originX + params.targetWidth - g.x;
+            if (g.y + g.h > params.originY + params.targetHeight)
+                g.h = params.originY + params.targetHeight - g.y;
+            if (g.w > EPSILON && g.h > EPSILON)
+                gapQueue.push(g);
+        }
+    }
 
     // --- Backtracking state ---
     // Simple approach: for each gap, try all candidates. If all fail, contradiction.
@@ -672,7 +699,7 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
     };
     std::vector<Snapshot> backtrackStack;
 
-    static const int MAX_BACKTRACKS = 100;
+    const int MAX_BACKTRACKS = params.maxBacktracks;
     int backtrackCount = 0;
 
     // --- Main loop ---

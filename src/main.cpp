@@ -301,6 +301,7 @@ int main(int argc, char* argv[])
         jParams.seed = 0; // non-deterministic
         jParams.tileset = &tilesetDef;
         jParams.layerScale = 1.0f;
+        jParams.maxBacktracks = cfg.wfc_max_backtracks;
 
         JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
 
