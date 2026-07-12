@@ -117,6 +117,7 @@
     <ClCompile Include="src\ChunkManager.cpp" />
     <ClCompile Include="src\StreamingMapGenerator.cpp" />
     <ClCompile Include="src\TileWorld.cpp" />
+    <ClCompile Include="src\TilePlacementSolver.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
