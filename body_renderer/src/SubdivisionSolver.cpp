@@ -116,6 +116,51 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
 
     // Compute angular segments needed for this shape based on connection positions
     int min_angular = (std::max)(base_res, forced_angular);
+
+    // Raise min_angular for radius-ratio face-width matching.
+    // If this (parent) shape is larger than a connected child at a side/surface joint,
+    // the parent needs ceil(parent_r / child_r) * child_segments so its angular face
+    // width shrinks to match the child's. Using a multiple of the child's segments
+    // preserves face-center alignment at the connection point.
+    for (const auto& child : node.children) {
+        if (child.connection.is_legacy) continue;
+        if (child.connection.parent_attach.region != AttachRegion::Side &&
+            child.connection.parent_attach.region != AttachRegion::Surface) continue;
+        if (child.connection.child_attach.region != AttachRegion::Side &&
+            child.connection.child_attach.region != AttachRegion::Surface) continue;
+        // Skip torus parents (handled via ring_segments separately)
+        if (node.shape.type == ShapeType::Torus) continue;
+
+        // Effective radius at the connection point on each shape
+        float parent_r = node.shape.radius;
+        if (node.shape.type == ShapeType::Sphere) {
+            float phi = child.connection.parent_attach.v * static_cast<float>(M_PI);
+            float local_r = node.shape.radius * std::sin(phi);
+            if (local_r > 0.05f * node.shape.radius) parent_r = local_r;
+        } else if (node.shape.type == ShapeType::Cone) {
+            parent_r = node.shape.radius * (1.0f - child.connection.parent_attach.v);
+        }
+
+        float child_r = child.shape.radius;
+        if (child.shape.type == ShapeType::Sphere) {
+            float phi = child.connection.child_attach.v * static_cast<float>(M_PI);
+            float local_r = child.shape.radius * std::sin(phi);
+            if (local_r > 0.05f * child.shape.radius) child_r = local_r;
+        } else if (child.shape.type == ShapeType::Cone) {
+            child_r = child.shape.radius * (1.0f - child.connection.child_attach.v);
+        }
+
+        if (parent_r > 0.001f && child_r > 0.001f && parent_r > child_r * 1.05f) {
+            // Parent is larger: needs more segments.
+            // Use base_res as the child's reference segment count (it will be at least this).
+            int child_base_segs = (std::max)(base_res, forced_angular);
+            int ratio_mult = static_cast<int>(std::ceil(parent_r / child_r));
+            int needed = ratio_mult * child_base_segs;
+            if (needed > 128) needed = 128;
+            if (needed > min_angular) min_angular = needed;
+        }
+    }
+
     int required_angular = ComputeRequiredSegments(side_u_positions, min_angular);
 
     // Set the shape's angular segments
@@ -398,6 +443,57 @@ static void DeriveSegmentsRecursive(BodyNode& node, int base_res, int forced_ang
                     child.connection.parent_attach.region == AttachRegion::Side),
                    node.shape.type != ShapeType::Sphere);
 #endif
+        }
+
+        // Radius-ratio face-width matching for the child side:
+        // If the child is larger than the parent at a side/surface connection,
+        // inflate child's angular segments so its face width matches the parent's.
+        if ((child.connection.child_attach.region == AttachRegion::Side ||
+             child.connection.child_attach.region == AttachRegion::Surface) &&
+            (child.connection.parent_attach.region == AttachRegion::Side ||
+             child.connection.parent_attach.region == AttachRegion::Surface)) {
+
+            float parent_r = node.shape.radius;
+            if (node.shape.type == ShapeType::Torus) parent_r = node.shape.minor_radius;
+            if (node.shape.type == ShapeType::Sphere) {
+                float phi = child.connection.parent_attach.v * static_cast<float>(M_PI);
+                float local_r = node.shape.radius * std::sin(phi);
+                if (local_r > 0.05f * node.shape.radius) parent_r = local_r;
+            } else if (node.shape.type == ShapeType::Cone) {
+                parent_r = node.shape.radius * (1.0f - child.connection.parent_attach.v);
+            }
+
+            float child_r = child.shape.radius;
+            if (child.shape.type == ShapeType::Sphere) {
+                float phi = child.connection.child_attach.v * static_cast<float>(M_PI);
+                float local_r = child.shape.radius * std::sin(phi);
+                if (local_r > 0.05f * child.shape.radius) child_r = local_r;
+            } else if (child.shape.type == ShapeType::Cone) {
+                child_r = child.shape.radius * (1.0f - child.connection.child_attach.v);
+            }
+
+            if (child_r > parent_r * 1.05f && parent_r > 0.001f) {
+                // Child is larger: needs ceil(child_r/parent_r) * parent_segments
+                int parent_base_segs = GetShapeAngularSegments(node.shape);
+                int ratio_mult = static_cast<int>(std::ceil(child_r / parent_r));
+                int needed = ratio_mult * parent_base_segs;
+                if (needed > 128) needed = 128;
+                int current = GetShapeAngularSegments(child.shape);
+                if (needed > current) {
+                    SetShapeAngularSegments(child.shape, needed);
+                }
+            }
+
+            // When parent was inflated for radius ratio, scale parent_segs down
+            // proportionally for the child so the smaller child isn't over-inflated.
+            if (parent_r > child_r * 1.05f && child_r > 0.001f) {
+                // Parent is larger — child needs base_res (not the inflated parent count)
+                // because the child's natural segments already produce the right face width.
+                int child_natural = static_cast<int>(std::ceil(
+                    static_cast<float>(parent_segs) * child_r / parent_r));
+                if (child_natural < base_res) child_natural = base_res;
+                parent_segs = child_natural;
+            }
         }
 
         // Recurse — pass parent_segs as forced minimum so child doesn't reduce below it
