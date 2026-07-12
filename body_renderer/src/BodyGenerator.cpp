@@ -298,8 +298,38 @@ BodyNode BodyGenerator::GenerateNode(RNG& rng, int depth, int max_depth) const
         for (int i = 0; i < num_children; ++i) {
             BodyNode child = GenerateNode(rng, depth + 1, max_depth);
             child.connection = RandomConnection(rng, node.shape);
+
+            // Enforce topology: if parent attachment is quad, child must produce quads.
+            // Cone has no quad faces (side=triangles, base=ngon) so replace with cylinder.
+            bool parent_is_quad = (child.connection.parent_attach.region == AttachRegion::Side ||
+                                   child.connection.parent_attach.region == AttachRegion::Surface);
+            if (parent_is_quad && child.shape.type == ShapeType::Cone) {
+                // Cone can't produce quad faces — switch to cylinder (same visual, has Side quads)
+                child.shape.type = ShapeType::Cylinder;
+                child.shape.height = child.shape.radius * 2.0f;
+            }
+
             // Fix up the child attachment to be valid for the child's actual shape
             FixChildAttachment(child.connection, child.shape);
+
+            // Enforce topology: after FixChildAttachment, verify quad↔quad compatibility
+            bool child_is_quad = (child.connection.child_attach.region == AttachRegion::Side ||
+                                  child.connection.child_attach.region == AttachRegion::Surface);
+            if (parent_is_quad && !child_is_quad) {
+                // Force child to use Side region for quad compatibility
+                child.connection.child_attach.region = AttachRegion::Side;
+                child.connection.child_attach.u = 0.5f;
+                child.connection.child_attach.v = 0.2f;
+                child.connection.rotation = 0.0f;
+            }
+
+            // Cap connections: match child radius to parent to avoid holes
+            if (!parent_is_quad) {
+                if (child.shape.radius < node.shape.radius * 0.9f) {
+                    child.shape.radius = node.shape.radius;
+                }
+            }
+
             node.children.push_back(child);
         }
     }
