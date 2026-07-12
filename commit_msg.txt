@@ -1,6 +1,0 @@
-refactor: standardize code identifiers to camelCase (#23)
-
-- Enum values: Face_Connection -> FaceConnection, Edge_Connection -> EdgeConnection, Point_Connection -> PointConnection
-- Struct fields: snake_case -> camelCase (height_segments -> heightSegments, parent_face_index -> parentFaceIndex, etc.)
-- Member variables: m_pivot_x -> m_pivotX (m_ prefix + camelCase)
-- 40 source files updated across body_renderer, tile_renderer, tests, and tools
