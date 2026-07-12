@@ -150,14 +150,14 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
-    <ClCompile Include="test_main.cpp" />
-    <ClCompile Include="test_body_loader.cpp" />
-    <ClCompile Include="test_face_generator.cpp" />
-    <ClCompile Include="test_triangulator.cpp" />
-    <ClCompile Include="test_connection_solver.cpp" />
-    <ClCompile Include="test_model_switcher.cpp" />
-    <ClCompile Include="test_connection_validator.cpp" />
-    <ClCompile Include="test_connection_face_matcher.cpp" />
+    <ClCompile Include="TestMain.cpp" />
+    <ClCompile Include="TestBodyLoader.cpp" />
+    <ClCompile Include="TestFaceGenerator.cpp" />
+    <ClCompile Include="TestTriangulator.cpp" />
+    <ClCompile Include="TestConnectionSolver.cpp" />
+    <ClCompile Include="TestModelSwitcher.cpp" />
+    <ClCompile Include="TestConnectionValidator.cpp" />
+    <ClCompile Include="TestConnectionFaceMatcher.cpp" />
   </ItemGroup>
 
   <!-- RapidCheck source files -->

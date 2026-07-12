@@ -153,7 +153,7 @@
 
   <!-- Test source files -->
   <ItemGroup>
-    <ClCompile Include="test_wfc_jigsaw.cpp" />
+    <ClCompile Include="TestWfcJigsaw.cpp" />
   </ItemGroup>
 
   <!-- RapidCheck source files -->
