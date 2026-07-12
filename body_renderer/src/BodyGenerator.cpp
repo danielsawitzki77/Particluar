@@ -241,7 +241,7 @@ static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
             // Parent has quads — child must use Side (quad)
             conn.child_attach.region = AttachRegion::Side;
             conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.0f;
+            conn.child_attach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
         } else {
             // Parent has ngons — child uses cap (ngon)
             conn.child_attach.region = AttachRegion::Bottom;
@@ -265,7 +265,7 @@ static void FixChildAttachment(Connection& conn, const ShapeParams& child_shape)
         if (parent_is_quad) {
             conn.child_attach.region = AttachRegion::Side;
             conn.child_attach.u = 0.5f;
-            conn.child_attach.v = 0.0f;
+            conn.child_attach.v = 0.2f;  // NOT 0.0 — edge produces degenerate faces
         } else {
             conn.child_attach.region = AttachRegion::BottomCap;
             conn.child_attach.u = 0.5f;

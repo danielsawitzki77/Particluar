@@ -28,6 +28,7 @@
 #include <cmath>
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
 #include <ctime>
 #include <vector>
 
@@ -686,6 +687,18 @@ static bool CreateDirectoryRecursive(const std::string& path)
 // Analyze Pairs Mode (--analyze-pairs [output_path])
 // ============================================================================
 
+static const char* PairGradeString(BodyRenderer::JointFaceReport::Grade g)
+{
+    switch (g) {
+    case BodyRenderer::JointFaceReport::PERFECT:    return "PERFECT";
+    case BodyRenderer::JointFaceReport::GOOD:       return "GOOD";
+    case BodyRenderer::JointFaceReport::ACCEPTABLE: return "ACCEPTABLE";
+    case BodyRenderer::JointFaceReport::POOR:       return "POOR";
+    case BodyRenderer::JointFaceReport::FAILING:    return "FAILING";
+    }
+    return "UNKNOWN";
+}
+
 static int RunAnalyzePairsMode(const std::string& base_output_path)
 {
     printf("=== Analyzer Pair Testing ===\n");
@@ -820,6 +833,15 @@ static int RunAnalyzePairsMode(const std::string& base_output_path)
 
     printf("Generated %d models. Capturing screenshots...\n", static_cast<int>(models.size()));
 
+    // Quality analysis results per model/subdiv
+    BodyRenderer::JointFaceAnalyzer analyzer;
+    struct AnalysisRecord {
+        int model_index;
+        int subdiv;
+        std::vector<BodyRenderer::JointFaceReport> reports;
+    };
+    std::vector<AnalysisRecord> analysis_results;
+
     int total_screenshots = 0;
     for (int m = 0; m < static_cast<int>(models.size()); ++m) {
         for (int s = 0; s < static_cast<int>(cfg.subdivision_range.size()); ++s) {
@@ -860,6 +882,11 @@ static int RunAnalyzePairsMode(const std::string& base_output_path)
             if (!CaptureScreenshot(filepath, CAPTURE_WIDTH, CAPTURE_HEIGHT)) {
                 fprintf(stderr, "WARNING: Failed to capture screenshot: %s\n", filepath.c_str());
             }
+
+            // Run quality analysis on this model at this subdivision level
+            auto joint_reports = analyzer.AnalyzeBody(models[m].body, subdiv);
+            analysis_results.push_back({m, subdiv, joint_reports});
+
             total_screenshots++;
         }
 
@@ -919,7 +946,7 @@ static int RunAnalyzePairsMode(const std::string& base_output_path)
         report << models[m].json;
         report << "```\n\n";
 
-        // Screenshots for each subdivision level
+        // Screenshots and quality analysis for each subdivision level
         for (int s = 0; s < static_cast<int>(cfg.subdivision_range.size()); ++s) {
             int subdiv = cfg.subdivision_range[s];
             char filename[256];
@@ -927,6 +954,38 @@ static int RunAnalyzePairsMode(const std::string& base_output_path)
 
             report << "### Subdivision " << subdiv << "\n\n";
             report << "![" << filename << "](screenshots/" << filename << ")\n\n";
+
+            // Find matching analysis for this model/subdiv
+            for (const auto& ar : analysis_results) {
+                if (ar.model_index == m && ar.subdiv == subdiv) {
+                    if (ar.reports.empty()) {
+                        report << "- Grade: N/A (no joints)\n";
+                    } else {
+                        // Use worst grade across all joints at this subdiv
+                        BodyRenderer::JointFaceReport::Grade worst = BodyRenderer::JointFaceReport::PERFECT;
+                        float worst_area_ratio = 1.0f;
+                        float worst_distance = 0.0f;
+                        bool all_match = true;
+                        int total_parent_verts = 0;
+                        int total_child_verts = 0;
+                        for (const auto& jr : ar.reports) {
+                            if (jr.grade > worst) worst = jr.grade;
+                            if (jr.area_ratio < worst_area_ratio) worst_area_ratio = jr.area_ratio;
+                            if (jr.face_center_distance > worst_distance) worst_distance = jr.face_center_distance;
+                            if (!jr.vertex_count_match) all_match = false;
+                            total_parent_verts += jr.parent_face_vertex_count;
+                            total_child_verts += jr.child_face_vertex_count;
+                        }
+                        report << "- Grade: " << PairGradeString(worst) << "\n";
+                        report << "- Area ratio: " << std::fixed << std::setprecision(3) << worst_area_ratio << "\n";
+                        report << "- Vertex match: " << (all_match ? "YES" : "NO")
+                               << " (" << total_parent_verts << "/" << total_child_verts << ")\n";
+                        report << "- Distance: " << std::fixed << std::setprecision(3) << worst_distance << "\n";
+                    }
+                    break;
+                }
+            }
+            report << "\n";
         }
     }
 
