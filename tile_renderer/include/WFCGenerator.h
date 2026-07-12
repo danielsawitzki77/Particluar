@@ -80,12 +80,25 @@ private:
 
     // --- Jigsaw WFC helpers ---
 
-    // Gap queue comparator: y first (smallest), then x (smallest).
-    // std::priority_queue is max-heap, so we invert comparison.
+    // Target area center for flood-fill ordering (set before generation)
+    float m_centerX = 0.0f;
+    float m_centerY = 0.0f;
+
+    // Gap queue comparator: prioritize gaps closer to center (flood-fill outward).
+    // std::priority_queue is max-heap, so we invert: further = "less" priority.
     struct GapCompare {
+        float cx, cy;
+        GapCompare() : cx(0), cy(0) {}
+        GapCompare(float centerX, float centerY) : cx(centerX), cy(centerY) {}
         bool operator()(const Gap& a, const Gap& b) const {
-            if (a.y != b.y) return a.y > b.y;  // smaller y = higher priority
-            return a.x > b.x;                   // smaller x = higher priority
+            // Distance from gap center to target center
+            float ax = a.x + a.w * 0.5f - cx;
+            float ay = a.y + a.h * 0.5f - cy;
+            float bx = b.x + b.w * 0.5f - cx;
+            float by = b.y + b.h * 0.5f - cy;
+            float distA = ax * ax + ay * ay;
+            float distB = bx * bx + by * by;
+            return distA > distB;  // smaller distance = higher priority
         }
     };
     using GapQueue = std::priority_queue<Gap, std::vector<Gap>, GapCompare>;

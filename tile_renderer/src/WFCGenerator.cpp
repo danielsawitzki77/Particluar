@@ -646,8 +646,13 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
     boundary.height_pixels = params.targetHeight;
     result.map.SetBoundary(boundary);
 
-    // --- Initialize gap queue with one gap = entire target area ---
-    GapQueue gapQueue;
+    // --- Initialize gap queue with flood-fill-from-center ordering ---
+    float centerX = params.originX + params.targetWidth * 0.5f;
+    float centerY = params.originY + params.targetHeight * 0.5f;
+    m_centerX = centerX;
+    m_centerY = centerY;
+
+    GapQueue gapQueue(GapCompare(centerX, centerY));
     Gap initialGap;
     initialGap.x = params.originX;
     initialGap.y = params.originY;
@@ -663,6 +668,7 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
         std::vector<size_t> remainingCandidates;
         GapQueue savedQueue;
         size_t tileCountBefore;
+        Snapshot(const GapCompare& cmp) : savedQueue(cmp), tileCountBefore(0) {}
     };
     std::vector<Snapshot> backtrackStack;
 
@@ -737,10 +743,8 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
             }
 
             if (!recovered) {
-                result.status = WFCStatus::Contradiction;
-                SDL_Log("[JigsawWFC] Contradiction: no candidates for gap at (%.1f, %.1f) size %.1f x %.1f",
-                        currentGap.x, currentGap.y, currentGap.w, currentGap.h);
-                return result;
+                // No solution for this gap — leave it empty (gap) and continue
+                continue;
             }
             continue;
         }
@@ -764,12 +768,12 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
         placedTile.h = eff.second;
 
         // Save snapshot for backtracking (remaining candidates minus the chosen one)
-        Snapshot snap;
+        Snapshot snap(GapCompare(centerX, centerY));
         snap.gap = currentGap;
         snap.remainingCandidates.assign(candidates.begin() + 1, candidates.end());
         snap.savedQueue = gapQueue;
         snap.tileCountBefore = result.map.GetTileCount();
-        backtrackStack.push_back(snap);
+        backtrackStack.push_back(std::move(snap));
 
         // Place the tile
         if (!result.map.AddTile(placedTile)) {

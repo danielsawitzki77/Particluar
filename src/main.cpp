@@ -271,7 +271,7 @@ int main(int argc, char* argv[])
     // --- Jigsaw Map (default rendering mode) ---
     JigsawMap jigsawMap;
 
-    // Generate map using grid-based WFC (tiles are uniform size) and render via jigsaw
+    // Generate map using jigsaw WFC (handles both uniform and variable tile sizes)
     auto generateJigsaw = [&]() {
         jigsawMap = JigsawMap(); // reset
         jigsawMap.SetTilesetId(tilesetDef.name);
@@ -281,30 +281,38 @@ int main(int argc, char* argv[])
             return;
         }
 
-        // Use grid WFC — determine grid dimensions from tile size and target area
         float sheetScale = tilesetDef.sheetScale;
         const TileDef& firstTile = tilesetDef.tiles[0];
         float tileW = static_cast<float>(firstTile.sourceRect.w) * sheetScale * firstTile.scale;
         float tileH = static_cast<float>(firstTile.sourceRect.h) * sheetScale * firstTile.scale;
 
-        int gridW = static_cast<int>(800.0f / tileW) + 2;
-        int gridH = static_cast<int>(600.0f / tileH) + 2;
-        if (gridW < 4) gridW = 4;
-        if (gridH < 4) gridH = 4;
+        // Target area slightly larger than viewport to fill edges
+        float targetW = 800.0f + tileW * 2;
+        float targetH = 600.0f + tileH * 2;
 
-        SDL_Log("[PoC] Running grid WFC: %dx%d (tile %.0fx%.0f)", gridW, gridH, tileW, tileH);
+        SDL_Log("[PoC] Running jigsaw WFC: %.0fx%.0f target area (%d tiles available)",
+                targetW, targetH, (int)tilesetDef.tiles.size());
 
-        WFCParams params;
-        params.width = gridW;
-        params.height = gridH;
-        params.seed = 0; // non-deterministic
-        params.tileset = &tilesetDef;
+        JigsawWFCParams jParams;
+        jParams.targetWidth = targetW;
+        jParams.targetHeight = targetH;
+        jParams.originX = -tileW;
+        jParams.originY = -tileH;
+        jParams.seed = 0; // non-deterministic
+        jParams.tileset = &tilesetDef;
+        jParams.layerScale = 1.0f;
 
-        WFCResult result = wfcGenerator.Generate(params);
+        JigsawWFCResult jResult = wfcGenerator.GenerateJigsaw(jParams);
 
-        if (result.status != WFCStatus::Success) {
-            SDL_Log("[PoC] WFC failed (status %d), falling back to random placement", (int)result.status);
-            // Fallback: random placement
+        if (jResult.status == WFCStatus::Success) {
+            jigsawMap = jResult.map;
+            SDL_Log("[PoC] Jigsaw WFC succeeded: %d tiles placed", (int)jigsawMap.GetTileCount());
+        } else {
+            SDL_Log("[PoC] Jigsaw WFC failed (status %d), using random placement",
+                    (int)jResult.status);
+            // Fallback: random placement on a grid
+            int gridW = static_cast<int>(targetW / tileW) + 1;
+            int gridH = static_cast<int>(targetH / tileH) + 1;
             unsigned int seed = static_cast<unsigned int>(SDL_GetTicks());
             int numTiles = static_cast<int>(tilesetDef.tiles.size());
             for (int row = 0; row < gridH; ++row) {
@@ -313,43 +321,14 @@ int main(int argc, char* argv[])
                     int idx = static_cast<int>((seed >> 16) % numTiles);
                     PlacedTile pt;
                     pt.tileId = tilesetDef.tiles[idx].id;
-                    pt.x = static_cast<float>(col) * tileW;
-                    pt.y = static_cast<float>(row) * tileH;
+                    pt.x = static_cast<float>(col) * tileW - tileW;
+                    pt.y = static_cast<float>(row) * tileH - tileH;
                     pt.w = tileW;
                     pt.h = tileH;
                     jigsawMap.AddTile(pt);
                 }
             }
-            return;
         }
-
-        // Convert grid MapData to JigsawMap (placed tiles at absolute positions)
-        const MapData& map = result.map;
-        for (int row = 0; row < static_cast<int>(map.grid.size()); ++row) {
-            for (int col = 0; col < static_cast<int>(map.grid[row].size()); ++col) {
-                const std::string& tileId = map.grid[row][col];
-                if (tileId.empty()) continue;
-
-                // Look up actual tile size (may vary per tile if not uniform)
-                float tw = tileW, th = tileH;
-                auto it = tilesetDef.idIndex.find(tileId);
-                if (it != tilesetDef.idIndex.end()) {
-                    const TileDef& td = tilesetDef.tiles[it->second];
-                    tw = static_cast<float>(td.sourceRect.w) * sheetScale * td.scale;
-                    th = static_cast<float>(td.sourceRect.h) * sheetScale * td.scale;
-                }
-
-                PlacedTile pt;
-                pt.tileId = tileId;
-                pt.x = static_cast<float>(col) * tileW;
-                pt.y = static_cast<float>(row) * tileH;
-                pt.w = tw;
-                pt.h = th;
-                jigsawMap.AddTile(pt);
-            }
-        }
-
-        SDL_Log("[PoC] WFC succeeded: %d tiles placed", (int)jigsawMap.GetTileCount());
     };
     generateJigsaw();
 
