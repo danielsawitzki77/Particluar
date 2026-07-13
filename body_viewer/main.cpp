@@ -21,6 +21,7 @@
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
 #include "JointFaceAnalyzer.h"
+#include "CollisionPrimitive.h"
 #include "picojson.h"
 
 #include <string>
@@ -1055,11 +1056,200 @@ static int RunAnalyzeMode(const std::string& output_path)
 }
 
 // ============================================================================
+// Collision Test Mode (--collision-test)
+// ============================================================================
+
+static const char* CollisionTypeName(BodyRenderer::CollisionPrimitive::Type t)
+{
+    switch (t) {
+    case BodyRenderer::CollisionPrimitive::Type::Sphere: return "Sphere";
+    case BodyRenderer::CollisionPrimitive::Type::Capsule: return "Capsule";
+    case BodyRenderer::CollisionPrimitive::Type::Cylinder: return "Cylinder";
+    case BodyRenderer::CollisionPrimitive::Type::Cone: return "Cone";
+    }
+    return "Unknown";
+}
+
+static int RunCollisionTestMode()
+{
+    printf("=== Collision Primitive Test Suite ===\n\n");
+
+    BodyRenderer::BodyLoader loader;
+    BodyRenderer::BodyGenerator generator;
+    BodyRenderer::SubdivisionSolver subdivSolver;
+
+    // Load all bodies from assets directory
+    BodyRenderer::ModelSwitcher switcher;
+    std::vector<BodyRenderer::Body> bodies;
+
+    if (switcher.LoadDirectory("assets/bodies/")) {
+        int count = switcher.GetCount();
+        printf("Loaded %d body files from assets/bodies/\n", count);
+        for (int i = 0; i < count; ++i) {
+            BodyRenderer::LoadResult result = loader.LoadFromFile(switcher.GetCurrentPath());
+            if (result.success) {
+                subdivSolver.PrepareBody(result.body, 8);
+                bodies.push_back(result.body);
+            }
+            switcher.Next();
+        }
+    }
+
+    // Also generate some random bodies
+    printf("Generating 10 random bodies for testing...\n");
+    for (unsigned int seed = 1000; seed < 1010; ++seed) {
+        BodyRenderer::Body body = generator.Generate(seed, 3);
+        subdivSolver.PrepareBody(body, 8);
+        bodies.push_back(body);
+    }
+
+    printf("\nTotal bodies for collision testing: %d\n\n", static_cast<int>(bodies.size()));
+
+    // === Test 1: Collider creation ===
+    printf("--- Test 1: Collider Creation ---\n");
+    int total_nodes = 0;
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        auto colliders = BodyRenderer::BuildBodyColliders(bodies[i]);
+        printf("  Body '%s': %d colliders [",
+               bodies[i].name.c_str(), static_cast<int>(colliders.size()));
+        for (size_t j = 0; j < colliders.size(); ++j) {
+            if (j > 0) printf(", ");
+            printf("%s:%s", colliders[j].nodeName.c_str(),
+                   CollisionTypeName(colliders[j].primitive->GetType()));
+        }
+        printf("]\n");
+        total_nodes += static_cast<int>(colliders.size());
+    }
+    printf("  Total colliders created: %d\n\n", total_nodes);
+
+    // === Test 2: Raycast tests ===
+    printf("--- Test 2: Raycast Tests ---\n");
+    int ray_hits = 0;
+    int ray_misses = 0;
+
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        auto colliders = BodyRenderer::BuildBodyColliders(bodies[i]);
+
+        // Fire rays from 6 cardinal directions toward origin
+        BodyRenderer::Vec3 directions[6] = {
+            BodyRenderer::Vec3(10, 0, 0),
+            BodyRenderer::Vec3(-10, 0, 0),
+            BodyRenderer::Vec3(0, 10, 0),
+            BodyRenderer::Vec3(0, -10, 0),
+            BodyRenderer::Vec3(0, 0, 10),
+            BodyRenderer::Vec3(0, 0, -10)
+        };
+
+        for (int d = 0; d < 6; ++d) {
+            BodyRenderer::Vec3 origin = directions[d];
+            BodyRenderer::Vec3 dir = (BodyRenderer::Vec3(0, 0, 0) - origin).Normalized();
+            BodyRenderer::Ray ray(origin, dir);
+
+            BodyRenderer::BodyRayHit hit = BodyRenderer::RaycastBody(colliders, ray);
+            if (hit.hit) {
+                ray_hits++;
+            } else {
+                ray_misses++;
+            }
+        }
+    }
+    printf("  Rays fired: %d (hits: %d, misses: %d)\n",
+           ray_hits + ray_misses, ray_hits, ray_misses);
+    printf("  Hit rate: %.1f%%\n\n",
+           (ray_hits + ray_misses > 0) ? 100.0f * ray_hits / (ray_hits + ray_misses) : 0.0f);
+
+    // === Test 3: Self-overlap tests ===
+    printf("--- Test 3: Self-Overlap Tests ---\n");
+    int self_overlaps = 0;
+    for (size_t i = 0; i < bodies.size(); ++i) {
+        auto colliders = BodyRenderer::BuildBodyColliders(bodies[i]);
+        BodyRenderer::BodyOverlapResult result =
+            BodyRenderer::CheckBodyOverlap(colliders, colliders);
+        if (result.overlaps) {
+            self_overlaps++;
+            printf("  Body '%s': SELF-OVERLAP between '%s' and '%s'\n",
+                   bodies[i].name.c_str(), result.nodeA.c_str(), result.nodeB.c_str());
+        }
+    }
+    printf("  Bodies with self-overlap: %d/%d\n\n",
+           self_overlaps, static_cast<int>(bodies.size()));
+
+    // === Test 4: Pairwise overlap (bodies at same position) ===
+    printf("--- Test 4: Pairwise Overlap (same position) ---\n");
+    int pair_overlaps = 0;
+    int pair_tested = 0;
+    for (size_t i = 0; i < bodies.size() && i < 5; ++i) {
+        auto collidersA = BodyRenderer::BuildBodyColliders(bodies[i]);
+        for (size_t j = i + 1; j < bodies.size() && j < 5; ++j) {
+            auto collidersB = BodyRenderer::BuildBodyColliders(bodies[j]);
+            BodyRenderer::BodyOverlapResult result =
+                BodyRenderer::CheckBodyOverlap(collidersA, collidersB);
+            pair_tested++;
+            if (result.overlaps) {
+                pair_overlaps++;
+                printf("  '%s' vs '%s': OVERLAP (%s <-> %s)\n",
+                       bodies[i].name.c_str(), bodies[j].name.c_str(),
+                       result.nodeA.c_str(), result.nodeB.c_str());
+            }
+        }
+    }
+    printf("  Pairs tested: %d, overlapping: %d\n\n", pair_tested, pair_overlaps);
+
+    // === Test 5: Pairwise overlap (bodies separated) ===
+    printf("--- Test 5: Pairwise Overlap (separated by 50 units) ---\n");
+    int separated_overlaps = 0;
+    int separated_tested = 0;
+    for (size_t i = 0; i < bodies.size() && i < 5; ++i) {
+        auto collidersA = BodyRenderer::BuildBodyColliders(bodies[i]);
+
+        // Move body B far away
+        BodyRenderer::Body bodyB_copy = bodies[i];
+        bodyB_copy.root.localTransform = BodyRenderer::Mat4::Translation(50.0f, 0.0f, 0.0f);
+        BodyRenderer::ConnectionSolver solver;
+        solver.ResolveTree(&bodyB_copy.root);
+        auto collidersB = BodyRenderer::BuildBodyColliders(bodyB_copy);
+
+        BodyRenderer::BodyOverlapResult result =
+            BodyRenderer::CheckBodyOverlap(collidersA, collidersB);
+        separated_tested++;
+        if (result.overlaps) {
+            separated_overlaps++;
+            printf("  ERROR: '%s' vs '%s'@+50x: UNEXPECTED OVERLAP\n",
+                   bodies[i].name.c_str(), bodies[i].name.c_str());
+        }
+    }
+    printf("  Pairs tested: %d, overlapping: %d (expected: 0)\n\n",
+           separated_tested, separated_overlaps);
+
+    // === Summary ===
+    printf("=== Collision Test Summary ===\n");
+    printf("  Total bodies tested: %d\n", static_cast<int>(bodies.size()));
+    printf("  Total colliders created: %d\n", total_nodes);
+    printf("  Raycast hit rate: %.1f%%\n",
+           (ray_hits + ray_misses > 0) ? 100.0f * ray_hits / (ray_hits + ray_misses) : 0.0f);
+    printf("  Self-overlapping bodies: %d/%d\n", self_overlaps, static_cast<int>(bodies.size()));
+    printf("  Separated overlap errors: %d\n", separated_overlaps);
+
+    int errors = separated_overlaps;
+    if (errors > 0) {
+        printf("\n  RESULT: FAIL (%d errors)\n", errors);
+        return 1;
+    }
+    printf("\n  RESULT: PASS\n");
+    return 0;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
 int main(int argc, char* argv[])
 {
+    // Check for --collision-test mode (runs collision primitives test suite)
+    if (argc >= 2 && std::string(argv[1]) == "--collision-test") {
+        return RunCollisionTestMode();
+    }
+
     // Check for --analyze-pairs mode (offscreen pair testing)
     if (argc >= 2 && std::string(argv[1]) == "--analyze-pairs") {
         std::string output = "";
@@ -1162,6 +1352,7 @@ int main(int argc, char* argv[])
     SDL_Log("  Space              - Toggle joint animation");
     SDL_Log("  T                  - Toggle shape scale animation");
     SDL_Log("  G                  - Generate new random body");
+    SDL_Log("  C                  - Log collision info for current model");
     SDL_Log("  Scroll wheel       - Zoom");
     SDL_Log("  Escape             - Quit");
 
@@ -1275,6 +1466,44 @@ int main(int argc, char* argv[])
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
+                } else if (event.key.key == SDLK_C) {
+                    // Log collision info for current model
+                    if (state.has_model) {
+                        auto colliders = BodyRenderer::BuildBodyColliders(state.current_body);
+                        SDL_Log("[Collision] Body '%s' — %d colliders:",
+                                state.current_body.name.c_str(),
+                                static_cast<int>(colliders.size()));
+                        for (const auto& nc : colliders) {
+                            const char* type_name = "Unknown";
+                            switch (nc.primitive->GetType()) {
+                            case BodyRenderer::CollisionPrimitive::Type::Sphere: type_name = "Sphere"; break;
+                            case BodyRenderer::CollisionPrimitive::Type::Capsule: type_name = "Capsule"; break;
+                            case BodyRenderer::CollisionPrimitive::Type::Cylinder: type_name = "Cylinder"; break;
+                            case BodyRenderer::CollisionPrimitive::Type::Cone: type_name = "Cone"; break;
+                            }
+                            BodyRenderer::Vec3 c = nc.primitive->GetCenter();
+                            float r = nc.primitive->GetBoundingRadius();
+                            SDL_Log("  [%s] %s — center=(%.3f, %.3f, %.3f) boundingR=%.3f",
+                                    type_name, nc.nodeName.c_str(), c.x, c.y, c.z, r);
+                        }
+
+                        // Fire test ray from camera position
+                        float cam_x = state.distance * std::sin(state.yaw * static_cast<float>(M_PI) / 180.0f) * std::cos(state.pitch * static_cast<float>(M_PI) / 180.0f);
+                        float cam_y = state.distance * std::sin(state.pitch * static_cast<float>(M_PI) / 180.0f);
+                        float cam_z = state.distance * std::cos(state.yaw * static_cast<float>(M_PI) / 180.0f) * std::cos(state.pitch * static_cast<float>(M_PI) / 180.0f);
+                        BodyRenderer::Vec3 origin(cam_x, cam_y, cam_z);
+                        BodyRenderer::Vec3 dir = (BodyRenderer::Vec3(0, 0, 0) - origin).Normalized();
+                        BodyRenderer::Ray ray(origin, dir);
+
+                        BodyRenderer::BodyRayHit hit = BodyRenderer::RaycastBody(colliders, ray);
+                        if (hit.hit) {
+                            SDL_Log("[Collision] Raycast from camera toward origin: HIT '%s' at dist=%.3f point=(%.3f, %.3f, %.3f)",
+                                    hit.nodeName.c_str(), hit.distance,
+                                    hit.point.x, hit.point.y, hit.point.z);
+                        } else {
+                            SDL_Log("[Collision] Raycast from camera toward origin: MISS");
+                        }
+                    }
                 }
                 break;
 

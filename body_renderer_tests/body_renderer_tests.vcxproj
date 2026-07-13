@@ -158,6 +158,7 @@
     <ClCompile Include="TestModelSwitcher.cpp" />
     <ClCompile Include="TestConnectionValidator.cpp" />
     <ClCompile Include="TestConnectionFaceMatcher.cpp" />
+    <ClCompile Include="TestCollisionPrimitive.cpp" />
   </ItemGroup>
 
   <!-- RapidCheck source files -->
