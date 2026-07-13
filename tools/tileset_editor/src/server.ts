@@ -4,8 +4,9 @@ import fs from 'fs';
 import { exec } from 'child_process';
 
 const app = express();
-const PORT = 3000;
-const BASE_URL = `http://localhost:${PORT}`;
+const DEFAULT_PORT = 3000;
+const MAX_PORT_ATTEMPTS = 10;
+let port = DEFAULT_PORT;
 
 // Project root is two levels up from tools/tileset-editor/
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -418,20 +419,45 @@ app.post('/api/shutdown', (req, res) => {
   setTimeout(() => process.exit(0), 500);
 });
 
-// --- Start server ---
-const server = app.listen(PORT, () => {
-  console.log(`\n  Tile-O-Matic`);
-  console.log(`  =============`);
-  console.log(`  Tileset Configurator: ${BASE_URL}/tileset-configurator`);
-  console.log(`  Level Editor:         ${BASE_URL}/level-editor`);
-  console.log(`  Assets directory:     ${ASSETS_DIR}\n`);
+// --- Start server with automatic port retry ---
+function startServer(attemptPort: number, attempt: number): void {
+  const baseUrl = `http://localhost:${attemptPort}`;
+  const server = app.listen(attemptPort, () => {
+    port = attemptPort;
+    console.log(`\n  Tile-O-Matic`);
+    console.log(`  =============`);
+    console.log(`  Tileset Configurator: ${baseUrl}/tileset-configurator`);
+    console.log(`  Level Editor:         ${baseUrl}/level-editor`);
+    console.log(`  Assets directory:     ${ASSETS_DIR}\n`);
+    if (attemptPort !== DEFAULT_PORT) {
+      console.log(`  (Port ${DEFAULT_PORT} was in use, using ${attemptPort} instead)\n`);
+    }
+    console.log(`  Use the Close button in the browser or Ctrl+C here to stop.\n`);
 
-  // Auto-open browser in a new window
-  if (process.platform === 'win32') {
-    exec(`start "" "${BASE_URL}/tileset-configurator"`);
-  } else if (process.platform === 'darwin') {
-    exec(`open "${BASE_URL}/tileset-configurator"`);
-  } else {
-    exec(`xdg-open "${BASE_URL}/tileset-configurator"`);
-  }
-});
+    // Auto-open browser in a new window
+    if (process.platform === 'win32') {
+      exec(`start "" "${baseUrl}/tileset-configurator"`);
+    } else if (process.platform === 'darwin') {
+      exec(`open "${baseUrl}/tileset-configurator"`);
+    } else {
+      exec(`xdg-open "${baseUrl}/tileset-configurator"`);
+    }
+  });
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      if (attempt >= MAX_PORT_ATTEMPTS) {
+        console.error(`\n  ERROR: Ports ${DEFAULT_PORT}-${attemptPort} are all in use.`);
+        console.error(`  Please close other instances or free a port.\n`);
+        process.exit(1);
+      }
+      console.log(`  Port ${attemptPort} is in use, trying ${attemptPort + 1}...`);
+      startServer(attemptPort + 1, attempt + 1);
+    } else {
+      console.error(`\n  Server error: ${err.message}\n`);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(DEFAULT_PORT, 1);
