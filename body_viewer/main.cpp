@@ -59,6 +59,9 @@ struct ViewerState {
 
     // Random generation state
     unsigned int next_gen_seed = 1000;
+
+    // Collision visualization toggle
+    bool show_colliders = false;
 };
 
 // ============================================================================
@@ -154,6 +157,253 @@ static void RenderFrame(const ViewerState& state, const BodyRenderer::BodyRender
     BuildLightSetup(params.lights);
 
     renderer.Render(state.current_body, params);
+}
+
+// ============================================================================
+// Collision wireframe rendering
+// ============================================================================
+
+static void DrawWireSphere(float radius, int segments)
+{
+    // Draw three circles (XY, XZ, YZ planes)
+    float step = 2.0f * static_cast<float>(M_PI) / segments;
+
+    // XY circle
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), radius * std::sin(angle), 0.0f);
+    }
+    glEnd();
+
+    // XZ circle
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), 0.0f, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // YZ circle
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(0.0f, radius * std::cos(angle), radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Additional latitude rings
+    for (int lat = 1; lat < segments / 2; ++lat) {
+        float phi = static_cast<float>(M_PI) * lat / (segments / 2);
+        float ring_r = radius * std::sin(phi);
+        float ring_y = radius * std::cos(phi);
+        glBegin(GL_LINE_LOOP);
+        for (int i = 0; i < segments; ++i) {
+            float angle = i * step;
+            glVertex3f(ring_r * std::cos(angle), ring_y, ring_r * std::sin(angle));
+        }
+        glEnd();
+    }
+}
+
+static void DrawWireCapsule(float radius, float halfHeight, int segments)
+{
+    float step = 2.0f * static_cast<float>(M_PI) / segments;
+
+    // Top hemisphere arcs
+    for (int arc = 0; arc < 4; ++arc) {
+        float base_angle = arc * static_cast<float>(M_PI) / 2.0f;
+        glBegin(GL_LINE_STRIP);
+        for (int i = 0; i <= segments / 4; ++i) {
+            float phi = static_cast<float>(M_PI) / 2.0f * i / (segments / 4);
+            float y = halfHeight + radius * std::sin(phi);
+            float r = radius * std::cos(phi);
+            glVertex3f(r * std::cos(base_angle), y, r * std::sin(base_angle));
+        }
+        glEnd();
+    }
+
+    // Bottom hemisphere arcs
+    for (int arc = 0; arc < 4; ++arc) {
+        float base_angle = arc * static_cast<float>(M_PI) / 2.0f;
+        glBegin(GL_LINE_STRIP);
+        for (int i = 0; i <= segments / 4; ++i) {
+            float phi = static_cast<float>(M_PI) / 2.0f * i / (segments / 4);
+            float y = -halfHeight - radius * std::sin(phi);
+            float r = radius * std::cos(phi);
+            glVertex3f(r * std::cos(base_angle), y, r * std::sin(base_angle));
+        }
+        glEnd();
+    }
+
+    // Top ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), halfHeight, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Bottom ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), -halfHeight, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Middle ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), 0.0f, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Vertical lines connecting top and bottom rings
+    for (int i = 0; i < 4; ++i) {
+        float angle = i * static_cast<float>(M_PI) / 2.0f;
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        glBegin(GL_LINES);
+        glVertex3f(x, halfHeight, z);
+        glVertex3f(x, -halfHeight, z);
+        glEnd();
+    }
+}
+
+static void DrawWireCylinder(float radius, float halfHeight, int segments)
+{
+    float step = 2.0f * static_cast<float>(M_PI) / segments;
+
+    // Top cap ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), halfHeight, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Bottom cap ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), -halfHeight, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Middle ring
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; ++i) {
+        float angle = i * step;
+        glVertex3f(radius * std::cos(angle), 0.0f, radius * std::sin(angle));
+    }
+    glEnd();
+
+    // Vertical lines
+    for (int i = 0; i < segments; i += segments / 4) {
+        float angle = i * step;
+        float x = radius * std::cos(angle);
+        float z = radius * std::sin(angle);
+        glBegin(GL_LINES);
+        glVertex3f(x, halfHeight, z);
+        glVertex3f(x, -halfHeight, z);
+        glEnd();
+    }
+
+    // Top cap cross
+    glBegin(GL_LINES);
+    glVertex3f(-radius, halfHeight, 0.0f);
+    glVertex3f(radius, halfHeight, 0.0f);
+    glVertex3f(0.0f, halfHeight, -radius);
+    glVertex3f(0.0f, halfHeight, radius);
+    glEnd();
+
+    // Bottom cap cross
+    glBegin(GL_LINES);
+    glVertex3f(-radius, -halfHeight, 0.0f);
+    glVertex3f(radius, -halfHeight, 0.0f);
+    glVertex3f(0.0f, -halfHeight, -radius);
+    glVertex3f(0.0f, -halfHeight, radius);
+    glEnd();
+}
+
+static void RenderColliderNode(const BodyRenderer::BodyNode* node,
+                                const BodyRenderer::Mat4& parent_world,
+                                int subdivision_level)
+{
+    if (!node) return;
+
+    BodyRenderer::Mat4 world = parent_world * node->localTransform;
+
+    // Create collision primitive for this node
+    BodyRenderer::CollisionPrimitive* prim = BodyRenderer::CreateCollisionPrimitive(node->shape);
+
+    // Apply the world transform via OpenGL
+    glPushMatrix();
+    float gl_mat[16];
+    for (int i = 0; i < 16; ++i) gl_mat[i] = world.m[i];
+    glMultMatrixf(gl_mat);
+
+    int segs = subdivision_level * 8; // same subdivision level as the body mesh
+
+    // Draw the appropriate wireframe shape
+    switch (prim->GetType()) {
+    case BodyRenderer::CollisionPrimitive::PRIM_SPHERE: {
+        const BodyRenderer::CollisionSphere* sphere =
+            static_cast<const BodyRenderer::CollisionSphere*>(prim);
+        DrawWireSphere(sphere->radius, segs);
+        break;
+    }
+    case BodyRenderer::CollisionPrimitive::PRIM_CAPSULE: {
+        const BodyRenderer::CollisionCapsule* capsule =
+            static_cast<const BodyRenderer::CollisionCapsule*>(prim);
+        DrawWireCapsule(capsule->radius, capsule->halfHeight, segs);
+        break;
+    }
+    case BodyRenderer::CollisionPrimitive::PRIM_CYLINDER: {
+        const BodyRenderer::CollisionCylinder* cyl =
+            static_cast<const BodyRenderer::CollisionCylinder*>(prim);
+        DrawWireCylinder(cyl->radius, cyl->halfHeight, segs);
+        break;
+    }
+    }
+
+    glPopMatrix();
+    delete prim;
+
+    // Recurse into children
+    for (size_t i = 0; i < node->children.size(); ++i) {
+        RenderColliderNode(&node->children[i], world, subdivision_level);
+    }
+}
+
+static void RenderColliders(const ViewerState& state)
+{
+    if (!state.has_model || !state.show_colliders) return;
+
+    // Disable lighting, enable wireframe overlay
+    glDisable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glLineWidth(1.5f);
+
+    // Green wireframe for collision shapes
+    glColor3f(0.0f, 1.0f, 0.3f);
+
+    // Slight depth offset so wireframe draws on top
+    glEnable(GL_POLYGON_OFFSET_LINE);
+    glPolygonOffset(-1.0f, -1.0f);
+
+    BodyRenderer::Mat4 identity;
+    identity.Identity();
+    RenderColliderNode(&state.current_body.root, identity, state.subdivision_level);
+
+    // Restore state
+    glDisable(GL_POLYGON_OFFSET_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    glEnable(GL_LIGHTING);
+    glLineWidth(1.0f);
 }
 
 // ============================================================================
@@ -255,6 +505,8 @@ static void UpdateWindowTitle(SDL_Window* window, const ViewerState& state,
     } else {
         title += " | Scale: OFF (T)";
     }
+    title += " | Colliders: ";
+    title += state.show_colliders ? "ON (C)" : "OFF (C)";
     SDL_SetWindowTitle(window, title.c_str());
 }
 
@@ -1346,7 +1598,7 @@ int main(int argc, char* argv[])
     SDL_Log("  Space              - Toggle joint animation");
     SDL_Log("  T                  - Toggle shape scale animation");
     SDL_Log("  G                  - Generate new random body");
-    SDL_Log("  C                  - Log collision primitives for current body");
+    SDL_Log("  C                  - Toggle collision shape wireframe overlay");
     SDL_Log("  Scroll wheel       - Zoom");
     SDL_Log("  Escape             - Quit");
 
@@ -1461,41 +1713,49 @@ int main(int argc, char* argv[])
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
                 } else if (event.key.key == SDLK_C) {
-                    // Log collision primitives for current body
+                    // Toggle collision primitive visualization
+                    state.show_colliders = !state.show_colliders;
                     if (state.has_model) {
-                        printf("\n=== Collision Primitives: %s ===\n", state.current_body.name.c_str());
-                        std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>> primitives;
-                        BodyRenderer::Mat4 identity;
-                        identity.Identity();
-                        LogCollisionNodeRecursive(&state.current_body.root, identity, primitives, 0);
+                        if (state.show_colliders) {
+                            // Log collision info on enable
+                            printf("\n=== Collision Primitives: %s ===\n", state.current_body.name.c_str());
+                            std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>> primitives;
+                            BodyRenderer::Mat4 identity;
+                            identity.Identity();
+                            LogCollisionNodeRecursive(&state.current_body.root, identity, primitives, 0);
 
-                        printf("\n  Overlap tests (all pairs):\n");
-                        int overlaps = 0;
-                        for (size_t ci = 0; ci < primitives.size(); ++ci) {
-                            for (size_t cj = ci + 1; cj < primitives.size(); ++cj) {
-                                BodyRenderer::OverlapResult r = primitives[ci].first->TestOverlap(
-                                    *primitives[cj].first,
-                                    primitives[ci].second,
-                                    primitives[cj].second
-                                );
-                                if (r.overlapping) {
-                                    overlaps++;
-                                    printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
-                                           static_cast<int>(ci), static_cast<int>(cj),
-                                           r.penetration_depth,
-                                           r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                            printf("\n  Overlap tests (all pairs):\n");
+                            int overlaps = 0;
+                            for (size_t ci = 0; ci < primitives.size(); ++ci) {
+                                for (size_t cj = ci + 1; cj < primitives.size(); ++cj) {
+                                    BodyRenderer::OverlapResult r = primitives[ci].first->TestOverlap(
+                                        *primitives[cj].first,
+                                        primitives[ci].second,
+                                        primitives[cj].second
+                                    );
+                                    if (r.overlapping) {
+                                        overlaps++;
+                                        printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
+                                               static_cast<int>(ci), static_cast<int>(cj),
+                                               r.penetration_depth,
+                                               r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                                    }
                                 }
                             }
-                        }
-                        if (overlaps == 0) {
-                            printf("    No overlaps detected.\n");
-                        }
-                        printf("=== End Collision Info ===\n\n");
+                            if (overlaps == 0) {
+                                printf("    No overlaps detected.\n");
+                            }
+                            printf("=== End Collision Info ===\n\n");
 
-                        for (auto& p : primitives) {
-                            delete p.first;
+                            for (auto& p : primitives) {
+                                delete p.first;
+                            }
+                        } else {
+                            printf("[Colliders] Visualization OFF\n");
                         }
                     }
+                    UpdateWindowTitle(window, state, state.current_body.name,
+                                      current_index, total_models);
                 }
                 break;
 
@@ -1565,6 +1825,7 @@ int main(int argc, char* argv[])
 
         // Render
         RenderFrame(state, renderer);
+        RenderColliders(state);
         SDL_GL_SwapWindow(window);
 
         // Cap frame rate
