@@ -347,6 +347,18 @@
     </div>
   </div>
 
+  <!-- Progress Modal (for long-running operations) -->
+  <div id="progress-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:none;align-items:center;justify-content:center;">
+    <div style="background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;padding:28px 36px;min-width:340px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+      <div id="progress-title" style="font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:14px;">Processing...</div>
+      <div style="background:#0a0a1a;border-radius:4px;height:22px;overflow:hidden;border:1px solid #0f3460;margin-bottom:10px;">
+        <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0f3460,#4fc3f7);transition:width 0.15s ease;"></div>
+      </div>
+      <div id="progress-text" style="font-size:12px;color:#a0a0a0;">0%</div>
+      <button id="progress-cancel-btn" style="margin-top:14px;padding:5px 16px;background:#c0392b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Cancel</button>
+    </div>
+  </div>
+
   <!-- Status Bar -->
   <div class="status-bar" id="status-bar">Ready</div>
 

@@ -256,10 +256,33 @@
   // "Concentric circles" here means: we sort candidate tiles by their distance from the
   // reference tile on the sheet, and check them in expanding order. This makes nearer tiles
   // get priority when multiple candidates pass the threshold.
-  function autoNeighborExpanded(similarityThreshold) {
+  // Progress modal helpers
+  let progressCancelled = false;
+  function showProgressModal(title) {
+    progressCancelled = false;
+    const modal = document.getElementById('progress-modal');
+    document.getElementById('progress-title').textContent = title;
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-text').textContent = '0%';
+    modal.style.display = 'flex';
+  }
+  function updateProgress(pct, detail) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = detail || (Math.round(pct) + '%');
+  }
+  function hideProgressModal() {
+    document.getElementById('progress-modal').style.display = 'none';
+  }
+  document.getElementById('progress-cancel-btn').addEventListener('click', () => {
+    progressCancelled = true;
+  });
+
+  async function autoNeighborExpanded(similarityThreshold) {
     if (!currentTilesetData || !currentTilesetImage) return 0;
     const tiles = currentTilesetData.tiles;
     let addedCount = 0;
+    const totalTiles = tiles.length;
+    const totalPairs = totalTiles * (totalTiles - 1);
 
     // Helper: center point of a tile's source_rect
     function tileCenter(t) {
@@ -273,8 +296,12 @@
       return Math.sqrt(dx * dx + dy * dy);
     }
 
+    showProgressModal('Expanded Neighbor Search');
+
     // For each tile, sort all other tiles by distance and check edge compatibility
     for (let i = 0; i < tiles.length; i++) {
+      if (progressCancelled) { hideProgressModal(); return addedCount; }
+
       const a = tiles[i];
       const arect = a.source_rect;
       if (!a.adjacency) a.adjacency = { up: [], down: [], left: [], right: [] };
@@ -288,7 +315,8 @@
       candidates.sort((x, y) => x.dist - y.dist);
 
       // Check each candidate in distance order for each direction
-      for (const cand of candidates) {
+      for (let ci = 0; ci < candidates.length; ci++) {
+        const cand = candidates[ci];
         const b = tiles[cand.idx];
         const brect = b.source_rect;
         if (!b.adjacency) b.adjacency = { up: [], down: [], left: [], right: [] };
@@ -336,8 +364,24 @@
             if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
           }
         }
+
+        // Yield to UI every 50 candidates to keep progress bar responsive
+        if (ci % 50 === 0) {
+          const pairsProcessed = i * (totalTiles - 1) + ci;
+          const pct = (pairsProcessed / totalPairs) * 100;
+          updateProgress(pct, `${Math.round(pct)}% — tile ${i + 1}/${totalTiles} (${addedCount} links found)`);
+          await new Promise(r => setTimeout(r, 0));
+          if (progressCancelled) { hideProgressModal(); return addedCount; }
+        }
       }
+
+      // Update progress after each tile completes
+      const pct = ((i + 1) / totalTiles) * 100;
+      updateProgress(pct, `${Math.round(pct)}% — tile ${i + 1}/${totalTiles} (${addedCount} links found)`);
+      await new Promise(r => setTimeout(r, 0));
     }
+
+    hideProgressModal();
     return addedCount;
   }
 
@@ -850,7 +894,7 @@
   }
 
   // --- Global Auto-Neighbor button (tileset-level operation) ---
-  document.getElementById('auto-neighbor-btn-global').addEventListener('click', () => {
+  document.getElementById('auto-neighbor-btn-global').addEventListener('click', async () => {
     if (!currentTilesetData || !currentTilesetImage) {
       setStatus('Load a tileset sheet first.');
       return;
@@ -873,8 +917,14 @@
     const expandedCheckbox = document.getElementById('auto-neighbor-expanded');
     const useExpanded = expandedCheckbox && expandedCheckbox.checked;
     const modeLabel = useExpanded ? 'expanded' : 'direct';
-    const added = useExpanded ? autoNeighborExpanded(threshold) : autoNeighborAll(threshold);
-    if (added === 0) {
+    // Disable button during async expanded search to prevent double-click
+    const btn = document.getElementById('auto-neighbor-btn-global');
+    if (useExpanded) btn.disabled = true;
+    const added = useExpanded ? await autoNeighborExpanded(threshold) : autoNeighborAll(threshold);
+    if (useExpanded) enableBtn('auto-neighbor-btn-global', true);
+    if (progressCancelled) {
+      setStatus(`Auto-Neighbor (${modeLabel}) cancelled. ${added} link(s) were added before cancellation.`);
+    } else if (added === 0) {
       alert(`Auto-Neighbor (${modeLabel}) complete: no new adjacency links found at ${thresholdPct}% similarity.`);
       setStatus(`Auto-Neighbor (${modeLabel}): no new adjacency links found at ${thresholdPct}% similarity.`);
     } else {
