@@ -37,10 +37,10 @@ struct RayHit {
 
 struct OverlapResult {
     bool overlapping;
-    float penetration_depth; // approximate penetration depth (0 if no overlap)
-    Vec3 separation_axis;    // direction to move this primitive to resolve overlap
+    float penetrationDepth; // approximate penetration depth (0 if no overlap)
+    Vec3 separationAxis;    // direction to move this primitive to resolve overlap
 
-    OverlapResult() : overlapping(false), penetration_depth(0.0f) {}
+    OverlapResult() : overlapping(false), penetrationDepth(0.0f) {}
 };
 
 // ============================================================================
@@ -54,13 +54,13 @@ public:
     // Raycast against this primitive in its local space.
     // The ray should be transformed into the primitive's local coordinate system
     // before calling.
-    virtual RayHit Raycast(const Ray& local_ray) const = 0;
+    virtual RayHit Raycast(const Ray& localRay) const = 0;
 
     // Test overlap with another primitive.
     // Both primitives are assumed to be in world space (positions applied).
     virtual OverlapResult TestOverlap(const CollisionPrimitive& other,
-                                      const Mat4& this_world,
-                                      const Mat4& other_world) const = 0;
+                                      const Mat4& thisWorld,
+                                      const Mat4& otherWorld) const = 0;
 
     // Get the bounding sphere radius (for broad-phase culling)
     virtual float GetBoundingRadius() const = 0;
@@ -92,10 +92,10 @@ public:
     CollisionSphere() : radius(0.5f) {}
     explicit CollisionSphere(float r) : radius(r) {}
 
-    RayHit Raycast(const Ray& local_ray) const override;
+    RayHit Raycast(const Ray& localRay) const override;
     OverlapResult TestOverlap(const CollisionPrimitive& other,
-                              const Mat4& this_world,
-                              const Mat4& other_world) const override;
+                              const Mat4& thisWorld,
+                              const Mat4& otherWorld) const override;
     float GetBoundingRadius() const override { return radius; }
     CollisionPrimitive* Clone() const override { return new CollisionSphere(*this); }
     PrimitiveType GetType() const override { return PRIM_SPHERE; }
@@ -116,10 +116,10 @@ public:
     CollisionCapsule() : radius(0.5f), halfHeight(0.5f) {}
     CollisionCapsule(float r, float hh) : radius(r), halfHeight(hh) {}
 
-    RayHit Raycast(const Ray& local_ray) const override;
+    RayHit Raycast(const Ray& localRay) const override;
     OverlapResult TestOverlap(const CollisionPrimitive& other,
-                              const Mat4& this_world,
-                              const Mat4& other_world) const override;
+                              const Mat4& thisWorld,
+                              const Mat4& otherWorld) const override;
     float GetBoundingRadius() const override { return halfHeight + radius; }
     CollisionPrimitive* Clone() const override { return new CollisionCapsule(*this); }
     PrimitiveType GetType() const override { return PRIM_CAPSULE; }
@@ -138,10 +138,10 @@ public:
     CollisionCylinder() : radius(0.5f), halfHeight(0.5f) {}
     CollisionCylinder(float r, float hh) : radius(r), halfHeight(hh) {}
 
-    RayHit Raycast(const Ray& local_ray) const override;
+    RayHit Raycast(const Ray& localRay) const override;
     OverlapResult TestOverlap(const CollisionPrimitive& other,
-                              const Mat4& this_world,
-                              const Mat4& other_world) const override;
+                              const Mat4& thisWorld,
+                              const Mat4& otherWorld) const override;
     float GetBoundingRadius() const override;
     CollisionPrimitive* Clone() const override { return new CollisionCylinder(*this); }
     PrimitiveType GetType() const override { return PRIM_CYLINDER; }
@@ -164,7 +164,7 @@ CollisionPrimitive* CreateCollisionPrimitive(const ShapeParams& shape);
 // Utility: Transform a ray into a primitive's local space
 // ============================================================================
 
-Ray TransformRayToLocal(const Ray& world_ray, const Mat4& world_transform);
+Ray TransformRayToLocal(const Ray& worldRay, const Mat4& worldTransform);
 
 // ============================================================================
 // Utility: Compute inverse of a rigid-body transform (rotation + translation only)

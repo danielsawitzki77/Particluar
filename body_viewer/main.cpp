@@ -329,23 +329,23 @@ static void DrawWireCylinder(float radius, float halfHeight, int segments)
 }
 
 static void RenderColliderNode(const BodyRenderer::BodyNode* node,
-                                const BodyRenderer::Mat4& parent_world,
-                                int subdivision_level)
+                                const BodyRenderer::Mat4& parentWorld,
+                                int subdivisionLevel)
 {
     if (!node) return;
 
-    BodyRenderer::Mat4 world = parent_world * node->localTransform;
+    BodyRenderer::Mat4 world = parentWorld * node->localTransform;
 
     // Create collision primitive for this node
     BodyRenderer::CollisionPrimitive* prim = BodyRenderer::CreateCollisionPrimitive(node->shape);
 
     // Apply the world transform via OpenGL
     glPushMatrix();
-    float gl_mat[16];
-    for (int i = 0; i < 16; ++i) gl_mat[i] = world.m[i];
-    glMultMatrixf(gl_mat);
+    float glMat[16];
+    for (int i = 0; i < 16; ++i) glMat[i] = world.m[i];
+    glMultMatrixf(glMat);
 
-    int segs = subdivision_level * 8; // same subdivision level as the body mesh
+    int segs = subdivisionLevel * 8; // same subdivision level as the body mesh
 
     // Draw the appropriate wireframe shape
     switch (prim->GetType()) {
@@ -374,7 +374,7 @@ static void RenderColliderNode(const BodyRenderer::BodyNode* node,
 
     // Recurse into children
     for (size_t i = 0; i < node->children.size(); ++i) {
-        RenderColliderNode(&node->children[i], world, subdivision_level);
+        RenderColliderNode(&node->children[i], world, subdivisionLevel);
     }
 }
 
@@ -385,22 +385,19 @@ static void RenderColliders(const ViewerState& state)
     // Disable lighting, enable wireframe overlay
     glDisable(GL_LIGHTING);
     glDisable(GL_TEXTURE_2D);
+    glDisable(GL_DEPTH_TEST); // Always render on top to avoid z-fighting
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     glLineWidth(1.5f);
 
     // Green wireframe for collision shapes
     glColor3f(0.0f, 1.0f, 0.3f);
 
-    // Slight depth offset so wireframe draws on top
-    glEnable(GL_POLYGON_OFFSET_LINE);
-    glPolygonOffset(-1.0f, -1.0f);
-
     BodyRenderer::Mat4 identity;
     identity.Identity();
     RenderColliderNode(&state.current_body.root, identity, state.subdivision_level);
 
     // Restore state
-    glDisable(GL_POLYGON_OFFSET_LINE);
+    glEnable(GL_DEPTH_TEST);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     glEnable(GL_LIGHTING);
     glLineWidth(1.0f);
@@ -1323,13 +1320,13 @@ static const char* CollisionPrimTypeName(BodyRenderer::CollisionPrimitive::Primi
 
 static void LogCollisionNodeRecursive(
     const BodyRenderer::BodyNode* node,
-    const BodyRenderer::Mat4& parent_world,
-    std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>>& all_primitives,
+    const BodyRenderer::Mat4& parentWorld,
+    std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>>& outPrimitives,
     int depth)
 {
     if (!node) return;
 
-    BodyRenderer::Mat4 world = parent_world * node->localTransform;
+    BodyRenderer::Mat4 world = parentWorld * node->localTransform;
 
     std::string indent(depth * 2, ' ');
     printf("%s[%s] shape=%s", indent.c_str(), node->name.c_str(), ShapeTypeName(node->shape.type));
@@ -1339,7 +1336,7 @@ static void LogCollisionNodeRecursive(
     printf(" -> collision: %s (boundingR=%.3f)\n",
            CollisionPrimTypeName(prim->GetType()), prim->GetBoundingRadius());
 
-    all_primitives.push_back({prim, world});
+    outPrimitives.push_back({prim, world});
 
     // Raycast test: shoot rays from 6 cardinal directions
     printf("%s  Raycast tests (6 directions):\n", indent.c_str());
@@ -1348,7 +1345,7 @@ static void LogCollisionNodeRecursive(
         BodyRenderer::Vec3(0, 1, 0), BodyRenderer::Vec3(0, -1, 0),
         BodyRenderer::Vec3(0, 0, 1), BodyRenderer::Vec3(0, 0, -1)
     };
-    const char* dir_names[] = { "+X", "-X", "+Y", "-Y", "+Z", "-Z" };
+    const char* dirNames[] = { "+X", "-X", "+Y", "-Y", "+Z", "-Z" };
 
     float br = prim->GetBoundingRadius();
     int hits = 0;
@@ -1356,24 +1353,24 @@ static void LogCollisionNodeRecursive(
         // Ray starts outside bounding radius, pointing inward
         BodyRenderer::Vec3 origin = directions[i] * (-(br + 2.0f));
         BodyRenderer::Vec3 dir = directions[i];
-        BodyRenderer::Ray world_ray(world.TransformPoint(origin), world.TransformDirection(dir).Normalized());
-        BodyRenderer::Ray local_ray = BodyRenderer::TransformRayToLocal(world_ray, world);
-        BodyRenderer::RayHit hit = prim->Raycast(local_ray);
+        BodyRenderer::Ray worldRay(world.TransformPoint(origin), world.TransformDirection(dir).Normalized());
+        BodyRenderer::Ray localRay = BodyRenderer::TransformRayToLocal(worldRay, world);
+        BodyRenderer::RayHit hit = prim->Raycast(localRay);
 
         if (hit.hit) {
             hits++;
             printf("%s    %s: HIT at dist=%.4f normal=(%.2f, %.2f, %.2f)\n",
-                   indent.c_str(), dir_names[i], hit.distance,
+                   indent.c_str(), dirNames[i], hit.distance,
                    hit.normal.x, hit.normal.y, hit.normal.z);
         } else {
-            printf("%s    %s: MISS\n", indent.c_str(), dir_names[i]);
+            printf("%s    %s: MISS\n", indent.c_str(), dirNames[i]);
         }
     }
     printf("%s  Raycast summary: %d/6 hits\n", indent.c_str(), hits);
 
     // Recurse into children
     for (size_t i = 0; i < node->children.size(); ++i) {
-        LogCollisionNodeRecursive(&node->children[i], world, all_primitives, depth + 1);
+        LogCollisionNodeRecursive(&node->children[i], world, outPrimitives, depth + 1);
     }
 }
 
@@ -1385,9 +1382,9 @@ static int RunCollisionTestMode()
     BodyRenderer::BodyGenerator generator;
     BodyRenderer::SubdivisionSolver subdivSolver;
 
-    int total_tests = 0;
-    int total_overlaps = 0;
-    int total_overlap_tests = 0;
+    int totalTests = 0;
+    int totalOverlaps = 0;
+    int totalOverlapTests = 0;
 
     // Test with 10 random bodies + all body files in assets/bodies/
     printf("--- Testing generated bodies ---\n\n");
@@ -1406,23 +1403,23 @@ static int RunCollisionTestMode()
         printf("\n  Overlap tests (all pairs):\n");
         for (size_t i = 0; i < primitives.size(); ++i) {
             for (size_t j = i + 1; j < primitives.size(); ++j) {
-                total_overlap_tests++;
+                totalOverlapTests++;
                 BodyRenderer::OverlapResult r = primitives[i].first->TestOverlap(
                     *primitives[j].first,
                     primitives[i].second,
                     primitives[j].second
                 );
                 if (r.overlapping) {
-                    total_overlaps++;
+                    totalOverlaps++;
                     printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
                            static_cast<int>(i), static_cast<int>(j),
-                           r.penetration_depth,
-                           r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                           r.penetrationDepth,
+                           r.separationAxis.x, r.separationAxis.y, r.separationAxis.z);
                 }
             }
         }
 
-        total_tests += static_cast<int>(primitives.size());
+        totalTests += static_cast<int>(primitives.size());
 
         // Clean up
         for (auto& p : primitives) {
@@ -1449,23 +1446,23 @@ static int RunCollisionTestMode()
 
                 printf("\n  Overlap tests (all pairs):\n");
                 for (size_t a = 0; a < primitives.size(); ++a) {
-                    for (size_t b_idx = a + 1; b_idx < primitives.size(); ++b_idx) {
-                        total_overlap_tests++;
+                    for (size_t bIdx = a + 1; bIdx < primitives.size(); ++bIdx) {
+                        totalOverlapTests++;
                         BodyRenderer::OverlapResult r = primitives[a].first->TestOverlap(
-                            *primitives[b_idx].first,
+                            *primitives[bIdx].first,
                             primitives[a].second,
-                            primitives[b_idx].second
+                            primitives[bIdx].second
                         );
                         if (r.overlapping) {
-                            total_overlaps++;
+                            totalOverlaps++;
                             printf("    [%d vs %d] OVERLAP depth=%.4f\n",
-                                   static_cast<int>(a), static_cast<int>(b_idx),
-                                   r.penetration_depth);
+                                   static_cast<int>(a), static_cast<int>(bIdx),
+                                   r.penetrationDepth);
                         }
                     }
                 }
 
-                total_tests += static_cast<int>(primitives.size());
+                totalTests += static_cast<int>(primitives.size());
                 for (auto& p : primitives) {
                     delete p.first;
                 }
@@ -1478,9 +1475,9 @@ static int RunCollisionTestMode()
     }
 
     printf("\n=== Collision Test Summary ===\n");
-    printf("Total primitives tested: %d\n", total_tests);
-    printf("Total overlap tests: %d\n", total_overlap_tests);
-    printf("Overlaps detected: %d\n", total_overlaps);
+    printf("Total primitives tested: %d\n", totalTests);
+    printf("Total overlap tests: %d\n", totalOverlapTests);
+    printf("Overlaps detected: %d\n", totalOverlaps);
     printf("=== Done ===\n");
     return 0;
 }
@@ -1737,8 +1734,8 @@ int main(int argc, char* argv[])
                                         overlaps++;
                                         printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
                                                static_cast<int>(ci), static_cast<int>(cj),
-                                               r.penetration_depth,
-                                               r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                                               r.penetrationDepth,
+                                               r.separationAxis.x, r.separationAxis.y, r.separationAxis.z);
                                     }
                                 }
                             }

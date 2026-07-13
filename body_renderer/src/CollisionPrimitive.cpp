@@ -1,115 +1,10 @@
 #include "CollisionPrimitive.h"
+#include "GeomUtil.h"
 #include <cmath>
 #include <algorithm>
 #include <cfloat>
 
 namespace BodyRenderer {
-
-// ============================================================================
-// Helper: closest point on line segment to a point
-// Segment from A to B, returns parameter t in [0,1] and the closest point
-// ============================================================================
-
-static float ClosestPointOnSegment(const Vec3& a, const Vec3& b, const Vec3& point, Vec3& closest)
-{
-    Vec3 ab = b - a;
-    float ab_len_sq = ab.Dot(ab);
-    if (ab_len_sq < 1e-12f) {
-        closest = a;
-        return 0.0f;
-    }
-    float t = (point - a).Dot(ab) / ab_len_sq;
-    if (t < 0.0f) t = 0.0f;
-    if (t > 1.0f) t = 1.0f;
-    closest = a + ab * t;
-    return t;
-}
-
-// ============================================================================
-// Helper: closest distance between two line segments
-// Returns the squared distance and the closest points on each segment
-// ============================================================================
-
-static float ClosestDistSegmentSegment(
-    const Vec3& p1, const Vec3& q1,  // segment 1: p1 to q1
-    const Vec3& p2, const Vec3& q2,  // segment 2: p2 to q2
-    Vec3& closest1, Vec3& closest2)
-{
-    Vec3 d1 = q1 - p1; // direction of segment 1
-    Vec3 d2 = q2 - p2; // direction of segment 2
-    Vec3 r = p1 - p2;
-
-    float a = d1.Dot(d1); // squared length of segment 1
-    float e = d2.Dot(d2); // squared length of segment 2
-    float f = d2.Dot(r);
-
-    float s, t;
-
-    if (a <= 1e-12f && e <= 1e-12f) {
-        // Both segments degenerate to points
-        closest1 = p1;
-        closest2 = p2;
-        Vec3 diff = closest1 - closest2;
-        return diff.Dot(diff);
-    }
-
-    if (a <= 1e-12f) {
-        // First segment degenerates to a point
-        s = 0.0f;
-        t = f / e;
-        if (t < 0.0f) t = 0.0f;
-        if (t > 1.0f) t = 1.0f;
-    } else {
-        float c = d1.Dot(r);
-        if (e <= 1e-12f) {
-            // Second segment degenerates to a point
-            t = 0.0f;
-            s = -c / a;
-            if (s < 0.0f) s = 0.0f;
-            if (s > 1.0f) s = 1.0f;
-        } else {
-            // General case
-            float b = d1.Dot(d2);
-            float denom = a * e - b * b;
-
-            if (denom != 0.0f) {
-                s = (b * f - c * e) / denom;
-                if (s < 0.0f) s = 0.0f;
-                if (s > 1.0f) s = 1.0f;
-            } else {
-                s = 0.0f;
-            }
-
-            t = (b * s + f) / e;
-
-            if (t < 0.0f) {
-                t = 0.0f;
-                s = -c / a;
-                if (s < 0.0f) s = 0.0f;
-                if (s > 1.0f) s = 1.0f;
-            } else if (t > 1.0f) {
-                t = 1.0f;
-                s = (b - c) / a;
-                if (s < 0.0f) s = 0.0f;
-                if (s > 1.0f) s = 1.0f;
-            }
-        }
-    }
-
-    closest1 = p1 + d1 * s;
-    closest2 = p2 + d2 * t;
-    Vec3 diff = closest1 - closest2;
-    return diff.Dot(diff);
-}
-
-// ============================================================================
-// Helper: extract position from world matrix
-// ============================================================================
-
-static Vec3 GetWorldPosition(const Mat4& world)
-{
-    return Vec3(world.m[12], world.m[13], world.m[14]);
-}
 
 // ============================================================================
 // InverseRigidTransform
@@ -139,13 +34,13 @@ Mat4 InverseRigidTransform(const Mat4& m)
 // TransformRayToLocal
 // ============================================================================
 
-Ray TransformRayToLocal(const Ray& world_ray, const Mat4& world_transform)
+Ray TransformRayToLocal(const Ray& worldRay, const Mat4& worldTransform)
 {
-    Mat4 inv = InverseRigidTransform(world_transform);
-    Ray local;
-    local.origin = inv.TransformPoint(world_ray.origin);
-    local.direction = inv.TransformDirection(world_ray.direction).Normalized();
-    return local;
+    Mat4 inv = InverseRigidTransform(worldTransform);
+    Ray localRay;
+    localRay.origin = inv.TransformPoint(worldRay.origin);
+    localRay.direction = inv.TransformDirection(worldRay.direction).Normalized();
+    return localRay;
 }
 
 // ============================================================================
@@ -153,22 +48,22 @@ Ray TransformRayToLocal(const Ray& world_ray, const Mat4& world_transform)
 // Standard ray-sphere intersection (sphere at origin with given radius)
 // ============================================================================
 
-RayHit CollisionSphere::Raycast(const Ray& local_ray) const
+RayHit CollisionSphere::Raycast(const Ray& localRay) const
 {
     RayHit result;
 
     // Solve: |O + t*D|^2 = r^2
     // t^2*(D.D) + 2t*(O.D) + (O.O - r^2) = 0
-    float a = local_ray.direction.Dot(local_ray.direction);
-    float b = 2.0f * local_ray.origin.Dot(local_ray.direction);
-    float c = local_ray.origin.Dot(local_ray.origin) - radius * radius;
+    float a = localRay.direction.Dot(localRay.direction);
+    float b = 2.0f * localRay.origin.Dot(localRay.direction);
+    float c = localRay.origin.Dot(localRay.origin) - radius * radius;
 
     float discriminant = b * b - 4.0f * a * c;
     if (discriminant < 0.0f) return result;
 
-    float sqrt_disc = std::sqrt(discriminant);
-    float t0 = (-b - sqrt_disc) / (2.0f * a);
-    float t1 = (-b + sqrt_disc) / (2.0f * a);
+    float sqrtDisc = std::sqrt(discriminant);
+    float t0 = (-b - sqrtDisc) / (2.0f * a);
+    float t1 = (-b + sqrtDisc) / (2.0f * a);
 
     float t = t0;
     if (t < 0.0f) t = t1;
@@ -176,8 +71,8 @@ RayHit CollisionSphere::Raycast(const Ray& local_ray) const
 
     result.hit = true;
     result.distance = t;
-    result.point = local_ray.origin + local_ray.direction * t;
-    result.normal = result.point * (1.0f / radius); // normalized position = normal for unit sphere
+    result.point = localRay.origin + localRay.direction * t;
+    result.normal = result.point * (1.0f / radius);
     return result;
 }
 
@@ -186,56 +81,56 @@ RayHit CollisionSphere::Raycast(const Ray& local_ray) const
 // ============================================================================
 
 OverlapResult CollisionSphere::TestOverlap(const CollisionPrimitive& other,
-                                            const Mat4& this_world,
-                                            const Mat4& other_world) const
+                                            const Mat4& thisWorld,
+                                            const Mat4& otherWorld) const
 {
     OverlapResult result;
-    Vec3 this_pos = GetWorldPosition(this_world);
+    Vec3 thisPos = GeomUtil::GetWorldPosition(thisWorld);
 
     switch (other.GetType()) {
     case PRIM_SPHERE: {
-        const CollisionSphere& other_sphere = static_cast<const CollisionSphere&>(other);
-        Vec3 other_pos = GetWorldPosition(other_world);
-        Vec3 diff = this_pos - other_pos;
+        const CollisionSphere& otherSphere = static_cast<const CollisionSphere&>(other);
+        Vec3 otherPos = GeomUtil::GetWorldPosition(otherWorld);
+        Vec3 diff = thisPos - otherPos;
         float dist = diff.Length();
-        float sum_radii = radius + other_sphere.radius;
+        float sumRadii = radius + otherSphere.radius;
 
-        if (dist < sum_radii) {
+        if (dist < sumRadii) {
             result.overlapping = true;
-            result.penetration_depth = sum_radii - dist;
+            result.penetrationDepth = sumRadii - dist;
             if (dist > 1e-9f) {
-                result.separation_axis = diff * (1.0f / dist);
+                result.separationAxis = diff * (1.0f / dist);
             } else {
-                result.separation_axis = Vec3(0, 1, 0);
+                result.separationAxis = Vec3(0, 1, 0);
             }
         }
         break;
     }
     case PRIM_CAPSULE: {
         const CollisionCapsule& cap = static_cast<const CollisionCapsule&>(other);
-        Vec3 other_pos = GetWorldPosition(other_world);
+        Vec3 otherPos = GeomUtil::GetWorldPosition(otherWorld);
 
         // Capsule segment endpoints in world space
-        Vec3 local_a(0, -cap.halfHeight, 0);
-        Vec3 local_b(0, cap.halfHeight, 0);
-        Vec3 cap_a = other_world.TransformPoint(local_a);
-        Vec3 cap_b = other_world.TransformPoint(local_b);
+        Vec3 localA(0, -cap.halfHeight, 0);
+        Vec3 localB(0, cap.halfHeight, 0);
+        Vec3 capA = otherWorld.TransformPoint(localA);
+        Vec3 capB = otherWorld.TransformPoint(localB);
 
         // Closest point on capsule segment to sphere center
         Vec3 closest;
-        ClosestPointOnSegment(cap_a, cap_b, this_pos, closest);
+        GeomUtil::ClosestPointOnSegment(capA, capB, thisPos, closest);
 
-        Vec3 diff = this_pos - closest;
+        Vec3 diff = thisPos - closest;
         float dist = diff.Length();
-        float sum_radii = radius + cap.radius;
+        float sumRadii = radius + cap.radius;
 
-        if (dist < sum_radii) {
+        if (dist < sumRadii) {
             result.overlapping = true;
-            result.penetration_depth = sum_radii - dist;
+            result.penetrationDepth = sumRadii - dist;
             if (dist > 1e-9f) {
-                result.separation_axis = diff * (1.0f / dist);
+                result.separationAxis = diff * (1.0f / dist);
             } else {
-                result.separation_axis = Vec3(0, 1, 0);
+                result.separationAxis = Vec3(0, 1, 0);
             }
         }
         break;
@@ -244,7 +139,7 @@ OverlapResult CollisionSphere::TestOverlap(const CollisionPrimitive& other,
         // Approximate cylinder as capsule for overlap (conservative)
         const CollisionCylinder& cyl = static_cast<const CollisionCylinder&>(other);
         CollisionCapsule approx(cyl.radius, cyl.halfHeight);
-        return TestOverlap(approx, this_world, other_world);
+        return TestOverlap(approx, thisWorld, otherWorld);
     }
     }
 
@@ -256,20 +151,19 @@ OverlapResult CollisionSphere::TestOverlap(const CollisionPrimitive& other,
 // Ray vs capsule: test infinite cylinder + two hemispherical caps
 // ============================================================================
 
-RayHit CollisionCapsule::Raycast(const Ray& local_ray) const
+RayHit CollisionCapsule::Raycast(const Ray& localRay) const
 {
     RayHit result;
-    float best_t = FLT_MAX;
+    float bestT = FLT_MAX;
 
     // The capsule is a line segment from (0, -halfHeight, 0) to (0, halfHeight, 0)
     // with radius.
 
     // Step 1: Ray vs infinite cylinder along Y axis
-    // Project ray onto XZ plane: solve (ox + t*dx)^2 + (oz + t*dz)^2 = r^2
-    float dx = local_ray.direction.x;
-    float dz = local_ray.direction.z;
-    float ox = local_ray.origin.x;
-    float oz = local_ray.origin.z;
+    float dx = localRay.direction.x;
+    float dz = localRay.direction.z;
+    float ox = localRay.origin.x;
+    float oz = localRay.origin.z;
 
     float a = dx * dx + dz * dz;
     float b = 2.0f * (ox * dx + oz * dz);
@@ -278,21 +172,21 @@ RayHit CollisionCapsule::Raycast(const Ray& local_ray) const
     if (a > 1e-12f) {
         float disc = b * b - 4.0f * a * c;
         if (disc >= 0.0f) {
-            float sqrt_disc = std::sqrt(disc);
-            float t0 = (-b - sqrt_disc) / (2.0f * a);
-            float t1 = (-b + sqrt_disc) / (2.0f * a);
+            float sqrtDisc = std::sqrt(disc);
+            float t0 = (-b - sqrtDisc) / (2.0f * a);
+            float t1 = (-b + sqrtDisc) / (2.0f * a);
 
             // Check both t values against the cylinder's Y bounds
             for (int i = 0; i < 2; ++i) {
                 float t = (i == 0) ? t0 : t1;
                 if (t < 0.0f) continue;
-                float y = local_ray.origin.y + t * local_ray.direction.y;
+                float y = localRay.origin.y + t * localRay.direction.y;
                 if (y >= -halfHeight && y <= halfHeight) {
-                    if (t < best_t) {
-                        best_t = t;
+                    if (t < bestT) {
+                        bestT = t;
                         result.hit = true;
                         result.distance = t;
-                        result.point = local_ray.origin + local_ray.direction * t;
+                        result.point = localRay.origin + localRay.direction * t;
                         // Normal is radial in XZ plane
                         result.normal = Vec3(result.point.x, 0, result.point.z) * (1.0f / radius);
                     }
@@ -304,27 +198,27 @@ RayHit CollisionCapsule::Raycast(const Ray& local_ray) const
 
     // Step 2: Ray vs top hemisphere (center at (0, halfHeight, 0))
     {
-        Vec3 sphere_center(0, halfHeight, 0);
-        Vec3 oc = local_ray.origin - sphere_center;
-        float sa = local_ray.direction.Dot(local_ray.direction);
-        float sb = 2.0f * oc.Dot(local_ray.direction);
+        Vec3 sphereCenter(0, halfHeight, 0);
+        Vec3 oc = localRay.origin - sphereCenter;
+        float sa = localRay.direction.Dot(localRay.direction);
+        float sb = 2.0f * oc.Dot(localRay.direction);
         float sc = oc.Dot(oc) - radius * radius;
         float disc = sb * sb - 4.0f * sa * sc;
         if (disc >= 0.0f) {
-            float sqrt_disc = std::sqrt(disc);
-            float t0 = (-sb - sqrt_disc) / (2.0f * sa);
-            float t1 = (-sb + sqrt_disc) / (2.0f * sa);
+            float sqrtDisc = std::sqrt(disc);
+            float t0 = (-sb - sqrtDisc) / (2.0f * sa);
+            float t1 = (-sb + sqrtDisc) / (2.0f * sa);
             for (int i = 0; i < 2; ++i) {
                 float t = (i == 0) ? t0 : t1;
                 if (t < 0.0f) continue;
-                Vec3 p = local_ray.origin + local_ray.direction * t;
+                Vec3 p = localRay.origin + localRay.direction * t;
                 // Must be in the top hemisphere (y >= halfHeight)
-                if (p.y >= halfHeight && t < best_t) {
-                    best_t = t;
+                if (p.y >= halfHeight && t < bestT) {
+                    bestT = t;
                     result.hit = true;
                     result.distance = t;
                     result.point = p;
-                    result.normal = (p - sphere_center) * (1.0f / radius);
+                    result.normal = (p - sphereCenter) * (1.0f / radius);
                     break;
                 }
             }
@@ -333,27 +227,27 @@ RayHit CollisionCapsule::Raycast(const Ray& local_ray) const
 
     // Step 3: Ray vs bottom hemisphere (center at (0, -halfHeight, 0))
     {
-        Vec3 sphere_center(0, -halfHeight, 0);
-        Vec3 oc = local_ray.origin - sphere_center;
-        float sa = local_ray.direction.Dot(local_ray.direction);
-        float sb = 2.0f * oc.Dot(local_ray.direction);
+        Vec3 sphereCenter(0, -halfHeight, 0);
+        Vec3 oc = localRay.origin - sphereCenter;
+        float sa = localRay.direction.Dot(localRay.direction);
+        float sb = 2.0f * oc.Dot(localRay.direction);
         float sc = oc.Dot(oc) - radius * radius;
         float disc = sb * sb - 4.0f * sa * sc;
         if (disc >= 0.0f) {
-            float sqrt_disc = std::sqrt(disc);
-            float t0 = (-sb - sqrt_disc) / (2.0f * sa);
-            float t1 = (-sb + sqrt_disc) / (2.0f * sa);
+            float sqrtDisc = std::sqrt(disc);
+            float t0 = (-sb - sqrtDisc) / (2.0f * sa);
+            float t1 = (-sb + sqrtDisc) / (2.0f * sa);
             for (int i = 0; i < 2; ++i) {
                 float t = (i == 0) ? t0 : t1;
                 if (t < 0.0f) continue;
-                Vec3 p = local_ray.origin + local_ray.direction * t;
+                Vec3 p = localRay.origin + localRay.direction * t;
                 // Must be in the bottom hemisphere (y <= -halfHeight)
-                if (p.y <= -halfHeight && t < best_t) {
-                    best_t = t;
+                if (p.y <= -halfHeight && t < bestT) {
+                    bestT = t;
                     result.hit = true;
                     result.distance = t;
                     result.point = p;
-                    result.normal = (p - sphere_center) * (1.0f / radius);
+                    result.normal = (p - sphereCenter) * (1.0f / radius);
                     break;
                 }
             }
@@ -368,57 +262,57 @@ RayHit CollisionCapsule::Raycast(const Ray& local_ray) const
 // ============================================================================
 
 OverlapResult CollisionCapsule::TestOverlap(const CollisionPrimitive& other,
-                                             const Mat4& this_world,
-                                             const Mat4& other_world) const
+                                             const Mat4& thisWorld,
+                                             const Mat4& otherWorld) const
 {
     OverlapResult result;
 
     // This capsule's segment endpoints in world space
-    Vec3 this_a = this_world.TransformPoint(Vec3(0, -halfHeight, 0));
-    Vec3 this_b = this_world.TransformPoint(Vec3(0, halfHeight, 0));
+    Vec3 thisA = thisWorld.TransformPoint(Vec3(0, -halfHeight, 0));
+    Vec3 thisB = thisWorld.TransformPoint(Vec3(0, halfHeight, 0));
 
     switch (other.GetType()) {
     case PRIM_SPHERE: {
         const CollisionSphere& sphere = static_cast<const CollisionSphere&>(other);
-        Vec3 sphere_pos = GetWorldPosition(other_world);
+        Vec3 spherePos = GeomUtil::GetWorldPosition(otherWorld);
 
         Vec3 closest;
-        ClosestPointOnSegment(this_a, this_b, sphere_pos, closest);
+        GeomUtil::ClosestPointOnSegment(thisA, thisB, spherePos, closest);
 
-        Vec3 diff = sphere_pos - closest;
+        Vec3 diff = spherePos - closest;
         float dist = diff.Length();
-        float sum_radii = radius + sphere.radius;
+        float sumRadii = radius + sphere.radius;
 
-        if (dist < sum_radii) {
+        if (dist < sumRadii) {
             result.overlapping = true;
-            result.penetration_depth = sum_radii - dist;
+            result.penetrationDepth = sumRadii - dist;
             if (dist > 1e-9f) {
-                result.separation_axis = diff * (-1.0f / dist); // push this away from sphere
+                result.separationAxis = diff * (-1.0f / dist);
             } else {
-                result.separation_axis = Vec3(0, 1, 0);
+                result.separationAxis = Vec3(0, 1, 0);
             }
         }
         break;
     }
     case PRIM_CAPSULE: {
-        const CollisionCapsule& other_cap = static_cast<const CollisionCapsule&>(other);
-        Vec3 other_a = other_world.TransformPoint(Vec3(0, -other_cap.halfHeight, 0));
-        Vec3 other_b = other_world.TransformPoint(Vec3(0, other_cap.halfHeight, 0));
+        const CollisionCapsule& otherCap = static_cast<const CollisionCapsule&>(other);
+        Vec3 otherA = otherWorld.TransformPoint(Vec3(0, -otherCap.halfHeight, 0));
+        Vec3 otherB = otherWorld.TransformPoint(Vec3(0, otherCap.halfHeight, 0));
 
         Vec3 closest1, closest2;
-        ClosestDistSegmentSegment(this_a, this_b, other_a, other_b, closest1, closest2);
+        GeomUtil::ClosestDistSegmentSegment(thisA, thisB, otherA, otherB, closest1, closest2);
 
         Vec3 diff = closest1 - closest2;
         float dist = diff.Length();
-        float sum_radii = radius + other_cap.radius;
+        float sumRadii = radius + otherCap.radius;
 
-        if (dist < sum_radii) {
+        if (dist < sumRadii) {
             result.overlapping = true;
-            result.penetration_depth = sum_radii - dist;
+            result.penetrationDepth = sumRadii - dist;
             if (dist > 1e-9f) {
-                result.separation_axis = diff * (1.0f / dist);
+                result.separationAxis = diff * (1.0f / dist);
             } else {
-                result.separation_axis = Vec3(0, 1, 0);
+                result.separationAxis = Vec3(0, 1, 0);
             }
         }
         break;
@@ -427,7 +321,7 @@ OverlapResult CollisionCapsule::TestOverlap(const CollisionPrimitive& other,
         // Approximate cylinder as capsule for overlap
         const CollisionCylinder& cyl = static_cast<const CollisionCylinder&>(other);
         CollisionCapsule approx(cyl.radius, cyl.halfHeight);
-        return TestOverlap(approx, this_world, other_world);
+        return TestOverlap(approx, thisWorld, otherWorld);
     }
     }
 
@@ -448,17 +342,17 @@ float CollisionCylinder::GetBoundingRadius() const
 // Ray vs finite cylinder (caps + sides)
 // ============================================================================
 
-RayHit CollisionCylinder::Raycast(const Ray& local_ray) const
+RayHit CollisionCylinder::Raycast(const Ray& localRay) const
 {
     RayHit result;
-    float best_t = FLT_MAX;
+    float bestT = FLT_MAX;
 
-    float dx = local_ray.direction.x;
-    float dy = local_ray.direction.y;
-    float dz = local_ray.direction.z;
-    float ox = local_ray.origin.x;
-    float oy = local_ray.origin.y;
-    float oz = local_ray.origin.z;
+    float dx = localRay.direction.x;
+    float dy = localRay.direction.y;
+    float dz = localRay.direction.z;
+    float ox = localRay.origin.x;
+    float oy = localRay.origin.y;
+    float oz = localRay.origin.z;
 
     // Side: infinite cylinder along Y
     float a = dx * dx + dz * dz;
@@ -468,19 +362,19 @@ RayHit CollisionCylinder::Raycast(const Ray& local_ray) const
     if (a > 1e-12f) {
         float disc = b * b - 4.0f * a * c;
         if (disc >= 0.0f) {
-            float sqrt_disc = std::sqrt(disc);
-            float t0 = (-b - sqrt_disc) / (2.0f * a);
-            float t1 = (-b + sqrt_disc) / (2.0f * a);
+            float sqrtDisc = std::sqrt(disc);
+            float t0 = (-b - sqrtDisc) / (2.0f * a);
+            float t1 = (-b + sqrtDisc) / (2.0f * a);
 
             for (int i = 0; i < 2; ++i) {
                 float t = (i == 0) ? t0 : t1;
                 if (t < 0.0f) continue;
                 float y = oy + t * dy;
-                if (y >= -halfHeight && y <= halfHeight && t < best_t) {
-                    best_t = t;
+                if (y >= -halfHeight && y <= halfHeight && t < bestT) {
+                    bestT = t;
                     result.hit = true;
                     result.distance = t;
-                    result.point = local_ray.origin + local_ray.direction * t;
+                    result.point = localRay.origin + localRay.direction * t;
                     result.normal = Vec3(result.point.x, 0, result.point.z) * (1.0f / radius);
                     break;
                 }
@@ -491,14 +385,14 @@ RayHit CollisionCylinder::Raycast(const Ray& local_ray) const
     // Top cap (y = +halfHeight, disk of given radius)
     if (std::fabs(dy) > 1e-9f) {
         float t = (halfHeight - oy) / dy;
-        if (t >= 0.0f && t < best_t) {
+        if (t >= 0.0f && t < bestT) {
             float hx = ox + t * dx;
             float hz = oz + t * dz;
             if (hx * hx + hz * hz <= radius * radius) {
-                best_t = t;
+                bestT = t;
                 result.hit = true;
                 result.distance = t;
-                result.point = local_ray.origin + local_ray.direction * t;
+                result.point = localRay.origin + localRay.direction * t;
                 result.normal = Vec3(0, 1, 0);
             }
         }
@@ -507,14 +401,14 @@ RayHit CollisionCylinder::Raycast(const Ray& local_ray) const
     // Bottom cap (y = -halfHeight)
     if (std::fabs(dy) > 1e-9f) {
         float t = (-halfHeight - oy) / dy;
-        if (t >= 0.0f && t < best_t) {
+        if (t >= 0.0f && t < bestT) {
             float hx = ox + t * dx;
             float hz = oz + t * dz;
             if (hx * hx + hz * hz <= radius * radius) {
-                best_t = t;
+                bestT = t;
                 result.hit = true;
                 result.distance = t;
-                result.point = local_ray.origin + local_ray.direction * t;
+                result.point = localRay.origin + localRay.direction * t;
                 result.normal = Vec3(0, -1, 0);
             }
         }
@@ -528,13 +422,12 @@ RayHit CollisionCylinder::Raycast(const Ray& local_ray) const
 // ============================================================================
 
 OverlapResult CollisionCylinder::TestOverlap(const CollisionPrimitive& other,
-                                              const Mat4& this_world,
-                                              const Mat4& other_world) const
+                                              const Mat4& thisWorld,
+                                              const Mat4& otherWorld) const
 {
     // Approximate this cylinder as a capsule for overlap testing.
-    // This is the standard industry approach for real-time collision.
     CollisionCapsule approx(radius, halfHeight);
-    return approx.TestOverlap(other, this_world, other_world);
+    return approx.TestOverlap(other, thisWorld, otherWorld);
 }
 
 // ============================================================================
@@ -545,27 +438,18 @@ CollisionPrimitive* CreateCollisionPrimitive(const ShapeParams& shape)
 {
     switch (shape.type) {
     case ShapeType::Sphere:
-        // Exact sphere collision
         return new CollisionSphere(shape.radius);
 
     case ShapeType::Torus:
-        // Bounding sphere: majorRadius + minorRadius
         return new CollisionSphere(shape.majorRadius + shape.minorRadius);
 
     case ShapeType::Cylinder:
-        // Capsule approximation (cheapest for elongated shape)
-        // Cylinder height goes from -height/2 to +height/2, so halfHeight = height/2
         return new CollisionCapsule(shape.radius, shape.height * 0.5f);
 
     case ShapeType::Cone:
-        // Capsule using the base radius (conservative bounding)
-        // The cone tapers to a point, so capsule with base radius is a superset
         return new CollisionCapsule(shape.radius, shape.height * 0.5f);
 
     case ShapeType::Capsule:
-        // Exact capsule collision — the capsule shape IS a collision capsule
-        // Capsule total: hemisphere(bottom) + cylinder(height) + hemisphere(top)
-        // Line segment halfHeight = height/2 (the straight cylinder portion)
         return new CollisionCapsule(shape.radius, shape.height * 0.5f);
     }
 

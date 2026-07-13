@@ -118,6 +118,7 @@
     <ClCompile Include="src\SubdivisionSolver.cpp" />
     <ClCompile Include="src\JointFaceAnalyzer.cpp" />
     <ClCompile Include="src\CollisionPrimitive.cpp" />
+    <ClCompile Include="src\GeomUtil.cpp" />
   </ItemGroup>
 
   <ItemGroup>
@@ -138,6 +139,7 @@
     <ClInclude Include="include\SubdivisionSolver.h" />
     <ClInclude Include="include\JointFaceAnalyzer.h" />
     <ClInclude Include="include\CollisionPrimitive.h" />
+    <ClInclude Include="include\GeomUtil.h" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

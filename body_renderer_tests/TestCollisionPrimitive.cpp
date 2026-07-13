@@ -143,7 +143,7 @@ static void TestSphereSphereOverlap()
 
     OverlapResult r = s1.TestOverlap(s2, w1, w2);
     RC_ASSERT(r.overlapping);
-    RC_ASSERT(std::fabs(r.penetration_depth - 0.5f) < 0.001f);
+    RC_ASSERT(std::fabs(r.penetrationDepth - 0.5f) < 0.001f);
 }
 
 static void TestSphereSphereNoOverlap()
@@ -172,7 +172,7 @@ static void TestSphereCapsuleOverlap()
 
     OverlapResult r = sphere.TestOverlap(capsule, w1, w2);
     RC_ASSERT(r.overlapping);
-    RC_ASSERT(r.penetration_depth > 0.0f);
+    RC_ASSERT(r.penetrationDepth > 0.0f);
 }
 
 static void TestCapsuleCapsuleOverlap()
@@ -187,7 +187,7 @@ static void TestCapsuleCapsuleOverlap()
 
     OverlapResult r = c1.TestOverlap(c2, w1, w2);
     RC_ASSERT(r.overlapping);
-    RC_ASSERT(std::fabs(r.penetration_depth - 0.2f) < 0.001f);
+    RC_ASSERT(std::fabs(r.penetrationDepth - 0.2f) < 0.001f);
 }
 
 static void TestCapsuleCapsuleNoOverlap()
@@ -345,7 +345,7 @@ static void TestPropertyOverlapSymmetry()
 
         RC_ASSERT(r_forward.overlapping == r_backward.overlapping);
         if (r_forward.overlapping) {
-            RC_ASSERT(std::fabs(r_forward.penetration_depth - r_backward.penetration_depth) < 0.001f);
+            RC_ASSERT(std::fabs(r_forward.penetrationDepth - r_backward.penetrationDepth) < 0.001f);
         }
     });
 }
