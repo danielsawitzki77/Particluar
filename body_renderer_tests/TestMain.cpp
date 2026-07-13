@@ -17,6 +17,7 @@ void RunConnectionSolverTests();
 void RunModelSwitcherTests();
 void RunConnectionValidatorTests();
 void RunConnectionFaceMatcherTests();
+void RunCollisionPrimitiveTests();
 
 int main()
 {
@@ -39,6 +40,7 @@ int main()
     RunModelSwitcherTests();
     RunConnectionValidatorTests();
     RunConnectionFaceMatcherTests();
+    RunCollisionPrimitiveTests();
 
     printf("\n=== All tests complete ===\n");
     return 0;

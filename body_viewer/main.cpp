@@ -21,6 +21,7 @@
 #include "ShapeScaleAnimator.h"
 #include "ModelSwitcher.h"
 #include "JointFaceAnalyzer.h"
+#include "CollisionPrimitive.h"
 #include "picojson.h"
 
 #include <string>
@@ -1055,6 +1056,184 @@ static int RunAnalyzeMode(const std::string& output_path)
 }
 
 // ============================================================================
+// Collision Test Mode (--collision-test)
+// ============================================================================
+
+static const char* CollisionPrimTypeName(BodyRenderer::CollisionPrimitive::PrimitiveType t)
+{
+    switch (t) {
+    case BodyRenderer::CollisionPrimitive::PRIM_SPHERE: return "Sphere";
+    case BodyRenderer::CollisionPrimitive::PRIM_CAPSULE: return "Capsule";
+    case BodyRenderer::CollisionPrimitive::PRIM_CYLINDER: return "Cylinder";
+    }
+    return "Unknown";
+}
+
+static void LogCollisionNodeRecursive(
+    const BodyRenderer::BodyNode* node,
+    const BodyRenderer::Mat4& parent_world,
+    std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>>& all_primitives,
+    int depth)
+{
+    if (!node) return;
+
+    BodyRenderer::Mat4 world = parent_world * node->localTransform;
+
+    std::string indent(depth * 2, ' ');
+    printf("%s[%s] shape=%s", indent.c_str(), node->name.c_str(), ShapeTypeName(node->shape.type));
+
+    // Create collision primitive for this node
+    BodyRenderer::CollisionPrimitive* prim = BodyRenderer::CreateCollisionPrimitive(node->shape);
+    printf(" -> collision: %s (boundingR=%.3f)\n",
+           CollisionPrimTypeName(prim->GetType()), prim->GetBoundingRadius());
+
+    all_primitives.push_back({prim, world});
+
+    // Raycast test: shoot rays from 6 cardinal directions
+    printf("%s  Raycast tests (6 directions):\n", indent.c_str());
+    BodyRenderer::Vec3 directions[] = {
+        BodyRenderer::Vec3(1, 0, 0), BodyRenderer::Vec3(-1, 0, 0),
+        BodyRenderer::Vec3(0, 1, 0), BodyRenderer::Vec3(0, -1, 0),
+        BodyRenderer::Vec3(0, 0, 1), BodyRenderer::Vec3(0, 0, -1)
+    };
+    const char* dir_names[] = { "+X", "-X", "+Y", "-Y", "+Z", "-Z" };
+
+    float br = prim->GetBoundingRadius();
+    int hits = 0;
+    for (int i = 0; i < 6; ++i) {
+        // Ray starts outside bounding radius, pointing inward
+        BodyRenderer::Vec3 origin = directions[i] * (-(br + 2.0f));
+        BodyRenderer::Vec3 dir = directions[i];
+        BodyRenderer::Ray world_ray(world.TransformPoint(origin), world.TransformDirection(dir).Normalized());
+        BodyRenderer::Ray local_ray = BodyRenderer::TransformRayToLocal(world_ray, world);
+        BodyRenderer::RayHit hit = prim->Raycast(local_ray);
+
+        if (hit.hit) {
+            hits++;
+            printf("%s    %s: HIT at dist=%.4f normal=(%.2f, %.2f, %.2f)\n",
+                   indent.c_str(), dir_names[i], hit.distance,
+                   hit.normal.x, hit.normal.y, hit.normal.z);
+        } else {
+            printf("%s    %s: MISS\n", indent.c_str(), dir_names[i]);
+        }
+    }
+    printf("%s  Raycast summary: %d/6 hits\n", indent.c_str(), hits);
+
+    // Recurse into children
+    for (size_t i = 0; i < node->children.size(); ++i) {
+        LogCollisionNodeRecursive(&node->children[i], world, all_primitives, depth + 1);
+    }
+}
+
+static int RunCollisionTestMode()
+{
+    printf("=== Collision Primitive Test ===\n\n");
+
+    // Generate several random bodies and test collision on each
+    BodyRenderer::BodyGenerator generator;
+    BodyRenderer::SubdivisionSolver subdivSolver;
+
+    int total_tests = 0;
+    int total_overlaps = 0;
+    int total_overlap_tests = 0;
+
+    // Test with 10 random bodies + all body files in assets/bodies/
+    printf("--- Testing generated bodies ---\n\n");
+    for (unsigned int seed = 1000; seed < 1010; ++seed) {
+        BodyRenderer::Body body = generator.Generate(seed, 3);
+        subdivSolver.PrepareBody(body, 8);
+
+        printf("=== Generated body (seed=%u, name=%s) ===\n", seed, body.name.c_str());
+
+        std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>> primitives;
+        BodyRenderer::Mat4 identity;
+        identity.Identity();
+        LogCollisionNodeRecursive(&body.root, identity, primitives, 0);
+
+        // Overlap tests between all pairs of primitives in this body
+        printf("\n  Overlap tests (all pairs):\n");
+        for (size_t i = 0; i < primitives.size(); ++i) {
+            for (size_t j = i + 1; j < primitives.size(); ++j) {
+                total_overlap_tests++;
+                BodyRenderer::OverlapResult r = primitives[i].first->TestOverlap(
+                    *primitives[j].first,
+                    primitives[i].second,
+                    primitives[j].second
+                );
+                if (r.overlapping) {
+                    total_overlaps++;
+                    printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
+                           static_cast<int>(i), static_cast<int>(j),
+                           r.penetration_depth,
+                           r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                }
+            }
+        }
+
+        total_tests += static_cast<int>(primitives.size());
+
+        // Clean up
+        for (auto& p : primitives) {
+            delete p.first;
+        }
+        printf("\n");
+    }
+
+    // Try loading bodies from assets/bodies/
+    printf("\n--- Testing asset bodies ---\n\n");
+    BodyRenderer::ModelSwitcher switcher;
+    if (switcher.LoadDirectory("assets/bodies/")) {
+        for (int i = 0; i < switcher.GetCount(); ++i) {
+            BodyRenderer::BodyLoader loader;
+            BodyRenderer::LoadResult result = loader.LoadFromFile(switcher.GetCurrentPath());
+            if (result.success) {
+                subdivSolver.PrepareBody(result.body, 8);
+                printf("=== %s ===\n", result.body.name.c_str());
+
+                std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>> primitives;
+                BodyRenderer::Mat4 identity;
+                identity.Identity();
+                LogCollisionNodeRecursive(&result.body.root, identity, primitives, 0);
+
+                printf("\n  Overlap tests (all pairs):\n");
+                for (size_t a = 0; a < primitives.size(); ++a) {
+                    for (size_t b_idx = a + 1; b_idx < primitives.size(); ++b_idx) {
+                        total_overlap_tests++;
+                        BodyRenderer::OverlapResult r = primitives[a].first->TestOverlap(
+                            *primitives[b_idx].first,
+                            primitives[a].second,
+                            primitives[b_idx].second
+                        );
+                        if (r.overlapping) {
+                            total_overlaps++;
+                            printf("    [%d vs %d] OVERLAP depth=%.4f\n",
+                                   static_cast<int>(a), static_cast<int>(b_idx),
+                                   r.penetration_depth);
+                        }
+                    }
+                }
+
+                total_tests += static_cast<int>(primitives.size());
+                for (auto& p : primitives) {
+                    delete p.first;
+                }
+                printf("\n");
+            }
+            switcher.Next();
+        }
+    } else {
+        printf("  (No asset bodies found in assets/bodies/)\n");
+    }
+
+    printf("\n=== Collision Test Summary ===\n");
+    printf("Total primitives tested: %d\n", total_tests);
+    printf("Total overlap tests: %d\n", total_overlap_tests);
+    printf("Overlaps detected: %d\n", total_overlaps);
+    printf("=== Done ===\n");
+    return 0;
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -1077,6 +1256,11 @@ int main(int argc, char* argv[])
     // Check for --dump mode (runs without SDL/window)
     if (argc >= 3 && std::string(argv[1]) == "--dump") {
         return RunDumpMode(argv[2]);
+    }
+
+    // Check for --collision-test mode (runs without SDL/window)
+    if (argc >= 2 && std::string(argv[1]) == "--collision-test") {
+        return RunCollisionTestMode();
     }
 
     // Determine body directory
@@ -1162,6 +1346,7 @@ int main(int argc, char* argv[])
     SDL_Log("  Space              - Toggle joint animation");
     SDL_Log("  T                  - Toggle shape scale animation");
     SDL_Log("  G                  - Generate new random body");
+    SDL_Log("  C                  - Log collision primitives for current body");
     SDL_Log("  Scroll wheel       - Zoom");
     SDL_Log("  Escape             - Quit");
 
@@ -1275,6 +1460,42 @@ int main(int argc, char* argv[])
                     total_models = switcher.GetCount() + 1;
                     UpdateWindowTitle(window, state, state.current_body.name,
                                       current_index, total_models);
+                } else if (event.key.key == SDLK_C) {
+                    // Log collision primitives for current body
+                    if (state.has_model) {
+                        printf("\n=== Collision Primitives: %s ===\n", state.current_body.name.c_str());
+                        std::vector<std::pair<BodyRenderer::CollisionPrimitive*, BodyRenderer::Mat4>> primitives;
+                        BodyRenderer::Mat4 identity;
+                        identity.Identity();
+                        LogCollisionNodeRecursive(&state.current_body.root, identity, primitives, 0);
+
+                        printf("\n  Overlap tests (all pairs):\n");
+                        int overlaps = 0;
+                        for (size_t ci = 0; ci < primitives.size(); ++ci) {
+                            for (size_t cj = ci + 1; cj < primitives.size(); ++cj) {
+                                BodyRenderer::OverlapResult r = primitives[ci].first->TestOverlap(
+                                    *primitives[cj].first,
+                                    primitives[ci].second,
+                                    primitives[cj].second
+                                );
+                                if (r.overlapping) {
+                                    overlaps++;
+                                    printf("    [%d vs %d] OVERLAP depth=%.4f axis=(%.2f, %.2f, %.2f)\n",
+                                           static_cast<int>(ci), static_cast<int>(cj),
+                                           r.penetration_depth,
+                                           r.separation_axis.x, r.separation_axis.y, r.separation_axis.z);
+                                }
+                            }
+                        }
+                        if (overlaps == 0) {
+                            printf("    No overlaps detected.\n");
+                        }
+                        printf("=== End Collision Info ===\n\n");
+
+                        for (auto& p : primitives) {
+                            delete p.first;
+                        }
+                    }
                 }
                 break;
 
