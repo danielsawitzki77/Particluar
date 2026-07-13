@@ -43,7 +43,7 @@ WFCResult WFCGenerator::Generate(const WFCParams& params)
     result.status = WFCStatus::Success;
     result.map.width = params.width;
     result.map.height = params.height;
-    result.map.tileset_id = tileset.name;
+    result.map.tilesetId = tileset.name;
     result.map.grid.resize(params.height);
     for (int r = 0; r < params.height; ++r) {
         result.map.grid[r].resize(params.width); // all empty strings
@@ -642,8 +642,8 @@ JigsawWFCResult WFCGenerator::GenerateJigsaw(const JigsawWFCParams& params)
     // --- Set up the map with boundary ---
     result.map.SetTilesetId(tileset.name);
     MapBoundary boundary;
-    boundary.width_pixels = params.targetWidth;
-    boundary.height_pixels = params.targetHeight;
+    boundary.widthPixels = params.targetWidth;
+    boundary.heightPixels = params.targetHeight;
     result.map.SetBoundary(boundary);
 
     // --- Initialize gap queue with individual tile-sized cells, sorted by center distance ---

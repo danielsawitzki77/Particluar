@@ -10,12 +10,12 @@
 //
 // During WFC generation layerScale is always 1.0; it only applies at render time.
 inline std::pair<float, float> ComputeEffectiveSize(
-    float src_w,
-    float src_h,
-    float tile_scale,
+    float srcW,
+    float srcH,
+    float tileScale,
     float sheetScale,
     float layerScale)
 {
-    float combined = tile_scale * sheetScale * layerScale;
-    return std::make_pair(src_w * combined, src_h * combined);
+    float combined = tileScale * sheetScale * layerScale;
+    return std::make_pair(srcW * combined, srcH * combined);
 }

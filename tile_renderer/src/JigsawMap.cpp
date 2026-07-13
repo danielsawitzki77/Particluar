@@ -17,7 +17,7 @@ const std::string& JigsawMap::GetTilesetId() const {
 }
 
 void JigsawMap::SetBoundary(const MapBoundary& boundary) {
-    if (boundary.width_pixels > 0.0f && boundary.height_pixels > 0.0f) {
+    if (boundary.widthPixels > 0.0f && boundary.heightPixels > 0.0f) {
         m_boundary = boundary;
         m_hasBoundary = true;
     }

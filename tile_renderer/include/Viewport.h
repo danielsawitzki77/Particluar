@@ -10,10 +10,10 @@ struct ViewportRect {
 };
 
 struct VisibleTileRange {
-    int col_start;  // first visible column (inclusive)
-    int col_end;    // last visible column (inclusive)
-    int row_start;  // first visible row (inclusive)
-    int row_end;    // last visible row (inclusive)
+    int colStart;   // first visible column (inclusive)
+    int colEnd;     // last visible column (inclusive)
+    int rowStart;   // first visible row (inclusive)
+    int rowEnd;     // last visible row (inclusive)
 };
 
 class Viewport {
@@ -26,9 +26,9 @@ public:
 
     // Computes which tiles are potentially visible given camera and tile size.
     VisibleTileRange ComputeVisibleTiles(
-        float camera_x, float camera_y,
-        float pivot_x, float pivot_y,
-        int tile_width, int tile_height) const;
+        float cameraX, float cameraY,
+        float pivotX, float pivotY,
+        int tileWidth, int tileHeight) const;
 
     // Sets SDL clip rect for rendering. Call before drawing tiles.
     void ApplyClip(SDL_Renderer* renderer) const;

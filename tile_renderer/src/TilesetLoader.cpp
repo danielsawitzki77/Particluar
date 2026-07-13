@@ -195,7 +195,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
                                 id.c_str(), ai);
                         continue;
                     }
-                    frame.duration_ms = durationMs;
+                    frame.durationMs = durationMs;
 
                     // Parse sourceRect for this frame
                     const picojson::object* frameSrcObj = nullptr;
@@ -505,7 +505,7 @@ void TilesetLoader::ParseTsxAnimations(const std::string& folderPath,
                 if (!frameIdStr.empty() && !durationStr.empty()) {
                     AnimationFrame frame;
                     frame.tileid = std::stoi(frameIdStr);
-                    frame.duration_ms = std::stoi(durationStr);
+                    frame.durationMs = std::stoi(durationStr);
 
                     // Compute source rect from tileid + columns + tileWidth/tileHeight
                     if (tsxColumns > 0) {

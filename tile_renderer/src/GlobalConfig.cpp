@@ -5,25 +5,25 @@
 
 void GlobalConfig::ApplyDefaults()
 {
-    m_data.tile_width = 32;
-    m_data.tile_height = 32;
-    m_data.viewport_x = 0;
-    m_data.viewport_y = 0;
-    m_data.viewport_width = 800;
-    m_data.viewport_height = 600;
-    m_data.scroll_speed = 200.0f;
-    m_data.wfc_max_backtracks = 4;
+    m_data.tileWidth = 32;
+    m_data.tileHeight = 32;
+    m_data.viewportX = 0;
+    m_data.viewportY = 0;
+    m_data.viewportWidth = 800;
+    m_data.viewportHeight = 600;
+    m_data.scrollSpeed = 200.0f;
+    m_data.wfcMaxBacktracks = 4;
 }
 
 bool GlobalConfig::Validate(const GlobalConfigData& candidate) const
 {
-    if (candidate.tile_width < 1 || candidate.tile_width > 512) return false;
-    if (candidate.tile_height < 1 || candidate.tile_height > 512) return false;
-    if (candidate.viewport_x < 0 || candidate.viewport_x > 7680) return false;
-    if (candidate.viewport_y < 0 || candidate.viewport_y > 4320) return false;
-    if (candidate.viewport_width < 1 || candidate.viewport_width > 7680) return false;
-    if (candidate.viewport_height < 1 || candidate.viewport_height > 4320) return false;
-    if (candidate.scroll_speed <= 0.0f || !std::isfinite(candidate.scroll_speed)) return false;
+    if (candidate.tileWidth < 1 || candidate.tileWidth > 512) return false;
+    if (candidate.tileHeight < 1 || candidate.tileHeight > 512) return false;
+    if (candidate.viewportX < 0 || candidate.viewportX > 7680) return false;
+    if (candidate.viewportY < 0 || candidate.viewportY > 4320) return false;
+    if (candidate.viewportWidth < 1 || candidate.viewportWidth > 7680) return false;
+    if (candidate.viewportHeight < 1 || candidate.viewportHeight > 4320) return false;
+    if (candidate.scrollSpeed <= 0.0f || !std::isfinite(candidate.scrollSpeed)) return false;
     return true;
 }
 
@@ -47,27 +47,27 @@ bool GlobalConfig::Load(const std::string& filepath)
     GlobalConfigData candidate;
     bool allFieldsOk = true;
 
-    if (!JsonUtil::GetInt(obj, "tile_width", candidate.tile_width)) {
+    if (!JsonUtil::GetInt(obj, "tile_width", candidate.tileWidth)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'tile_width' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
-    if (!JsonUtil::GetInt(obj, "tile_height", candidate.tile_height)) {
+    if (!JsonUtil::GetInt(obj, "tile_height", candidate.tileHeight)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'tile_height' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
-    if (!JsonUtil::GetInt(obj, "viewport_x", candidate.viewport_x)) {
+    if (!JsonUtil::GetInt(obj, "viewport_x", candidate.viewportX)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'viewport_x' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
-    if (!JsonUtil::GetInt(obj, "viewport_y", candidate.viewport_y)) {
+    if (!JsonUtil::GetInt(obj, "viewport_y", candidate.viewportY)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'viewport_y' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
-    if (!JsonUtil::GetInt(obj, "viewport_width", candidate.viewport_width)) {
+    if (!JsonUtil::GetInt(obj, "viewport_width", candidate.viewportWidth)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'viewport_width' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
-    if (!JsonUtil::GetInt(obj, "viewport_height", candidate.viewport_height)) {
+    if (!JsonUtil::GetInt(obj, "viewport_height", candidate.viewportHeight)) {
         SDL_Log("[GlobalConfig] Missing or invalid field 'viewport_height' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     }
@@ -78,15 +78,15 @@ bool GlobalConfig::Load(const std::string& filepath)
         SDL_Log("[GlobalConfig] Missing or invalid field 'scroll_speed' in '%s', using defaults.", filepath.c_str());
         allFieldsOk = false;
     } else {
-        candidate.scroll_speed = static_cast<float>(scrollSpeedDouble);
+        candidate.scrollSpeed = static_cast<float>(scrollSpeedDouble);
     }
 
     // wfc_max_backtracks is optional (defaults to 4)
-    if (!JsonUtil::GetInt(obj, "wfc_max_backtracks", candidate.wfc_max_backtracks)) {
-        candidate.wfc_max_backtracks = 4;
+    if (!JsonUtil::GetInt(obj, "wfc_max_backtracks", candidate.wfcMaxBacktracks)) {
+        candidate.wfcMaxBacktracks = 4;
     }
-    if (candidate.wfc_max_backtracks < 0) candidate.wfc_max_backtracks = 0;
-    if (candidate.wfc_max_backtracks > 1000) candidate.wfc_max_backtracks = 1000;
+    if (candidate.wfcMaxBacktracks < 0) candidate.wfcMaxBacktracks = 0;
+    if (candidate.wfcMaxBacktracks > 1000) candidate.wfcMaxBacktracks = 1000;
 
     if (!allFieldsOk) {
         ApplyDefaults();
@@ -111,14 +111,14 @@ const GlobalConfigData& GlobalConfig::Get() const
 std::string GlobalConfig::Serialize() const
 {
     picojson::object obj;
-    obj["tile_width"] = picojson::value(static_cast<double>(m_data.tile_width));
-    obj["tile_height"] = picojson::value(static_cast<double>(m_data.tile_height));
-    obj["viewport_x"] = picojson::value(static_cast<double>(m_data.viewport_x));
-    obj["viewport_y"] = picojson::value(static_cast<double>(m_data.viewport_y));
-    obj["viewport_width"] = picojson::value(static_cast<double>(m_data.viewport_width));
-    obj["viewport_height"] = picojson::value(static_cast<double>(m_data.viewport_height));
-    obj["scroll_speed"] = picojson::value(static_cast<double>(m_data.scroll_speed));
-    obj["wfc_max_backtracks"] = picojson::value(static_cast<double>(m_data.wfc_max_backtracks));
+    obj["tile_width"] = picojson::value(static_cast<double>(m_data.tileWidth));
+    obj["tile_height"] = picojson::value(static_cast<double>(m_data.tileHeight));
+    obj["viewport_x"] = picojson::value(static_cast<double>(m_data.viewportX));
+    obj["viewport_y"] = picojson::value(static_cast<double>(m_data.viewportY));
+    obj["viewport_width"] = picojson::value(static_cast<double>(m_data.viewportWidth));
+    obj["viewport_height"] = picojson::value(static_cast<double>(m_data.viewportHeight));
+    obj["scroll_speed"] = picojson::value(static_cast<double>(m_data.scrollSpeed));
+    obj["wfc_max_backtracks"] = picojson::value(static_cast<double>(m_data.wfcMaxBacktracks));
 
     picojson::value root(obj);
     return JsonUtil::Serialize(root);
