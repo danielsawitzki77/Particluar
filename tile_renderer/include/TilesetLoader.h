@@ -23,7 +23,7 @@ struct AdjacencyRules {
 
 struct AnimationFrame {
     int tileid;        // tile ID within the tileset (used to compute sourceRect)
-    int duration_ms;   // frame display duration in milliseconds
+    int durationMs;    // frame display duration in milliseconds
     SourceRect rect;   // resolved source rect for this frame
 };
 
@@ -38,16 +38,16 @@ struct TileDef {
 
     // Returns the source rect for the current frame given elapsed time (ms).
     // If no animation, returns the static sourceRect.
-    SourceRect GetCurrentRect(Uint32 elapsed_ms) const {
+    SourceRect GetCurrentRect(Uint32 elapsedMs) const {
         if (animation.empty()) return sourceRect;
         // Compute total animation cycle duration
         int total = 0;
-        for (const auto& f : animation) total += f.duration_ms;
+        for (const auto& f : animation) total += f.durationMs;
         if (total <= 0) return sourceRect;
-        int t = static_cast<int>(elapsed_ms % static_cast<Uint32>(total));
+        int t = static_cast<int>(elapsedMs % static_cast<Uint32>(total));
         int accum = 0;
         for (const auto& f : animation) {
-            accum += f.duration_ms;
+            accum += f.durationMs;
             if (t < accum) return f.rect;
         }
         return animation.back().rect;

@@ -3,14 +3,14 @@
 #include <string>
 
 struct GlobalConfigData {
-    int tile_width;
-    int tile_height;
-    int viewport_x;
-    int viewport_y;
-    int viewport_width;
-    int viewport_height;
-    float scroll_speed;
-    int wfc_max_backtracks;
+    int tileWidth;
+    int tileHeight;
+    int viewportX;
+    int viewportY;
+    int viewportWidth;
+    int viewportHeight;
+    float scrollSpeed;
+    int wfcMaxBacktracks;
 };
 
 class GlobalConfig {

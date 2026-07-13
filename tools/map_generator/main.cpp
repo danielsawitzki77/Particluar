@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
     MapData mapData;
     mapData.width = width;
     mapData.height = height;
-    mapData.tileset_id = tileset.name;
+    mapData.tilesetId = tileset.name;
     mapData.grid.resize(height);
 
     int placed = 0;

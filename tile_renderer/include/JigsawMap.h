@@ -8,8 +8,8 @@
 
 // Defines the finite boundary of a JigsawMap (in pixels).
 struct MapBoundary {
-    float width_pixels;
-    float height_pixels;
+    float widthPixels;
+    float heightPixels;
 };
 
 // Replaces the uniform-grid MapData with a free-form tile map.

@@ -115,12 +115,12 @@ void TileWorld::Render(SDL_Renderer* renderer, const Camera& camera, const Viewp
     Layer& layer = m_layers[m_activeLayer];
 
     MapLayerConfig cfg;
-    cfg.z_depth = 0;
+    cfg.zDepth = 0;
     cfg.alpha = 255;
-    cfg.pivot_x = camera.GetPivotX();
-    cfg.pivot_y = camera.GetPivotY();
-    cfg.offset_x = 0.0f;
-    cfg.offset_y = 0.0f;
+    cfg.pivotX = camera.GetPivotX();
+    cfg.pivotY = camera.GetPivotY();
+    cfg.offsetX = 0.0f;
+    cfg.offsetY = 0.0f;
     cfg.scale = zoomLevel;
     cfg.sampling = SamplingMode::Nearest;
 

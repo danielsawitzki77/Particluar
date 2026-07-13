@@ -17,27 +17,27 @@ bool Viewport::IsValid() const
 }
 
 VisibleTileRange Viewport::ComputeVisibleTiles(
-    float camera_x, float camera_y,
-    float pivot_x, float pivot_y,
-    int tile_width, int tile_height) const
+    float cameraX, float cameraY,
+    float pivotX, float pivotY,
+    int tileWidth, int tileHeight) const
 {
     VisibleTileRange range = {0, 0, 0, 0};
 
-    if (tile_width <= 0 || tile_height <= 0 || !IsValid()) {
+    if (tileWidth <= 0 || tileHeight <= 0 || !IsValid()) {
         return range;
     }
 
-    // The pixel at (camera_x, camera_y) appears at viewport pixel
-    // (pivot_x * width, pivot_y * height).
+    // The pixel at (cameraX, cameraY) appears at viewport pixel
+    // (pivotX * width, pivotY * height).
     // Top-left world pixel visible:
-    float top_left_x = camera_x - pivot_x * static_cast<float>(m_rect.width);
-    float top_left_y = camera_y - pivot_y * static_cast<float>(m_rect.height);
+    float topLeftX = cameraX - pivotX * static_cast<float>(m_rect.width);
+    float topLeftY = cameraY - pivotY * static_cast<float>(m_rect.height);
 
     // Compute tile range
-    range.col_start = static_cast<int>(std::floor(top_left_x / static_cast<float>(tile_width)));
-    range.col_end = static_cast<int>(std::floor((top_left_x + static_cast<float>(m_rect.width)) / static_cast<float>(tile_width)));
-    range.row_start = static_cast<int>(std::floor(top_left_y / static_cast<float>(tile_height)));
-    range.row_end = static_cast<int>(std::floor((top_left_y + static_cast<float>(m_rect.height)) / static_cast<float>(tile_height)));
+    range.colStart = static_cast<int>(std::floor(topLeftX / static_cast<float>(tileWidth)));
+    range.colEnd = static_cast<int>(std::floor((topLeftX + static_cast<float>(m_rect.width)) / static_cast<float>(tileWidth)));
+    range.rowStart = static_cast<int>(std::floor(topLeftY / static_cast<float>(tileHeight)));
+    range.rowEnd = static_cast<int>(std::floor((topLeftY + static_cast<float>(m_rect.height)) / static_cast<float>(tileHeight)));
 
     return range;
 }

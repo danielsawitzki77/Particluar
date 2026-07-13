@@ -44,14 +44,14 @@ bool MapLoader::LoadMap(const std::string& filepath, MapData& out)
     }
 
     // Extract tileset
-    std::string tileset_id;
-    if (!JsonUtil::GetString(obj, "tileset", tileset_id)) {
+    std::string tilesetIdStr;
+    if (!JsonUtil::GetString(obj, "tileset", tilesetIdStr)) {
         SDL_Log("[MapLoader] Map file missing or invalid 'tileset': %s", filepath.c_str());
         return false;
     }
-    if (tileset_id.empty() || tileset_id.size() > 255) {
+    if (tilesetIdStr.empty() || tilesetIdStr.size() > 255) {
         SDL_Log("[MapLoader] Map file 'tileset' length out of range (1-255): %zu in %s",
-                tileset_id.size(), filepath.c_str());
+                tilesetIdStr.size(), filepath.c_str());
         return false;
     }
 
@@ -117,7 +117,7 @@ bool MapLoader::LoadMap(const std::string& filepath, MapData& out)
     // Success - populate output
     out.width = width;
     out.height = height;
-    out.tileset_id = tileset_id;
+    out.tilesetId = tilesetIdStr;
     out.grid = std::move(grid);
     out.rawJson = root;  // Preserve full JSON for round-trip fidelity
 
@@ -136,7 +136,7 @@ std::string MapLoader::SerializeMap(const MapData& mapData) const
     // Overwrite known fields with current values
     obj["width"] = picojson::value(static_cast<double>(mapData.width));
     obj["height"] = picojson::value(static_cast<double>(mapData.height));
-    obj["tileset"] = picojson::value(mapData.tileset_id);
+    obj["tileset"] = picojson::value(mapData.tilesetId);
 
     // Build grid array
     picojson::array gridArr;
@@ -204,8 +204,8 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
     if (map.HasBoundary()) {
         const MapBoundary& b = map.GetBoundary();
         picojson::object boundary;
-        boundary["width"] = picojson::value(static_cast<double>(b.width_pixels));
-        boundary["height"] = picojson::value(static_cast<double>(b.height_pixels));
+        boundary["width"] = picojson::value(static_cast<double>(b.widthPixels));
+        boundary["height"] = picojson::value(static_cast<double>(b.heightPixels));
         obj["boundary"] = picojson::value(boundary);
     }
 
@@ -285,8 +285,8 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
                 std::isfinite(static_cast<float>(bHeight)) &&
                 bWidth > 0.0 && bHeight > 0.0) {
                 MapBoundary boundary;
-                boundary.width_pixels = static_cast<float>(bWidth);
-                boundary.height_pixels = static_cast<float>(bHeight);
+                boundary.widthPixels = static_cast<float>(bWidth);
+                boundary.heightPixels = static_cast<float>(bHeight);
                 result.SetBoundary(boundary);
             } else {
                 SDL_Log("[MapLoader] Jigsaw map boundary has invalid dimensions, ignoring: %s",

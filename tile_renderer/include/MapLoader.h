@@ -9,7 +9,7 @@
 struct MapData {
     int width;                              // 1–4096
     int height;                             // 1–4096
-    std::string tileset_id;                 // 1–255 chars
+    std::string tilesetId;                  // 1–255 chars
     std::vector<std::vector<std::string>> grid; // row-major, grid[row][col] = tile ID
     picojson::value rawJson;                // preserved for round-trip fidelity
 };

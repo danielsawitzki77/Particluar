@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
     // Create window
     SDL_Window* window = SDL_CreateWindow(
         "Particluar (WASD=scroll, Q/E=layer, +/-=zoom, ESC=quit)",
-        cfg.viewport_width, cfg.viewport_height, 0);
+        cfg.viewportWidth, cfg.viewportHeight, 0);
     if (!window) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         SDL_Quit();
@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     camera.SetPosition(0.0f, 0.0f);
 
     Viewport viewport;
-    ViewportRect vpRect = { cfg.viewport_x, cfg.viewport_y, cfg.viewport_width, cfg.viewport_height };
+    ViewportRect vpRect = { cfg.viewportX, cfg.viewportY, cfg.viewportWidth, cfg.viewportHeight };
     viewport.SetRect(vpRect);
 
     // Load tile world (all layers)
@@ -92,7 +92,7 @@ int main(int argc, char* argv[])
 
         // Update
         const bool* keyState = SDL_GetKeyboardState(NULL);
-        camera.Update(deltaTime, cfg.scroll_speed, keyState);
+        camera.Update(deltaTime, cfg.scrollSpeed, keyState);
         tileWorld.Update(camera, viewport, zoomLevel, TILES_PER_FRAME, MARGIN);
 
         // Render
