@@ -77,6 +77,11 @@
       thresholdInput.disabled = !hasEnoughTiles;
       thresholdInput.style.opacity = hasEnoughTiles ? '1' : '0.4';
     }
+    const expandedCheckbox = document.getElementById('auto-neighbor-expanded');
+    if (expandedCheckbox) {
+      expandedCheckbox.disabled = !hasEnoughTiles;
+      expandedCheckbox.style.opacity = hasEnoughTiles ? '1' : '0.4';
+    }
   }
 
   // ============================================================
@@ -181,7 +186,7 @@
     return matchingPixels / pixelCount;
   }
 
-  // Auto-Neighbor: for all tile pairs, if they share an edge on the tileset image
+  // Auto-Neighbor (direct): for all tile pairs, if they share an edge on the tileset image
   // and their edge pixels are similar enough, add adjacency metadata to both.
   function autoNeighborAll(similarityThreshold) {
     if (!currentTilesetData || !currentTilesetImage) return 0;
@@ -238,6 +243,97 @@
           if (sim >= similarityThreshold) {
             if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
             if (!a.adjacency.up.includes(b.id)) { a.adjacency.up.push(b.id); addedCount++; }
+          }
+        }
+      }
+    }
+    return addedCount;
+  }
+
+  // Auto-Neighbor (expanded): for all tile pairs, compare edge pixels regardless of
+  // position on the tileset image. Searches in concentric circles of distance from each
+  // tile, checking candidates that have compatible dimensions.
+  // "Concentric circles" here means: we sort candidate tiles by their distance from the
+  // reference tile on the sheet, and check them in expanding order. This makes nearer tiles
+  // get priority when multiple candidates pass the threshold.
+  function autoNeighborExpanded(similarityThreshold) {
+    if (!currentTilesetData || !currentTilesetImage) return 0;
+    const tiles = currentTilesetData.tiles;
+    let addedCount = 0;
+
+    // Helper: center point of a tile's source_rect
+    function tileCenter(t) {
+      return { x: t.source_rect.x + t.source_rect.w / 2, y: t.source_rect.y + t.source_rect.h / 2 };
+    }
+
+    // Helper: Euclidean distance between two tile centers
+    function tileDist(a, b) {
+      const ca = tileCenter(a), cb = tileCenter(b);
+      const dx = ca.x - cb.x, dy = ca.y - cb.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // For each tile, sort all other tiles by distance and check edge compatibility
+    for (let i = 0; i < tiles.length; i++) {
+      const a = tiles[i];
+      const arect = a.source_rect;
+      if (!a.adjacency) a.adjacency = { up: [], down: [], left: [], right: [] };
+
+      // Build candidate list sorted by distance from tile a
+      const candidates = [];
+      for (let j = 0; j < tiles.length; j++) {
+        if (j === i) continue;
+        candidates.push({ idx: j, dist: tileDist(a, tiles[j]) });
+      }
+      candidates.sort((x, y) => x.dist - y.dist);
+
+      // Check each candidate in distance order for each direction
+      for (const cand of candidates) {
+        const b = tiles[cand.idx];
+        const brect = b.source_rect;
+        if (!b.adjacency) b.adjacency = { up: [], down: [], left: [], right: [] };
+
+        // Horizontal adjacency: A right → B left (requires same height)
+        if (arect.h === brect.h && !a.adjacency.right.includes(b.id)) {
+          const edgeA = getEdgeColumn(arect, arect.w - 1);
+          const edgeB = getEdgeColumn(brect, 0);
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            a.adjacency.right.push(b.id); addedCount++;
+            if (!b.adjacency.left.includes(a.id)) { b.adjacency.left.push(a.id); addedCount++; }
+          }
+        }
+
+        // Horizontal adjacency: B right → A left (requires same height)
+        if (arect.h === brect.h && !a.adjacency.left.includes(b.id)) {
+          const edgeB = getEdgeColumn(brect, brect.w - 1);
+          const edgeA = getEdgeColumn(arect, 0);
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            a.adjacency.left.push(b.id); addedCount++;
+            if (!b.adjacency.right.includes(a.id)) { b.adjacency.right.push(a.id); addedCount++; }
+          }
+        }
+
+        // Vertical adjacency: A bottom → B top (requires same width)
+        if (arect.w === brect.w && !a.adjacency.down.includes(b.id)) {
+          const edgeA = getEdgeRow(arect, arect.h - 1);
+          const edgeB = getEdgeRow(brect, 0);
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            a.adjacency.down.push(b.id); addedCount++;
+            if (!b.adjacency.up.includes(a.id)) { b.adjacency.up.push(a.id); addedCount++; }
+          }
+        }
+
+        // Vertical adjacency: B bottom → A top (requires same width)
+        if (arect.w === brect.w && !a.adjacency.up.includes(b.id)) {
+          const edgeB = getEdgeRow(brect, brect.h - 1);
+          const edgeA = getEdgeRow(arect, 0);
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            a.adjacency.up.push(b.id); addedCount++;
+            if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
           }
         }
       }
@@ -774,13 +870,16 @@
     const thresholdInput = document.getElementById('auto-neighbor-threshold');
     const thresholdPct = Math.max(0, Math.min(100, parseInt(thresholdInput.value) || 90));
     const threshold = thresholdPct / 100;
-    const added = autoNeighborAll(threshold);
+    const expandedCheckbox = document.getElementById('auto-neighbor-expanded');
+    const useExpanded = expandedCheckbox && expandedCheckbox.checked;
+    const modeLabel = useExpanded ? 'expanded' : 'direct';
+    const added = useExpanded ? autoNeighborExpanded(threshold) : autoNeighborAll(threshold);
     if (added === 0) {
-      alert('Auto-Neighbor complete: no new adjacency links found at ' + thresholdPct + '% similarity.');
-      setStatus(`Auto-Neighbor: no new adjacency links found at ${thresholdPct}% similarity.`);
+      alert(`Auto-Neighbor (${modeLabel}) complete: no new adjacency links found at ${thresholdPct}% similarity.`);
+      setStatus(`Auto-Neighbor (${modeLabel}): no new adjacency links found at ${thresholdPct}% similarity.`);
     } else {
-      alert('Auto-Neighbor complete: added ' + added + ' adjacency link(s) at ' + thresholdPct + '% similarity.');
-      setStatus(`Auto-Neighbor: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+      alert(`Auto-Neighbor (${modeLabel}) complete: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+      setStatus(`Auto-Neighbor (${modeLabel}): added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
     }
     renderTileInfo();
   });

@@ -222,6 +222,12 @@
             <input type="number" id="auto-neighbor-threshold" value="90" min="0" max="100" step="5" disabled style="width:50px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-left:4px;opacity:0.4;" title="Edge pixel similarity threshold (0-100%)">
             <span style="font-size:11px;color:#a0a0a0;">%</span>
           </div>
+          <div style="margin-top:6px;">
+            <label style="font-size:11px;color:#a0a0a0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="When enabled, if direct neighbors on the tileset image don't meet the similarity threshold, the search expands in concentric circles to find compatible tiles regardless of their position on the sheet">
+              <input type="checkbox" id="auto-neighbor-expanded" disabled style="margin:0;cursor:pointer;">
+              <span>Expanded Search</span>
+            </label>
+          </div>
         </div>
 
         <!-- Created Tiles + Selected Tile side by side -->
