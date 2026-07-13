@@ -16,7 +16,7 @@
     <ProjectGuid>{D4E5F6A7-B8C9-0123-4567-89ABCDEF0003}</ProjectGuid>
     <RootNamespace>BodyRendererTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>body_renderer_tests</ProjectName>
+    <ProjectName>BodyRendererTests</ProjectName>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
