@@ -175,6 +175,20 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
             }
         }
 
+        // Extract per-tile chance weight (optional, defaults to 1)
+        int tileChance = 1;
+        {
+            int chanceVal = 0;
+            if (JsonUtil::GetInt(tileObj, "chance", chanceVal)) {
+                tileChance = chanceVal;
+                if (tileChance < 0) {
+                    SDL_Log("[TilesetLoader] Tile '%s' (entry %zu): invalid chance %d, using 1.",
+                            id.c_str(), i, tileChance);
+                    tileChance = 1;
+                }
+            }
+        }
+
         // Parse optional "animation" array (animated tile support)
         std::vector<AnimationFrame> animFrames;
         {
@@ -238,6 +252,7 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
         tileDef.sourceRect = sr;
         tileDef.adjacency = adj;
         tileDef.scale = tileScale;
+        tileDef.chance = tileChance;
         tileDef.animation = std::move(animFrames);
 
         // Parse optional "labels" array

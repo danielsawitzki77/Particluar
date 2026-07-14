@@ -98,6 +98,31 @@ int TilePlacementSolver::PickRandom(int leftTileIdx, int topTileIdx, std::mt1993
 {
     const std::vector<int>& candidates = Resolve(leftTileIdx, topTileIdx);
     if (candidates.empty()) return -1;
-    std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
-    return candidates[dist(rng)];
+
+    // Compute total weight from chance values (0 means tile is excluded)
+    int totalWeight = 0;
+    for (int idx : candidates) {
+        int w = m_tileset.tiles[idx].chance;
+        if (w > 0) totalWeight += w;
+    }
+
+    // If all candidates have zero chance, fall back to uniform selection
+    if (totalWeight <= 0) {
+        std::uniform_int_distribution<int> dist(0, static_cast<int>(candidates.size()) - 1);
+        return candidates[dist(rng)];
+    }
+
+    // Weighted random selection
+    std::uniform_int_distribution<int> dist(1, totalWeight);
+    int roll = dist(rng);
+    int accum = 0;
+    for (int idx : candidates) {
+        int w = m_tileset.tiles[idx].chance;
+        if (w <= 0) continue;
+        accum += w;
+        if (roll <= accum) return idx;
+    }
+
+    // Fallback (should not reach here)
+    return candidates.back();
 }
