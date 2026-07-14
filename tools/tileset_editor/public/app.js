@@ -1763,6 +1763,7 @@
     } else if (leSlottedTile) {
       // Clear slot -> free mode
       leSlottedTile = null;
+      leSelectedPaletteId = null;
       leMode = 'free';
       updateSlotUI();
       renderLEPalette();
