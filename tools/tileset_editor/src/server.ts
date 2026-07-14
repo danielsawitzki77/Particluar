@@ -412,6 +412,56 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
   }
 });
 
+// --- API: List map files ---
+const MAPS_DIR = path.join(PROJECT_ROOT, 'assets', 'maps');
+
+app.get('/api/maps', (req, res) => {
+  try {
+    if (!fs.existsSync(MAPS_DIR)) {
+      return res.json([]);
+    }
+    const files = fs.readdirSync(MAPS_DIR);
+    const jsons = files.filter(f => f.toLowerCase().endsWith('.json'));
+    res.json(jsons);
+  } catch (err) {
+    console.error('Error listing maps:', err);
+    res.status(500).json({ error: 'Failed to list maps' });
+  }
+});
+
+// --- API: Load a map file ---
+app.get('/api/maps/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(MAPS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: `Map '${filename}' not found` });
+  }
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    res.json(JSON.parse(content));
+  } catch (err) {
+    console.error(`Error reading map '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to parse map file' });
+  }
+});
+
+// --- API: Save a map file (with optional cell_labels) ---
+app.put('/api/maps/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (!fs.existsSync(MAPS_DIR)) {
+    fs.mkdirSync(MAPS_DIR, { recursive: true });
+  }
+  const filePath = path.join(MAPS_DIR, filename);
+  try {
+    const jsonStr = JSON.stringify(req.body, null, 2) + '\n';
+    fs.writeFileSync(filePath, jsonStr, 'utf-8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`Error saving map '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to save map file' });
+  }
+});
+
 // --- Shutdown endpoint (called by the Close button in the UI) ---
 app.post('/api/shutdown', (req, res) => {
   res.json({ message: 'Server shutting down...' });

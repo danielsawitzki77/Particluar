@@ -25,6 +25,10 @@ public:
     bool HasBoundary() const;
     const MapBoundary& GetBoundary() const;
 
+    // --- Map-wide labels (additive to tile def and per-placement labels) ---
+    void SetMapLabels(const std::vector<std::string>& labels);
+    const std::vector<std::string>& GetMapLabels() const;
+
     // --- Tile management ---
     // Returns false if the tile overlaps any existing tile.
     bool AddTile(const PlacedTile& tile);
@@ -45,6 +49,7 @@ public:
 
 private:
     std::string m_tilesetId;
+    std::vector<std::string> m_mapLabels;
     MapBoundary m_boundary;
     bool m_hasBoundary = false;
     std::vector<PlacedTile> m_tiles;

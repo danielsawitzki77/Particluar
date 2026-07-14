@@ -1466,8 +1466,8 @@
   let leMapW = 20, leMapH = 15; // map size in cells
   let leShowBlockers = false;
   let leMode = 'free'; // 'free' | 'picking' | 'constrained'
-  let leSlottedTile = null; // { tile_id, x, y, w, h }
-  let lePlacedTiles = []; // Array of { tile_id, x, y, w, h }
+  let leSlottedTile = null; // { tile_id, x, y, w, h, mapLabels? }
+  let lePlacedTiles = []; // Array of { tile_id, x, y, w, h, mapLabels: [] }
   let leHoveredPaletteId = null;
   let leHoverWarningTile = null; // tile that would be removed on placement
   let leSelectedFolder = null; // currently selected folder name
@@ -1560,6 +1560,8 @@
       renderLEPalette();
       renderLECanvas();
       renderLEDetail();
+      renderTilesetLabels();
+      renderMapLabels();
       setStatus(`Level Editor: Loaded '${name}/${jsonFile}' (${leTilesetData.tiles.length} tiles)`);
     } catch (err) { setStatus(`Error: ${err.message}`); }
   });
@@ -1580,6 +1582,97 @@
       renderLEPalette();
     });
   }
+
+  // --- Per-Tile Map Labels (instance labels on placed tiles) ---
+  const leMapLabelsListEl = document.getElementById('le-map-labels-list');
+  const leMapLabelInput = document.getElementById('le-map-label-input');
+  const leMapLabelAddBtn = document.getElementById('le-map-label-add-btn');
+  const leTilesetLabelsEl = document.getElementById('le-tileset-labels');
+
+  function getSlottedPlacedTile() {
+    // Find the placed tile that matches the current slotted tile position
+    if (!leSlottedTile) return null;
+    return lePlacedTiles.find(t => t.x === leSlottedTile.x && t.y === leSlottedTile.y && t.tile_id === leSlottedTile.tile_id) || null;
+  }
+
+  function renderTilesetLabels() {
+    if (!leTilesetLabelsEl) return;
+    if (!leSlottedTile || !leTilesetData) {
+      leTilesetLabelsEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Double-click a placed tile to see its tileset labels.</p>';
+      return;
+    }
+    const td = leTilesetData.tiles.find(t => t.id === leSlottedTile.tile_id);
+    const tilesetLabels = (td && td.labels) ? td.labels : [];
+    if (tilesetLabels.length === 0) {
+      leTilesetLabelsEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">No tileset labels defined for this tile.</p>';
+      return;
+    }
+    let html = '<div style="margin-bottom:2px;color:#a0a0a0;font-size:10px;">From tileset definition (read-only):</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
+    tilesetLabels.forEach(label => {
+      html += `<span class="adj-tag" style="background:#1a1a2e;padding:2px 6px;border-radius:3px;font-size:11px;">${escapeHtml(label)}</span>`;
+    });
+    html += '</div>';
+    leTilesetLabelsEl.innerHTML = html;
+  }
+
+  function renderMapLabels() {
+    if (!leMapLabelsListEl) return;
+    const placedTile = getSlottedPlacedTile();
+    if (!placedTile) {
+      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Double-click a placed tile on the map to select it, then add labels here.</p>';
+      return;
+    }
+    // Hide the hint once a tile is selected
+    const hint = document.getElementById('le-map-labels-hint');
+    if (hint) hint.style.display = 'none';
+    const labels = placedTile.mapLabels || [];
+    if (labels.length === 0) {
+      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">No map labels on this tile yet. Type a label below and click + to add.</p>';
+      return;
+    }
+    let html = '';
+    labels.forEach((label, idx) => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 6px;margin-bottom:2px;background:#1a1a2e;border-radius:3px;">`;
+      html += `<span class="adj-tag" style="color:#81d4fa;">${escapeHtml(label)}</span>`;
+      html += `<span class="del-map-label" data-idx="${idx}" style="color:#ff6b6b;cursor:pointer;font-weight:bold;padding:0 4px;">&times;</span>`;
+      html += `</div>`;
+    });
+    leMapLabelsListEl.innerHTML = html;
+    // Attach delete handlers
+    leMapLabelsListEl.querySelectorAll('.del-map-label').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx);
+        const pt = getSlottedPlacedTile();
+        if (pt && pt.mapLabels) {
+          pt.mapLabels.splice(idx, 1);
+          renderMapLabels();
+        }
+      });
+    });
+  }
+
+  if (leMapLabelAddBtn && leMapLabelInput) {
+    leMapLabelAddBtn.addEventListener('click', () => {
+      const val = leMapLabelInput.value.trim();
+      const placedTile = getSlottedPlacedTile();
+      if (!placedTile) { setStatus('Pick a placed tile first to add labels'); return; }
+      if (!placedTile.mapLabels) placedTile.mapLabels = [];
+      if (val && !placedTile.mapLabels.includes(val)) {
+        placedTile.mapLabels.push(val);
+        leMapLabelInput.value = '';
+        renderMapLabels();
+      }
+    });
+    leMapLabelInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        leMapLabelAddBtn.click();
+      }
+    });
+  }
+  renderMapLabels();
+  renderTilesetLabels();
 
   // --- Zoom ---
   const leZoomIn = document.getElementById('le-zoom-in');
@@ -1670,9 +1763,12 @@
     } else if (leSlottedTile) {
       // Clear slot -> free mode
       leSlottedTile = null;
+      leSelectedPaletteId = null;
       leMode = 'free';
       updateSlotUI();
       renderLEPalette();
+      renderTilesetLabels();
+      renderMapLabels();
       renderLECanvas();
       setStatus('Slot cleared — free placement mode');
     } else {
@@ -1724,7 +1820,7 @@
       case 'down':  x = slottedTile.x; y = slottedTile.y + slottedTile.h; break;
       case 'up':    x = slottedTile.x; y = slottedTile.y - ch; break;
     }
-    return { tile_id: candidateDef.id, x, y, w: cw, h: ch };
+    return { tile_id: candidateDef.id, x, y, w: cw, h: ch, mapLabels: [] };
   }
 
   // --- Find tile at position (overlap check) ---
@@ -1972,9 +2068,13 @@
       const idx = findPlacedTileAt(wx, wy);
       if (idx >= 0) {
         leSlottedTile = { ...lePlacedTiles[idx] };
+        leSelectedPaletteId = leSlottedTile.tile_id;
         leMode = 'constrained';
         updateSlotUI();
         renderLEPalette();
+        renderLEDetail();
+        renderTilesetLabels();
+        renderMapLabels();
         renderLECanvas();
         setStatus(`Picked: ${leSlottedTile.tile_id} — palette filtered to compatible tiles`);
       } else {
@@ -1984,8 +2084,27 @@
     }
 
     if (leMode === 'free') {
-      // Free placement: snap to grid, place selected tile
-      if (!leSelectedPaletteId || !leTilesetData) { setStatus('Select a tile from the palette first'); return; }
+      // If no palette tile is selected, clicking on a placed tile selects it for label editing
+      if (!leSelectedPaletteId || !leTilesetData) {
+        const idx = findPlacedTileAt(wx, wy);
+        if (idx >= 0) {
+          leSlottedTile = { ...lePlacedTiles[idx] };
+          leSelectedPaletteId = leSlottedTile.tile_id;
+          leMode = 'constrained';
+          updateSlotUI();
+          renderLEPalette();
+          renderLEDetail();
+          renderTilesetLabels();
+          renderMapLabels();
+          renderLECanvas();
+          const hint = document.getElementById('le-map-labels-hint');
+          if (hint) hint.style.display = 'none';
+          setStatus(`Selected: ${leSlottedTile.tile_id} — edit map labels in the right panel`);
+        } else {
+          setStatus('Select a tile from the palette first');
+        }
+        return;
+      }
       const td = leTilesetData.tiles.find(t => t.id === leSelectedPaletteId);
       if (!td) return;
       // Snap to grid
@@ -1993,13 +2112,35 @@
       const row = Math.floor((wy - leGridOffY) / leGridCellH);
       const px = leGridOffX + col * leGridCellW;
       const py = leGridOffY + row * leGridCellH;
-      const placement = { tile_id: td.id, x: px, y: py, w: td.source_rect.w, h: td.source_rect.h };
+      const placement = { tile_id: td.id, x: px, y: py, w: td.source_rect.w, h: td.source_rect.h, mapLabels: [] };
       // Remove existing at that position
       const overlapIdx = findTileAtRect(placement);
       if (overlapIdx >= 0) lePlacedTiles.splice(overlapIdx, 1);
       lePlacedTiles.push(placement);
       renderLECanvas();
       setStatus(`Placed ${td.id} at (${px},${py})`);
+    }
+  });
+
+  // Double-click to select a placed tile directly for label editing (shortcut for slot picking)
+  levelCanvas.addEventListener('dblclick', (e) => {
+    if (e.button !== 0) return;
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    const idx = findPlacedTileAt(wx, wy);
+    if (idx >= 0) {
+      leSlottedTile = { ...lePlacedTiles[idx] };
+      leSelectedPaletteId = leSlottedTile.tile_id;
+      leMode = 'constrained';
+      updateSlotUI();
+      renderLEPalette();
+      renderLEDetail();
+      renderTilesetLabels();
+      renderMapLabels();
+      renderLECanvas();
+      // Hide the hint now that user has discovered the workflow
+      const hint = document.getElementById('le-map-labels-hint');
+      if (hint) hint.style.display = 'none';
+      setStatus(`Selected: ${leSlottedTile.tile_id} — edit map labels in the right panel`);
     }
   });
 
@@ -2035,6 +2176,7 @@
   leExportBtn.addEventListener('click', () => {
     if (!leTilesetName) { setStatus('No tileset loaded'); return; }
     if (lePlacedTiles.length === 0) { setStatus('No tiles placed'); return; }
+    let tilesWithLabels = 0;
     const mapFile = {
       format: 'jigsaw',
       tileset_id: leTilesetName,
@@ -2042,14 +2184,21 @@
       map_height: leMapH,
       cell_width: leGridCellW,
       cell_height: leGridCellH,
-      tiles: lePlacedTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
+      tiles: lePlacedTiles.map(t => {
+        const entry = { tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h };
+        if (t.mapLabels && t.mapLabels.length > 0) {
+          entry.labels = t.mapLabels.slice();
+          tilesWithLabels++;
+        }
+        return entry;
+      })
     };
     const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `map_${leTilesetName.replace(/[/\\]/g, '_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells)`);
+    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells${tilesWithLabels > 0 ? ', ' + tilesWithLabels + ' tiles with map labels' : ''})`);
   });
 
   // ============================================================

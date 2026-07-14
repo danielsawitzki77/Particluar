@@ -1,10 +1,12 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 // Represents a tile placed at an absolute pixel position in a JigsawMap.
 struct PlacedTile {
     std::string tileId;  // references TileDef::id in tileset
     float x, y;           // absolute pixel position (top-left corner)
     float w, h;           // effective rendered size (pixels)
+    std::vector<std::string> labels; // map-level labels (additive to tile def labels)
 };
