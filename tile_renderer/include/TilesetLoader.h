@@ -33,6 +33,7 @@ struct TileDef {
     AdjacencyRules adjacency;
     float scale;               // per-tile scale from JSON, default 1.0
     std::vector<AnimationFrame> animation; // empty = static tile
+    std::vector<std::string> labels; // classification labels from tileset definition
 
     TileDef() : scale(1.0f) {}
 

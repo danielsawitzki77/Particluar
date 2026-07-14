@@ -121,6 +121,42 @@ bool MapLoader::LoadMap(const std::string& filepath, MapData& out)
     out.grid = std::move(grid);
     out.rawJson = root;  // Preserve full JSON for round-trip fidelity
 
+    // Parse optional "cell_labels" — a 2D array matching grid dimensions.
+    // cell_labels[row][col] is either null/missing (no extra labels) or an array of strings.
+    out.cellLabels.clear();
+    const picojson::array* cellLabelsArr = nullptr;
+    if (JsonUtil::GetArray(obj, "cell_labels", cellLabelsArr)) {
+        out.cellLabels.reserve(static_cast<size_t>(height));
+        for (int row = 0; row < height; ++row) {
+            std::vector<std::vector<std::string>> rowLabels;
+            rowLabels.resize(static_cast<size_t>(width));
+
+            if (row < static_cast<int>(cellLabelsArr->size())) {
+                const picojson::value& rowVal = (*cellLabelsArr)[static_cast<size_t>(row)];
+                if (rowVal.is<picojson::array>()) {
+                    const picojson::array& rowArr = rowVal.get<picojson::array>();
+                    for (int col = 0; col < width && col < static_cast<int>(rowArr.size()); ++col) {
+                        const picojson::value& cellVal = rowArr[static_cast<size_t>(col)];
+                        if (cellVal.is<picojson::array>()) {
+                            const picojson::array& lblArr = cellVal.get<picojson::array>();
+                            for (size_t li = 0; li < lblArr.size(); ++li) {
+                                if (lblArr[li].is<std::string>()) {
+                                    const std::string& lbl = lblArr[li].get<std::string>();
+                                    if (!lbl.empty()) {
+                                        rowLabels[static_cast<size_t>(col)].push_back(lbl);
+                                    }
+                                }
+                            }
+                        }
+                        // null or non-array entries = no labels for that cell (already empty)
+                    }
+                }
+            }
+
+            out.cellLabels.push_back(std::move(rowLabels));
+        }
+    }
+
     return true;
 }
 
@@ -154,6 +190,47 @@ std::string MapLoader::SerializeMap(const MapData& mapData) const
     }
 
     obj["grid"] = picojson::value(gridArr);
+
+    // Serialize cell_labels if any cell has labels
+    bool hasAnyLabels = false;
+    for (size_t row = 0; row < mapData.cellLabels.size() && !hasAnyLabels; ++row) {
+        for (size_t col = 0; col < mapData.cellLabels[row].size() && !hasAnyLabels; ++col) {
+            if (!mapData.cellLabels[row][col].empty()) {
+                hasAnyLabels = true;
+            }
+        }
+    }
+
+    if (hasAnyLabels) {
+        picojson::array cellLabelsArr;
+        cellLabelsArr.reserve(mapData.cellLabels.size());
+
+        for (size_t row = 0; row < mapData.cellLabels.size(); ++row) {
+            picojson::array rowArr;
+            rowArr.reserve(mapData.cellLabels[row].size());
+
+            for (size_t col = 0; col < mapData.cellLabels[row].size(); ++col) {
+                const std::vector<std::string>& labels = mapData.cellLabels[row][col];
+                if (labels.empty()) {
+                    rowArr.push_back(picojson::value());  // null = no labels
+                } else {
+                    picojson::array lblArr;
+                    lblArr.reserve(labels.size());
+                    for (const std::string& lbl : labels) {
+                        lblArr.push_back(picojson::value(lbl));
+                    }
+                    rowArr.push_back(picojson::value(lblArr));
+                }
+            }
+
+            cellLabelsArr.push_back(picojson::value(rowArr));
+        }
+
+        obj["cell_labels"] = picojson::value(cellLabelsArr);
+    } else {
+        // Remove cell_labels key if previously present but now empty
+        obj.erase("cell_labels");
+    }
 
     picojson::value root(obj);
     return JsonUtil::Serialize(root);
@@ -229,6 +306,17 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
         tileObj["y"] = picojson::value(static_cast<double>(tile.y));
         tileObj["w"] = picojson::value(static_cast<double>(tile.w));
         tileObj["h"] = picojson::value(static_cast<double>(tile.h));
+
+        // Serialize per-placement labels if any exist
+        if (!tile.labels.empty()) {
+            picojson::array lblArr;
+            lblArr.reserve(tile.labels.size());
+            for (const std::string& lbl : tile.labels) {
+                lblArr.push_back(picojson::value(lbl));
+            }
+            tileObj["labels"] = picojson::value(lblArr);
+        }
+
         tilesArr.push_back(picojson::value(tileObj));
     }
 
@@ -353,6 +441,19 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
         tile.y = fy;
         tile.w = fw;
         tile.h = fh;
+
+        // Parse optional per-placement labels
+        const picojson::array* labelsArr = nullptr;
+        if (JsonUtil::GetArray(tileObj, "labels", labelsArr)) {
+            for (size_t li = 0; li < labelsArr->size(); ++li) {
+                if ((*labelsArr)[li].is<std::string>()) {
+                    const std::string& lbl = (*labelsArr)[li].get<std::string>();
+                    if (!lbl.empty()) {
+                        tile.labels.push_back(lbl);
+                    }
+                }
+            }
+        }
 
         // AddTile handles overlap rejection — for deserialization we add directly
         // since the data is expected to be valid (non-overlapping from a previous save).

@@ -240,6 +240,21 @@ bool TilesetLoader::ParseSidecarJson(const std::string& jsonPath, int texW, int 
         tileDef.scale = tileScale;
         tileDef.animation = std::move(animFrames);
 
+        // Parse optional "labels" array
+        {
+            const picojson::array* labelsArr = nullptr;
+            if (JsonUtil::GetArray(tileObj, "labels", labelsArr)) {
+                for (size_t li = 0; li < labelsArr->size(); ++li) {
+                    if ((*labelsArr)[li].is<std::string>()) {
+                        const std::string& lbl = (*labelsArr)[li].get<std::string>();
+                        if (!lbl.empty()) {
+                            tileDef.labels.push_back(lbl);
+                        }
+                    }
+                }
+            }
+        }
+
         seenIds.insert(id);
         outTiles.push_back(tileDef);
     }

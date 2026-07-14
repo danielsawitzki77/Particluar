@@ -11,6 +11,10 @@ struct MapData {
     int height;                             // 1–4096
     std::string tilesetId;                  // 1–255 chars
     std::vector<std::vector<std::string>> grid; // row-major, grid[row][col] = tile ID
+    // Per-cell labels additive to tile definition labels.
+    // cellLabels[row][col] = list of extra labels for that cell.
+    // Empty inner vectors mean no additional labels.
+    std::vector<std::vector<std::vector<std::string>>> cellLabels;
     picojson::value rawJson;                // preserved for round-trip fidelity
 };
 
