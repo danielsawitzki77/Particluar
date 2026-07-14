@@ -1474,10 +1474,11 @@
   let leShowBlockers = false;
   let leMode = 'free'; // 'free' | 'picking' | 'constrained'
   let leSlottedTile = null; // { tile_id, x, y, w, h, mapLabels? }
-  let lePlacedTiles = []; // Array of { tile_id, x, y, w, h, mapLabels: [] }
+  let lePlacedTiles = []; // Array of { tile_id, x, y, w, h, mapLabels: [], blocked: false }
   let leHoveredPaletteId = null;
   let leHoverWarningTile = null; // tile that would be removed on placement
   let leSelectedFolder = null; // currently selected folder name
+  let leBlockerPaintMode = false; // toggle for per-tile blocker painting
 
   // --- Folder list population (matching configurator style) ---
   function populateLEFolderList(tilesets) {
@@ -1695,9 +1696,18 @@
 
   // --- Blocker toggle ---
   const leBlockerMode = document.getElementById('le-blocker-mode');
+  const leBlockerBtn = document.getElementById('le-blocker-btn');
   leBlockerMode.addEventListener('change', () => {
     leShowBlockers = leBlockerMode.value !== 'off';
     renderLECanvas();
+  });
+  leBlockerBtn.addEventListener('click', () => {
+    leBlockerPaintMode = !leBlockerPaintMode;
+    leBlockerBtn.style.background = leBlockerPaintMode ? '#ff6b6b' : '#1a1a2e';
+    leBlockerBtn.style.color = leBlockerPaintMode ? '#fff' : '#ff6b6b';
+    leBlockerBtn.textContent = leBlockerPaintMode ? 'Blockers: ON' : 'Blockers:';
+    if (leBlockerPaintMode) setStatus('Blocker paint mode ON — click tiles to toggle blocking');
+    else setStatus('Blocker paint mode OFF');
   });
 
   // --- Grid param step buttons (reuse configurator pattern) ---
@@ -1827,7 +1837,7 @@
       case 'down':  x = slottedTile.x; y = slottedTile.y + slottedTile.h; break;
       case 'up':    x = slottedTile.x; y = slottedTile.y - ch; break;
     }
-    return { tile_id: candidateDef.id, x, y, w: cw, h: ch, mapLabels: [] };
+    return { tile_id: candidateDef.id, x, y, w: cw, h: ch, mapLabels: [], blocked: false };
   }
 
   // --- Find tile at position (overlap check) ---
@@ -2040,6 +2050,19 @@
       }
     }
 
+    // Per-tile blocking overlay (map-level blocked tiles)
+    if (leShowBlockers) {
+      lCtx.fillStyle = 'rgba(200, 0, 0, 0.35)';
+      lCtx.strokeStyle = 'rgba(200, 0, 0, 0.8)';
+      lCtx.lineWidth = 2 / leZoom;
+      for (const pt of lePlacedTiles) {
+        if (pt.blocked) {
+          lCtx.fillRect(pt.x, pt.y, pt.w, pt.h);
+          lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
+        }
+      }
+    }
+
     // Map border
     lCtx.strokeStyle = 'rgba(79,195,247,0.5)';
     lCtx.lineWidth = 2 / leZoom;
@@ -2069,6 +2092,19 @@
   levelCanvas.addEventListener('click', (e) => {
     if (e.button !== 0) return;
     const { x: wx, y: wy } = getCanvasWorldPos(e);
+
+    // Blocker paint mode: toggle per-tile blocking
+    if (leBlockerPaintMode) {
+      const idx = findPlacedTileAt(wx, wy);
+      if (idx >= 0) {
+        lePlacedTiles[idx].blocked = !lePlacedTiles[idx].blocked;
+        renderLECanvas();
+        setStatus(`Tile ${lePlacedTiles[idx].tile_id} ${lePlacedTiles[idx].blocked ? 'BLOCKED' : 'unblocked'}`);
+      } else {
+        setStatus('No tile at that position');
+      }
+      return;
+    }
 
     if (leMode === 'picking') {
       // Pick tile from map
@@ -2119,7 +2155,7 @@
       const row = Math.floor((wy - leGridOffY) / leGridCellH);
       const px = leGridOffX + col * leGridCellW;
       const py = leGridOffY + row * leGridCellH;
-      const placement = { tile_id: td.id, x: px, y: py, w: td.source_rect.w, h: td.source_rect.h, mapLabels: [] };
+      const placement = { tile_id: td.id, x: px, y: py, w: td.source_rect.w, h: td.source_rect.h, mapLabels: [], blocked: false };
       // Remove existing at that position
       const overlapIdx = findTileAtRect(placement);
       if (overlapIdx >= 0) lePlacedTiles.splice(overlapIdx, 1);
@@ -2196,6 +2232,9 @@
         if (t.mapLabels && t.mapLabels.length > 0) {
           entry.labels = t.mapLabels.slice();
           tilesWithLabels++;
+        }
+        if (t.blocked) {
+          entry.blocked = true;
         }
         return entry;
       })

@@ -406,8 +406,9 @@ void TileRenderer::RenderBlockingOverlay(
     for (size_t i = 0; i < visibleTiles.size(); ++i) {
         const PlacedTile& tile = *visibleTiles[i];
 
-        // Check if this tile is in the blockers set
-        if (tileset.blockers.count(tile.tileId) == 0) {
+        // Check if this tile is blocked (tileset-level OR per-tile map-level)
+        bool isBlocked = tile.blocked || (tileset.blockers.count(tile.tileId) > 0);
+        if (!isBlocked) {
             continue;
         }
 
