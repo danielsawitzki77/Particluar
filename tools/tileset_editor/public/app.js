@@ -744,6 +744,42 @@
     });
   }
 
+  // --- Navigate to a tile by ID: select it and scroll the canvas to show it ---
+  function navigateToTile(tileId) {
+    if (!currentTilesetData) return;
+    const idx = currentTilesetData.tiles.findIndex(t => t.id === tileId);
+    if (idx < 0) {
+      setStatus(`Tile "${tileId}" not found in current tileset.`);
+      return;
+    }
+    selectedTileIndex = idx;
+    highlightedCell = null;
+    renderTilesetCanvas();
+    renderTileInfo();
+    renderCreatedTilesList();
+
+    // Scroll canvas wrapper to center the selected tile
+    const tile = currentTilesetData.tiles[idx];
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if (wrapper && tile.source_rect) {
+      const sr = tile.source_rect;
+      const tileCenterX = (sr.x + sr.w / 2) * zoom;
+      const tileCenterY = (sr.y + sr.h / 2) * zoom;
+      wrapper.scrollLeft = tileCenterX - wrapper.clientWidth / 2;
+      wrapper.scrollTop = tileCenterY - wrapper.clientHeight / 2;
+    }
+
+    // Also scroll the created tiles list to show the active item
+    const listContainer = document.getElementById('created-tiles-list');
+    if (listContainer) {
+      const activeItem = listContainer.querySelector('.created-tile-item.active');
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+
+    setStatus(`Navigated to tile "${tileId}".`);
+  }
+
   // --- Tile info panel (with label assignment) ---
   function renderTileInfo() {
     if (selectedTileIndex < 0 || !currentTilesetData || !currentTilesetData.tiles[selectedTileIndex]) {
@@ -792,7 +828,7 @@
       const neighbors = adj[dir] || [];
       html += `<div class="adjacency-section"><h4>${dir}</h4><div class="adjacency-list">`;
       neighbors.forEach((n, i) => {
-        html += `<span class="adj-tag">${escapeHtml(n)} <span class="remove-btn" data-dir="${dir}" data-idx="${i}">&times;</span></span>`;
+        html += `<span class="adj-tag"><span class="neighbor-link" data-tile-id="${escapeHtml(n)}">${escapeHtml(n)}</span> <span class="remove-btn" data-dir="${dir}" data-idx="${i}">&times;</span></span>`;
       });
       html += `</div><div class="add-adj-row"><input type="text" placeholder="Neighbor ID" id="add-adj-${dir}"><button data-dir="${dir}" class="add-adj-btn">+</button></div></div>`;
     });
@@ -867,6 +903,13 @@
         const dir = btn.dataset.dir;
         currentTilesetData.tiles[selectedTileIndex].adjacency[dir].splice(parseInt(btn.dataset.idx), 1);
         renderTileInfo();
+      });
+    });
+    // Bind neighbor link click (navigate to tile)
+    tileInfoPanel.querySelectorAll('.neighbor-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateToTile(link.dataset.tileId);
       });
     });
     // Bind adjacency add
