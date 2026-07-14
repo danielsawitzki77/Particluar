@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 // Forward-declare SDL_Texture for the Tileset struct
 struct SDL_Texture;
@@ -64,6 +65,7 @@ struct TilesetDef {
     float sheetScale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
     std::map<std::string, size_t> idIndex; // id -> index in tiles vector
+    std::set<std::string> blockers; // tile IDs that are blocking (from "blockers" array)
     picojson::value rawJson; // preserved for round-trip fidelity
 
     TilesetDef() : textureWidth(0), textureHeight(0), sheetScale(1.0f) {}
@@ -77,6 +79,7 @@ struct Tileset {
     float sheetScale;     // per-sheet scale from JSON root, default 1.0
     std::vector<TileDef> tiles;
     std::map<std::string, size_t> idIndex; // id -> index in tiles vector
+    std::set<std::string> blockers; // tile IDs that are blocking (from "blockers" array)
     picojson::value rawJson; // preserved for round-trip fidelity
 
     Tileset() : texture(nullptr), textureWidth(0), textureHeight(0), sheetScale(1.0f) {}

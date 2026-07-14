@@ -11,6 +11,7 @@ struct GlobalConfigData {
     int viewportHeight;
     float scrollSpeed;
     int wfcMaxBacktracks;
+    bool debugShowBlocking;
 };
 
 class GlobalConfig {

@@ -357,3 +357,69 @@ void TileRenderer::RenderJigsawLayer(
     // Remove clip rect after rendering
     viewport.RemoveClip(renderer);
 }
+
+void TileRenderer::RenderBlockingOverlay(
+    SDL_Renderer* renderer,
+    const Tileset& tileset,
+    const JigsawMap& map,
+    const Viewport& viewport,
+    const Camera& camera,
+    const MapLayerConfig& config)
+{
+    if (!viewport.IsValid()) {
+        return;
+    }
+
+    if (tileset.blockers.empty()) {
+        return;
+    }
+
+    viewport.ApplyClip(renderer);
+
+    const ViewportRect& vp = viewport.GetRect();
+    const float camX = camera.GetX();
+    const float camY = camera.GetY();
+    const float pivotX = config.pivotX;
+    const float pivotY = config.pivotY;
+    const float offsetX = config.offsetX;
+    const float offsetY = config.offsetY;
+    const float scale = config.scale;
+
+    float screenOriginX = static_cast<float>(vp.x) + pivotX * static_cast<float>(vp.width) + offsetX;
+    float screenOriginY = static_cast<float>(vp.y) + pivotY * static_cast<float>(vp.height) + offsetY;
+
+    // World-space coordinates at viewport edges
+    float worldLeft = camX + (static_cast<float>(vp.x) - screenOriginX) / scale;
+    float worldTop = camY + (static_cast<float>(vp.y) - screenOriginY) / scale;
+    float worldRight = camX + (static_cast<float>(vp.x + vp.width) - screenOriginX) / scale;
+    float worldBottom = camY + (static_cast<float>(vp.y + vp.height) - screenOriginY) / scale;
+
+    float queryW = worldRight - worldLeft;
+    float queryH = worldBottom - worldTop;
+
+    std::vector<const PlacedTile*> visibleTiles = map.QueryRect(worldLeft, worldTop, queryW, queryH);
+
+    // Set semi-transparent red for blocking overlay
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 200, 0, 0, 100);
+
+    for (size_t i = 0; i < visibleTiles.size(); ++i) {
+        const PlacedTile& tile = *visibleTiles[i];
+
+        // Check if this tile is in the blockers set
+        if (tileset.blockers.count(tile.tileId) == 0) {
+            continue;
+        }
+
+        // Compute screen position from world position
+        float destX = screenOriginX + (tile.x - camX) * scale;
+        float destY = screenOriginY + (tile.y - camY) * scale;
+        float destW = tile.w * scale;
+        float destH = tile.h * scale;
+
+        SDL_FRect destRect = { destX, destY, destW, destH };
+        SDL_RenderFillRect(renderer, &destRect);
+    }
+
+    viewport.RemoveClip(renderer);
+}

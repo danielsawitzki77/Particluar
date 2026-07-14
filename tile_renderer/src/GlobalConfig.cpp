@@ -13,6 +13,7 @@ void GlobalConfig::ApplyDefaults()
     m_data.viewportHeight = 600;
     m_data.scrollSpeed = 200.0f;
     m_data.wfcMaxBacktracks = 4;
+    m_data.debugShowBlocking = false;
 }
 
 bool GlobalConfig::Validate(const GlobalConfigData& candidate) const
@@ -88,6 +89,16 @@ bool GlobalConfig::Load(const std::string& filepath)
     if (candidate.wfcMaxBacktracks < 0) candidate.wfcMaxBacktracks = 0;
     if (candidate.wfcMaxBacktracks > 1000) candidate.wfcMaxBacktracks = 1000;
 
+    // debug_show_blocking is optional (defaults to false)
+    {
+        bool boolVal = false;
+        if (JsonUtil::GetBool(obj, "debug_show_blocking", boolVal)) {
+            candidate.debugShowBlocking = boolVal;
+        } else {
+            candidate.debugShowBlocking = false;
+        }
+    }
+
     if (!allFieldsOk) {
         ApplyDefaults();
         return false;
@@ -119,6 +130,7 @@ std::string GlobalConfig::Serialize() const
     obj["viewport_height"] = picojson::value(static_cast<double>(m_data.viewportHeight));
     obj["scroll_speed"] = picojson::value(static_cast<double>(m_data.scrollSpeed));
     obj["wfc_max_backtracks"] = picojson::value(static_cast<double>(m_data.wfcMaxBacktracks));
+    obj["debug_show_blocking"] = picojson::value(m_data.debugShowBlocking);
 
     picojson::value root(obj);
     return JsonUtil::Serialize(root);
