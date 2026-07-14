@@ -77,6 +77,11 @@
       thresholdInput.disabled = !hasEnoughTiles;
       thresholdInput.style.opacity = hasEnoughTiles ? '1' : '0.4';
     }
+    const expandedCheckbox = document.getElementById('auto-neighbor-expanded');
+    if (expandedCheckbox) {
+      expandedCheckbox.disabled = !hasEnoughTiles;
+      expandedCheckbox.style.opacity = hasEnoughTiles ? '1' : '0.4';
+    }
   }
 
   // ============================================================
@@ -181,7 +186,7 @@
     return matchingPixels / pixelCount;
   }
 
-  // Auto-Neighbor: for all tile pairs, if they share an edge on the tileset image
+  // Auto-Neighbor (direct): for all tile pairs, if they share an edge on the tileset image
   // and their edge pixels are similar enough, add adjacency metadata to both.
   function autoNeighborAll(similarityThreshold) {
     if (!currentTilesetData || !currentTilesetImage) return 0;
@@ -242,6 +247,141 @@
         }
       }
     }
+    return addedCount;
+  }
+
+  // Auto-Neighbor (expanded): for all tile pairs, compare edge pixels regardless of
+  // position on the tileset image. Searches in concentric circles of distance from each
+  // tile, checking candidates that have compatible dimensions.
+  // "Concentric circles" here means: we sort candidate tiles by their distance from the
+  // reference tile on the sheet, and check them in expanding order. This makes nearer tiles
+  // get priority when multiple candidates pass the threshold.
+  // Progress modal helpers
+  let progressCancelled = false;
+  function showProgressModal(title) {
+    progressCancelled = false;
+    const modal = document.getElementById('progress-modal');
+    document.getElementById('progress-title').textContent = title;
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-text').textContent = '0%';
+    modal.style.display = 'flex';
+  }
+  function updateProgress(pct, detail) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = detail || (Math.round(pct) + '%');
+  }
+  function hideProgressModal() {
+    document.getElementById('progress-modal').style.display = 'none';
+  }
+  document.getElementById('progress-cancel-btn').addEventListener('click', () => {
+    progressCancelled = true;
+  });
+
+  async function autoNeighborExpanded(similarityThreshold) {
+    if (!currentTilesetData || !currentTilesetImage) return 0;
+    const tiles = currentTilesetData.tiles;
+    let addedCount = 0;
+    const totalTiles = tiles.length;
+    const totalPairs = totalTiles * (totalTiles - 1);
+
+    // Helper: center point of a tile's source_rect
+    function tileCenter(t) {
+      return { x: t.source_rect.x + t.source_rect.w / 2, y: t.source_rect.y + t.source_rect.h / 2 };
+    }
+
+    // Helper: Euclidean distance between two tile centers
+    function tileDist(a, b) {
+      const ca = tileCenter(a), cb = tileCenter(b);
+      const dx = ca.x - cb.x, dy = ca.y - cb.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    showProgressModal('Expanded Neighbor Search');
+
+    // For each tile, sort all other tiles by distance and check edge compatibility
+    for (let i = 0; i < tiles.length; i++) {
+      if (progressCancelled) { hideProgressModal(); return addedCount; }
+
+      const a = tiles[i];
+      const arect = a.source_rect;
+      if (!a.adjacency) a.adjacency = { up: [], down: [], left: [], right: [] };
+
+      // Build candidate list sorted by distance from tile a
+      const candidates = [];
+      for (let j = 0; j < tiles.length; j++) {
+        if (j === i) continue;
+        candidates.push({ idx: j, dist: tileDist(a, tiles[j]) });
+      }
+      candidates.sort((x, y) => x.dist - y.dist);
+
+      // Check each candidate in distance order for each direction
+      for (let ci = 0; ci < candidates.length; ci++) {
+        const cand = candidates[ci];
+        const b = tiles[cand.idx];
+        const brect = b.source_rect;
+        if (!b.adjacency) b.adjacency = { up: [], down: [], left: [], right: [] };
+
+        // Horizontal adjacency: A right → B left (requires same height)
+        if (arect.h === brect.h && !a.adjacency.right.includes(b.id)) {
+          const edgeA = getEdgeColumn(arect, arect.w - 1);
+          const edgeB = getEdgeColumn(brect, 0);
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            a.adjacency.right.push(b.id); addedCount++;
+            if (!b.adjacency.left.includes(a.id)) { b.adjacency.left.push(a.id); addedCount++; }
+          }
+        }
+
+        // Horizontal adjacency: B right → A left (requires same height)
+        if (arect.h === brect.h && !a.adjacency.left.includes(b.id)) {
+          const edgeB = getEdgeColumn(brect, brect.w - 1);
+          const edgeA = getEdgeColumn(arect, 0);
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            a.adjacency.left.push(b.id); addedCount++;
+            if (!b.adjacency.right.includes(a.id)) { b.adjacency.right.push(a.id); addedCount++; }
+          }
+        }
+
+        // Vertical adjacency: A bottom → B top (requires same width)
+        if (arect.w === brect.w && !a.adjacency.down.includes(b.id)) {
+          const edgeA = getEdgeRow(arect, arect.h - 1);
+          const edgeB = getEdgeRow(brect, 0);
+          const sim = edgeSimilarity(edgeA, edgeB);
+          if (sim >= similarityThreshold) {
+            a.adjacency.down.push(b.id); addedCount++;
+            if (!b.adjacency.up.includes(a.id)) { b.adjacency.up.push(a.id); addedCount++; }
+          }
+        }
+
+        // Vertical adjacency: B bottom → A top (requires same width)
+        if (arect.w === brect.w && !a.adjacency.up.includes(b.id)) {
+          const edgeB = getEdgeRow(brect, brect.h - 1);
+          const edgeA = getEdgeRow(arect, 0);
+          const sim = edgeSimilarity(edgeB, edgeA);
+          if (sim >= similarityThreshold) {
+            a.adjacency.up.push(b.id); addedCount++;
+            if (!b.adjacency.down.includes(a.id)) { b.adjacency.down.push(a.id); addedCount++; }
+          }
+        }
+
+        // Yield to UI every 50 candidates to keep progress bar responsive
+        if (ci % 50 === 0) {
+          const pairsProcessed = i * (totalTiles - 1) + ci;
+          const pct = (pairsProcessed / totalPairs) * 100;
+          updateProgress(pct, `${Math.round(pct)}% — tile ${i + 1}/${totalTiles} (${addedCount} links found)`);
+          await new Promise(r => setTimeout(r, 0));
+          if (progressCancelled) { hideProgressModal(); return addedCount; }
+        }
+      }
+
+      // Update progress after each tile completes
+      const pct = ((i + 1) / totalTiles) * 100;
+      updateProgress(pct, `${Math.round(pct)}% — tile ${i + 1}/${totalTiles} (${addedCount} links found)`);
+      await new Promise(r => setTimeout(r, 0));
+    }
+
+    hideProgressModal();
     return addedCount;
   }
 
@@ -604,6 +744,42 @@
     });
   }
 
+  // --- Navigate to a tile by ID: select it and scroll the canvas to show it ---
+  function navigateToTile(tileId) {
+    if (!currentTilesetData) return;
+    const idx = currentTilesetData.tiles.findIndex(t => t.id === tileId);
+    if (idx < 0) {
+      setStatus(`Tile "${tileId}" not found in current tileset.`);
+      return;
+    }
+    selectedTileIndex = idx;
+    highlightedCell = null;
+    renderTilesetCanvas();
+    renderTileInfo();
+    renderCreatedTilesList();
+
+    // Scroll canvas wrapper to center the selected tile
+    const tile = currentTilesetData.tiles[idx];
+    const zoom = Math.max(1, parseInt(zoomInput.value) || 1);
+    const wrapper = document.querySelector('.canvas-wrapper');
+    if (wrapper && tile.source_rect) {
+      const sr = tile.source_rect;
+      const tileCenterX = (sr.x + sr.w / 2) * zoom;
+      const tileCenterY = (sr.y + sr.h / 2) * zoom;
+      wrapper.scrollLeft = tileCenterX - wrapper.clientWidth / 2;
+      wrapper.scrollTop = tileCenterY - wrapper.clientHeight / 2;
+    }
+
+    // Also scroll the created tiles list to show the active item
+    const listContainer = document.getElementById('created-tiles-list');
+    if (listContainer) {
+      const activeItem = listContainer.querySelector('.created-tile-item.active');
+      if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+    }
+
+    setStatus(`Navigated to tile "${tileId}".`);
+  }
+
   // --- Tile info panel (with label assignment) ---
   function renderTileInfo() {
     if (selectedTileIndex < 0 || !currentTilesetData || !currentTilesetData.tiles[selectedTileIndex]) {
@@ -652,7 +828,7 @@
       const neighbors = adj[dir] || [];
       html += `<div class="adjacency-section"><h4>${dir}</h4><div class="adjacency-list">`;
       neighbors.forEach((n, i) => {
-        html += `<span class="adj-tag">${escapeHtml(n)} <span class="remove-btn" data-dir="${dir}" data-idx="${i}">&times;</span></span>`;
+        html += `<span class="adj-tag"><span class="neighbor-link" data-tile-id="${escapeHtml(n)}">${escapeHtml(n)}</span> <span class="remove-btn" data-dir="${dir}" data-idx="${i}">&times;</span></span>`;
       });
       html += `</div><div class="add-adj-row"><input type="text" placeholder="Neighbor ID" id="add-adj-${dir}"><button data-dir="${dir}" class="add-adj-btn">+</button></div></div>`;
     });
@@ -729,6 +905,13 @@
         renderTileInfo();
       });
     });
+    // Bind neighbor link click (navigate to tile)
+    tileInfoPanel.querySelectorAll('.neighbor-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.stopPropagation();
+        navigateToTile(link.dataset.tileId);
+      });
+    });
     // Bind adjacency add
     tileInfoPanel.querySelectorAll('.add-adj-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -754,7 +937,7 @@
   }
 
   // --- Global Auto-Neighbor button (tileset-level operation) ---
-  document.getElementById('auto-neighbor-btn-global').addEventListener('click', () => {
+  document.getElementById('auto-neighbor-btn-global').addEventListener('click', async () => {
     if (!currentTilesetData || !currentTilesetImage) {
       setStatus('Load a tileset sheet first.');
       return;
@@ -774,13 +957,22 @@
     const thresholdInput = document.getElementById('auto-neighbor-threshold');
     const thresholdPct = Math.max(0, Math.min(100, parseInt(thresholdInput.value) || 90));
     const threshold = thresholdPct / 100;
-    const added = autoNeighborAll(threshold);
-    if (added === 0) {
-      alert('Auto-Neighbor complete: no new adjacency links found at ' + thresholdPct + '% similarity.');
-      setStatus(`Auto-Neighbor: no new adjacency links found at ${thresholdPct}% similarity.`);
+    const expandedCheckbox = document.getElementById('auto-neighbor-expanded');
+    const useExpanded = expandedCheckbox && expandedCheckbox.checked;
+    const modeLabel = useExpanded ? 'expanded' : 'direct';
+    // Disable button during async expanded search to prevent double-click
+    const btn = document.getElementById('auto-neighbor-btn-global');
+    if (useExpanded) btn.disabled = true;
+    const added = useExpanded ? await autoNeighborExpanded(threshold) : autoNeighborAll(threshold);
+    if (useExpanded) enableBtn('auto-neighbor-btn-global', true);
+    if (progressCancelled) {
+      setStatus(`Auto-Neighbor (${modeLabel}) cancelled. ${added} link(s) were added before cancellation.`);
+    } else if (added === 0) {
+      alert(`Auto-Neighbor (${modeLabel}) complete: no new adjacency links found at ${thresholdPct}% similarity.`);
+      setStatus(`Auto-Neighbor (${modeLabel}): no new adjacency links found at ${thresholdPct}% similarity.`);
     } else {
-      alert('Auto-Neighbor complete: added ' + added + ' adjacency link(s) at ' + thresholdPct + '% similarity.');
-      setStatus(`Auto-Neighbor: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+      alert(`Auto-Neighbor (${modeLabel}) complete: added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
+      setStatus(`Auto-Neighbor (${modeLabel}): added ${added} adjacency link(s) at ${thresholdPct}% similarity.`);
     }
     renderTileInfo();
   });

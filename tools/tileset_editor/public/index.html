@@ -73,6 +73,8 @@
     .adjacency-section h4 { font-size: 11px; color: #4fc3f7; margin-bottom: 4px; text-transform: uppercase; }
     .adjacency-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
     .adj-tag { background: #0f3460; padding: 2px 8px; border-radius: 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; }
+    .adj-tag .neighbor-link { cursor: pointer; transition: color 0.15s; }
+    .adj-tag .neighbor-link:hover { color: #4fc3f7; text-decoration: underline; }
     .adj-tag .remove-btn, .adj-tag .remove-label-btn, .adj-tag .remove-tile-label { cursor: pointer; color: #ff6b6b; font-weight: bold; }
     .add-adj-row { display: flex; gap: 4px; margin-top: 4px; }
     .add-adj-row input { flex: 1; padding: 4px 6px; background: #0d0d1a; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 11px; }
@@ -222,6 +224,12 @@
             <input type="number" id="auto-neighbor-threshold" value="90" min="0" max="100" step="5" disabled style="width:50px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-left:4px;opacity:0.4;" title="Edge pixel similarity threshold (0-100%)">
             <span style="font-size:11px;color:#a0a0a0;">%</span>
           </div>
+          <div style="margin-top:6px;">
+            <label style="font-size:11px;color:#a0a0a0;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="When enabled, if direct neighbors on the tileset image don't meet the similarity threshold, the search expands in concentric circles to find compatible tiles regardless of their position on the sheet">
+              <input type="checkbox" id="auto-neighbor-expanded" disabled style="margin:0;cursor:pointer;">
+              <span>Expanded Search</span>
+            </label>
+          </div>
         </div>
 
         <!-- Created Tiles + Selected Tile side by side -->
@@ -338,6 +346,18 @@
         </div>
         <div id="le-palette" class="palette-wrap"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Progress Modal (for long-running operations) -->
+  <div id="progress-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:none;align-items:center;justify-content:center;">
+    <div style="background:#1a1a2e;border:1px solid #0f3460;border-radius:8px;padding:28px 36px;min-width:340px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+      <div id="progress-title" style="font-size:14px;font-weight:600;color:#e0e0e0;margin-bottom:14px;">Processing...</div>
+      <div style="background:#0a0a1a;border-radius:4px;height:22px;overflow:hidden;border:1px solid #0f3460;margin-bottom:10px;">
+        <div id="progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#0f3460,#4fc3f7);transition:width 0.15s ease;"></div>
+      </div>
+      <div id="progress-text" style="font-size:12px;color:#a0a0a0;">0%</div>
+      <button id="progress-cancel-btn" style="margin-top:14px;padding:5px 16px;background:#c0392b;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Cancel</button>
     </div>
   </div>
 
