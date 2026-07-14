@@ -286,6 +286,17 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
         obj["boundary"] = picojson::value(boundary);
     }
 
+    // Optional map-wide labels
+    const auto& mapLabels = map.GetMapLabels();
+    if (!mapLabels.empty()) {
+        picojson::array labelsArr;
+        labelsArr.reserve(mapLabels.size());
+        for (const std::string& lbl : mapLabels) {
+            labelsArr.push_back(picojson::value(lbl));
+        }
+        obj["map_labels"] = picojson::value(labelsArr);
+    }
+
     // Tiles array
     picojson::array tilesArr;
     const auto& allTiles = map.GetAllTiles();
@@ -381,6 +392,21 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
                         filepath.c_str());
             }
         }
+    }
+
+    // Optional map-wide labels
+    const picojson::array* mapLabelsArr = nullptr;
+    if (JsonUtil::GetArray(obj, "map_labels", mapLabelsArr)) {
+        std::vector<std::string> mapLabels;
+        for (size_t i = 0; i < mapLabelsArr->size(); ++i) {
+            if ((*mapLabelsArr)[i].is<std::string>()) {
+                const std::string& lbl = (*mapLabelsArr)[i].get<std::string>();
+                if (!lbl.empty()) {
+                    mapLabels.push_back(lbl);
+                }
+            }
+        }
+        result.SetMapLabels(mapLabels);
     }
 
     // Parse tiles array

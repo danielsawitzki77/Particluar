@@ -26,6 +26,13 @@ public:
         const PlacedTile& placedTile,
         const TilesetDef& tileset);
 
+    // Returns the merged set of labels for a jigsaw map tile including map-wide labels.
+    // Combines TileDef::labels + PlacedTile::labels + JigsawMap::mapLabels.
+    static std::vector<std::string> GetMergedLabels(
+        const PlacedTile& placedTile,
+        const TilesetDef& tileset,
+        const JigsawMap& map);
+
     // Check if a grid cell has a specific label (in the merged set).
     static bool HasLabel(
         const MapData& mapData,
@@ -37,5 +44,12 @@ public:
     static bool HasLabel(
         const PlacedTile& placedTile,
         const TilesetDef& tileset,
+        const std::string& label);
+
+    // Check if a placed tile has a specific label (including map-wide labels).
+    static bool HasLabel(
+        const PlacedTile& placedTile,
+        const TilesetDef& tileset,
+        const JigsawMap& map,
         const std::string& label);
 };

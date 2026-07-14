@@ -1471,6 +1471,7 @@
   let leHoveredPaletteId = null;
   let leHoverWarningTile = null; // tile that would be removed on placement
   let leSelectedFolder = null; // currently selected folder name
+  let leMapLabels = []; // map-specific labels (added on top of tileset labels on export)
 
   // --- Folder list population (matching configurator style) ---
   function populateLEFolderList(tilesets) {
@@ -1580,6 +1581,53 @@
       renderLEPalette();
     });
   }
+
+  // --- Map Labels (map-specific labels added on top of tileset labels) ---
+  const leMapLabelsListEl = document.getElementById('le-map-labels-list');
+  const leMapLabelInput = document.getElementById('le-map-label-input');
+  const leMapLabelAddBtn = document.getElementById('le-map-label-add-btn');
+
+  function renderMapLabels() {
+    if (!leMapLabelsListEl) return;
+    if (leMapLabels.length === 0) {
+      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">No map labels defined.</p>';
+      return;
+    }
+    let html = '';
+    leMapLabels.forEach((label, idx) => {
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:2px 6px;margin-bottom:2px;background:#1a1a2e;border-radius:3px;">`;
+      html += `<span class="adj-tag">${escapeHtml(label)}</span>`;
+      html += `<span class="del-map-label" data-idx="${idx}" style="color:#ff6b6b;cursor:pointer;font-weight:bold;padding:0 4px;">&times;</span>`;
+      html += `</div>`;
+    });
+    leMapLabelsListEl.innerHTML = html;
+    // Attach delete handlers
+    leMapLabelsListEl.querySelectorAll('.del-map-label').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.idx);
+        leMapLabels.splice(idx, 1);
+        renderMapLabels();
+      });
+    });
+  }
+
+  if (leMapLabelAddBtn && leMapLabelInput) {
+    leMapLabelAddBtn.addEventListener('click', () => {
+      const val = leMapLabelInput.value.trim();
+      if (val && !leMapLabels.includes(val)) {
+        leMapLabels.push(val);
+        leMapLabelInput.value = '';
+        renderMapLabels();
+      }
+    });
+    leMapLabelInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        leMapLabelAddBtn.click();
+      }
+    });
+  }
+  renderMapLabels();
 
   // --- Zoom ---
   const leZoomIn = document.getElementById('le-zoom-in');
@@ -1841,6 +1889,9 @@
     if (td.labels && td.labels.length > 0) {
       html += `<div style="margin-top:3px;">Labels: ${td.labels.map(l => '<span class="adj-tag">' + escapeHtml(l) + '</span>').join(' ')}</div>`;
     }
+    if (leMapLabels.length > 0) {
+      html += `<div style="margin-top:3px;color:#81d4fa;">Map Labels: ${leMapLabels.map(l => '<span class="adj-tag" style="background:#0f3460;">' + escapeHtml(l) + '</span>').join(' ')}</div>`;
+    }
     html += '<div class="adj-section"><h5>^ Up</h5><div class="adj-ids">' + (adj.up.length ? adj.up.join(', ') : '<em>any</em>') + '</div></div>';
     html += '<div class="adj-section"><h5>v Down</h5><div class="adj-ids">' + (adj.down.length ? adj.down.join(', ') : '<em>any</em>') + '</div></div>';
     html += '<div class="adj-section"><h5>&lt; Left</h5><div class="adj-ids">' + (adj.left.length ? adj.left.join(', ') : '<em>any</em>') + '</div></div>';
@@ -2042,6 +2093,7 @@
       map_height: leMapH,
       cell_width: leGridCellW,
       cell_height: leGridCellH,
+      map_labels: leMapLabels.length > 0 ? leMapLabels.slice() : undefined,
       tiles: lePlacedTiles.map(t => ({ tile_id: t.tile_id, x: t.x, y: t.y, w: t.w, h: t.h }))
     };
     const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
@@ -2049,7 +2101,7 @@
     a.href = URL.createObjectURL(blob);
     a.download = `map_${leTilesetName.replace(/[/\\]/g, '_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells)`);
+    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells${leMapLabels.length > 0 ? ', ' + leMapLabels.length + ' map labels' : ''})`);
   });
 
   // ============================================================

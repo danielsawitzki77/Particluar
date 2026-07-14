@@ -108,3 +108,41 @@ bool TileLabelQuery::HasLabel(
 
     return false;
 }
+
+std::vector<std::string> TileLabelQuery::GetMergedLabels(
+    const PlacedTile& placedTile,
+    const TilesetDef& tileset,
+    const JigsawMap& map)
+{
+    // Start with tile-def + per-placement merge
+    std::vector<std::string> merged = GetMergedLabels(placedTile, tileset);
+
+    // Append map-wide labels (avoiding duplicates)
+    for (const std::string& label : map.GetMapLabels()) {
+        if (std::find(merged.begin(), merged.end(), label) == merged.end()) {
+            merged.push_back(label);
+        }
+    }
+
+    return merged;
+}
+
+bool TileLabelQuery::HasLabel(
+    const PlacedTile& placedTile,
+    const TilesetDef& tileset,
+    const JigsawMap& map,
+    const std::string& label)
+{
+    // Check tile def + placement labels first
+    if (HasLabel(placedTile, tileset, label)) {
+        return true;
+    }
+
+    // Check map-wide labels
+    const auto& mapLabels = map.GetMapLabels();
+    if (std::find(mapLabels.begin(), mapLabels.end(), label) != mapLabels.end()) {
+        return true;
+    }
+
+    return false;
+}

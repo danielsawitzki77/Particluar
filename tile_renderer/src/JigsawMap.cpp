@@ -35,6 +35,16 @@ const MapBoundary& JigsawMap::GetBoundary() const {
     return m_boundary;
 }
 
+// --- Map-wide labels ---
+
+void JigsawMap::SetMapLabels(const std::vector<std::string>& labels) {
+    m_mapLabels = labels;
+}
+
+const std::vector<std::string>& JigsawMap::GetMapLabels() const {
+    return m_mapLabels;
+}
+
 // --- Tile management ---
 
 bool JigsawMap::AddTile(const PlacedTile& tile) {
