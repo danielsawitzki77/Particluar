@@ -93,7 +93,7 @@
     /* Level Editor */
     .le-layout { display: flex; flex-direction: column; height: 100%; min-height: 0; }
     .le-top { display: flex; flex: 1; min-height: 0; }
-    .le-sidebar { width: 340px; min-width: 340px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
+    .le-sidebar { width: 320px; min-width: 320px; background: #16213e; padding: 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; border-right: 1px solid #0f3460; flex-shrink: 0; }
     .le-sidebar h3 { color: #4fc3f7; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; }
     .le-sidebar label { font-size: 12px; color: #a0a0a0; }
     .le-sidebar input, .le-sidebar select { width: 100%; padding: 6px; background: #1a1a2e; border: 1px solid #0f3460; color: #e0e0e0; border-radius: 3px; font-size: 12px; margin-bottom: 4px; }
@@ -106,6 +106,9 @@
     .le-controls-bar { flex-shrink: 0; }
     .le-canvas-scroll { flex: 1; overflow: auto; min-height: 0; }
     .le-canvas-scroll canvas { display: block; cursor: crosshair; }
+    .le-right-panel { width: 520px; min-width: 520px; background: #16213e; border-left: 1px solid #0f3460; display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; padding: 12px; gap: 4px; }
+    .le-right-panel h3 { color: #4fc3f7; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; }
+    .le-right-panel .le-section { border-bottom: 1px solid #0f3460; padding-bottom: 8px; margin-bottom: 8px; }
     .le-slot { min-height: 64px; border: 2px dashed #0f3460; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; transition: border-color 0.2s; }
     .le-slot:hover { border-color: #4fc3f7; }
     .le-slot.picking { border-color: #ff9800; background: rgba(255,152,0,0.08); }
@@ -113,7 +116,7 @@
     .le-slot-placeholder { color: #666; font-size: 11px; font-style: italic; }
     .le-slot-content { display: flex; align-items: center; gap: 8px; padding: 6px; }
     .le-slot-content canvas { image-rendering: pixelated; }
-    .le-detail-panel { font-size: 11px; max-height: 300px; overflow-y: auto; }
+    .le-detail-panel { font-size: 11px; overflow-y: auto; }
     .le-detail-panel .adj-section { margin-top: 4px; }
     .le-detail-panel .adj-section h5 { color: #4fc3f7; font-size: 10px; margin: 2px 0; text-transform: uppercase; }
     .le-detail-panel .adj-ids { color: #a0a0a0; font-size: 10px; word-break: break-all; }
@@ -261,7 +264,7 @@
         <div class="le-sidebar">
           <h3>Level Editor</h3>
           <h4 style="color:#4fc3f7;font-size:12px;text-transform:uppercase;margin:8px 0 4px 0;">&#x1F4C1; Tileset Folders</h4>
-          <div id="le-folder-list" style="max-height:200px;overflow-y:auto;margin-bottom:6px;"></div>
+          <div id="le-folder-list" style="flex:1;overflow-y:auto;margin-bottom:6px;min-height:120px;"></div>
           <select id="le-json-select" style="width:100%;padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;margin-bottom:6px;" disabled>
             <option value="">Select folder first</option>
           </select>
@@ -277,29 +280,6 @@
             </select>
           </div>
           <button id="le-export-btn">Export JSON</button>
-
-          <hr style="border-color:#0f3460;margin:8px 0;">
-          <h3>Map Labels</h3>
-          <div id="le-map-labels-panel" style="margin-bottom:4px;">
-            <div id="le-map-labels-list" style="max-height:120px;overflow-y:auto;margin-bottom:4px;"></div>
-            <div style="display:flex;gap:4px;">
-              <input type="text" id="le-map-label-input" placeholder="New label..." style="flex:1;padding:4px 6px;font-size:11px;">
-              <button id="le-map-label-add-btn" style="padding:4px 8px;font-size:11px;">+</button>
-            </div>
-          </div>
-          <p style="color:#666;font-size:10px;margin:0;">Map labels are added to placed tiles on export (on top of tileset labels).</p>
-
-          <hr style="border-color:#0f3460;margin:8px 0;">
-          <h3>Selection Slot</h3>
-          <div id="le-selection-slot" class="le-slot" title="Click to pick a tile from the map">
-            <span class="le-slot-placeholder">Click to pick from map</span>
-          </div>
-
-          <hr style="border-color:#0f3460;margin:8px 0;">
-          <h3>Tile Detail</h3>
-          <div id="le-tile-detail" class="le-detail-panel">
-            <p style="color:#a0a0a0;font-size:11px;">Select a tile to see its data.</p>
-          </div>
         </div>
         <div class="le-canvas-area">
           <div class="controls-bar le-controls-bar">
@@ -346,6 +326,38 @@
           </div>
           <div class="le-canvas-scroll">
             <canvas id="level-canvas"></canvas>
+          </div>
+        </div>
+        <div class="le-right-panel">
+          <h3>Selection Slot</h3>
+          <div class="le-section">
+            <div id="le-selection-slot" class="le-slot" title="Click to pick a tile from the map">
+              <span class="le-slot-placeholder">Click to pick from map</span>
+            </div>
+          </div>
+
+          <h3>Tile Detail</h3>
+          <div class="le-section">
+            <div id="le-tile-detail" class="le-detail-panel">
+              <p style="color:#a0a0a0;font-size:11px;">Select a tile to see its data.</p>
+            </div>
+          </div>
+
+          <h3>Tile Labels</h3>
+          <div class="le-section">
+            <div id="le-tileset-labels" style="margin-bottom:6px;">
+              <p style="color:#a0a0a0;font-size:11px;font-style:italic;">Pick a placed tile to see labels.</p>
+            </div>
+          </div>
+
+          <h3>Map Instance Labels</h3>
+          <div class="le-section">
+            <p style="color:#666;font-size:10px;margin:0 0 4px 0;">Labels specific to this placed tile on this map (editable).</p>
+            <div id="le-map-labels-list" style="max-height:140px;overflow-y:auto;margin-bottom:4px;"></div>
+            <div style="display:flex;gap:4px;">
+              <input type="text" id="le-map-label-input" placeholder="New label..." style="flex:1;padding:4px 6px;font-size:11px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;">
+              <button id="le-map-label-add-btn" style="padding:4px 8px;font-size:11px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:3px;cursor:pointer;font-weight:600;">+</button>
+            </div>
           </div>
         </div>
       </div>

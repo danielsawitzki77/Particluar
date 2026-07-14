@@ -17521,7 +17521,9 @@
           "Ground_grass_466"
         ]
       },
-      "labels": []
+      "labels": [
+        "Grass"
+      ]
     },
     {
       "id": "Ground_grass_427",
@@ -18239,7 +18241,9 @@
           "Ground_grass_473"
         ]
       },
-      "labels": []
+      "labels": [
+        "Dirt"
+      ]
     },
     {
       "id": "Ground_grass_434",
@@ -30453,6 +30457,9 @@
       "labels": []
     }
   ],
-  "labels": [],
+  "labels": [
+    "Dirt",
+    "Grass"
+  ],
   "blockers": []
 }
