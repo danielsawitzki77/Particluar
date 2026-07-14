@@ -1598,7 +1598,7 @@
   function renderTilesetLabels() {
     if (!leTilesetLabelsEl) return;
     if (!leSlottedTile || !leTilesetData) {
-      leTilesetLabelsEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Pick a placed tile to see labels.</p>';
+      leTilesetLabelsEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Double-click a placed tile to see its tileset labels.</p>';
       return;
     }
     const td = leTilesetData.tiles.find(t => t.id === leSlottedTile.tile_id);
@@ -1620,12 +1620,15 @@
     if (!leMapLabelsListEl) return;
     const placedTile = getSlottedPlacedTile();
     if (!placedTile) {
-      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Pick a placed tile to add map labels.</p>';
+      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">Double-click a placed tile on the map to select it, then add labels here.</p>';
       return;
     }
+    // Hide the hint once a tile is selected
+    const hint = document.getElementById('le-map-labels-hint');
+    if (hint) hint.style.display = 'none';
     const labels = placedTile.mapLabels || [];
     if (labels.length === 0) {
-      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">No map labels on this tile yet.</p>';
+      leMapLabelsListEl.innerHTML = '<p style="color:#a0a0a0;font-size:11px;font-style:italic;">No map labels on this tile yet. Type a label below and click + to add.</p>';
       return;
     }
     let html = '';
@@ -2080,8 +2083,27 @@
     }
 
     if (leMode === 'free') {
-      // Free placement: snap to grid, place selected tile
-      if (!leSelectedPaletteId || !leTilesetData) { setStatus('Select a tile from the palette first'); return; }
+      // If no palette tile is selected, clicking on a placed tile selects it for label editing
+      if (!leSelectedPaletteId || !leTilesetData) {
+        const idx = findPlacedTileAt(wx, wy);
+        if (idx >= 0) {
+          leSlottedTile = { ...lePlacedTiles[idx] };
+          leSelectedPaletteId = leSlottedTile.tile_id;
+          leMode = 'constrained';
+          updateSlotUI();
+          renderLEPalette();
+          renderLEDetail();
+          renderTilesetLabels();
+          renderMapLabels();
+          renderLECanvas();
+          const hint = document.getElementById('le-map-labels-hint');
+          if (hint) hint.style.display = 'none';
+          setStatus(`Selected: ${leSlottedTile.tile_id} — edit map labels in the right panel`);
+        } else {
+          setStatus('Select a tile from the palette first');
+        }
+        return;
+      }
       const td = leTilesetData.tiles.find(t => t.id === leSelectedPaletteId);
       if (!td) return;
       // Snap to grid
@@ -2096,6 +2118,28 @@
       lePlacedTiles.push(placement);
       renderLECanvas();
       setStatus(`Placed ${td.id} at (${px},${py})`);
+    }
+  });
+
+  // Double-click to select a placed tile directly for label editing (shortcut for slot picking)
+  levelCanvas.addEventListener('dblclick', (e) => {
+    if (e.button !== 0) return;
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    const idx = findPlacedTileAt(wx, wy);
+    if (idx >= 0) {
+      leSlottedTile = { ...lePlacedTiles[idx] };
+      leSelectedPaletteId = leSlottedTile.tile_id;
+      leMode = 'constrained';
+      updateSlotUI();
+      renderLEPalette();
+      renderLEDetail();
+      renderTilesetLabels();
+      renderMapLabels();
+      renderLECanvas();
+      // Hide the hint now that user has discovered the workflow
+      const hint = document.getElementById('le-map-labels-hint');
+      if (hint) hint.style.display = 'none';
+      setStatus(`Selected: ${leSlottedTile.tile_id} — edit map labels in the right panel`);
     }
   });
 
