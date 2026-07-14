@@ -669,7 +669,7 @@
         const newId = `tile_${hc.x}_${hc.y}_${hc.w}x${hc.h}`;
         currentTilesetData.tiles.push({
           id: newId, source_rect: {x: hc.x, y: hc.y, w: hc.w, h: hc.h},
-          adjacency: {up:[],down:[],left:[],right:[]}, labels: []
+          adjacency: {up:[],down:[],left:[],right:[]}, labels: [], chance: 1
         });
         selectedTileIndex = currentTilesetData.tiles.length - 1;
         highlightedCell = null;
@@ -795,9 +795,11 @@
     const adj = tile.adjacency || {up:[],down:[],left:[],right:[]};
     const allLabels = currentTilesetData.labels || [];
 
+    const tileChance = (tile.chance !== undefined && tile.chance !== null) ? tile.chance : 1;
     let html = `<div class="tile-info">
       <strong>ID:</strong> <input type="text" id="tile-id-input" value="${escapeHtml(tile.id)}" style="width:130px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;">
       <div style="color:#a0a0a0;">Src: (${tile.source_rect.x},${tile.source_rect.y}) ${tile.source_rect.w}x${tile.source_rect.h}</div>
+      <div style="margin-top:6px;"><strong>Chance:</strong> <input type="number" id="tile-chance-input" value="${tileChance}" min="0" step="1" style="width:60px;padding:2px 4px;background:#0d0d1a;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;" title="Relative probability weight for random map generation (0 = excluded, higher = more likely)"></div>
       <br><button id="remove-duplicates-btn" style="margin-top:6px;padding:5px 10px;background:#ff6b6b;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:600;" title="Remove all other tiles with identical pixel content to this one">&#x1F5D1; Remove Duplicates</button>
     </div>`;
 
@@ -881,6 +883,11 @@
     document.getElementById('tile-id-input').addEventListener('change', (e) => {
       currentTilesetData.tiles[selectedTileIndex].id = e.target.value;
       renderCreatedTilesList();
+    });
+    // Bind chance change
+    document.getElementById('tile-chance-input').addEventListener('change', (e) => {
+      const val = parseInt(e.target.value);
+      currentTilesetData.tiles[selectedTileIndex].chance = isNaN(val) ? 1 : Math.max(0, val);
     });
     // Bind label add
     const labelSelect = document.getElementById('add-tile-label-select');
@@ -1110,7 +1117,7 @@
           const tile = {
             id: `${targetTs.name}_${i}`,
             source_rect: { x: (i % cols) * tw, y: Math.floor(i / cols) * th, w: tw, h: th },
-            adjacency: { up: [], down: [], left: [], right: [] }, labels: []
+            adjacency: { up: [], down: [], left: [], right: [] }, labels: [], chance: 1
           };
           // Attach animation data if this tile has an animation defined
           if (animMap[i]) {

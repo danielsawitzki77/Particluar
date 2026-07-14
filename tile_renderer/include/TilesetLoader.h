@@ -32,10 +32,11 @@ struct TileDef {
     SourceRect sourceRect;
     AdjacencyRules adjacency;
     float scale;               // per-tile scale from JSON, default 1.0
+    int chance;                // relative probability weight for random placement (default 1)
     std::vector<AnimationFrame> animation; // empty = static tile
     std::vector<std::string> labels; // classification labels from tileset definition
 
-    TileDef() : scale(1.0f) {}
+    TileDef() : scale(1.0f), chance(1) {}
 
     // Returns the source rect for the current frame given elapsed time (ms).
     // If no animation, returns the static sourceRect.
