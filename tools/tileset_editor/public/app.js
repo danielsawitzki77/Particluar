@@ -1471,14 +1471,18 @@
   let leZoom = 1.0;
   let leGridCellW = 16, leGridCellH = 16, leGridOffX = 0, leGridOffY = 0;
   let leMapW = 20, leMapH = 15; // map size in cells
-  let leShowBlockers = false;
+  let leBlockerDisplayMode = 'off'; // 'off', 'outlines', 'overlay'
   let leMode = 'free'; // 'free' | 'picking' | 'constrained'
   let leSlottedTile = null; // { tile_id, x, y, w, h, mapLabels? }
   let lePlacedTiles = []; // Array of { tile_id, x, y, w, h, mapLabels: [], blocked: false }
   let leHoveredPaletteId = null;
   let leHoverWarningTile = null; // tile that would be removed on placement
   let leSelectedFolder = null; // currently selected folder name
-  let leBlockerPaintMode = false; // toggle for per-tile blocker painting
+  let leBlockerPaintMode = false; // toggle for map-level blocker rect drawing
+  let leMapBlockerRects = []; // Array of { x, y, w, h } in world px coords
+  let leBlockerDragStart = null; // { x, y } in world px
+  let leBlockerDragCurrent = null; // { x, y } in world px
+  let leSelectedMapBlockerIndex = -1;
 
   // --- Folder list population (matching configurator style) ---
   function populateLEFolderList(tilesets) {
@@ -1698,7 +1702,7 @@
   const leBlockerMode = document.getElementById('le-blocker-mode');
   const leBlockerBtn = document.getElementById('le-blocker-btn');
   leBlockerMode.addEventListener('change', () => {
-    leShowBlockers = leBlockerMode.value !== 'off';
+    leBlockerDisplayMode = leBlockerMode.value;
     renderLECanvas();
     renderLEPalette();
   });
@@ -1706,9 +1710,16 @@
     leBlockerPaintMode = !leBlockerPaintMode;
     leBlockerBtn.style.background = leBlockerPaintMode ? '#ff6b6b' : '#1a1a2e';
     leBlockerBtn.style.color = leBlockerPaintMode ? '#fff' : '#ff6b6b';
-    leBlockerBtn.textContent = leBlockerPaintMode ? 'Blockers: ON' : 'Blockers:';
-    if (leBlockerPaintMode) setStatus('Blocker paint mode ON — click tiles to toggle blocking');
-    else setStatus('Blocker paint mode OFF');
+    leBlockerBtn.textContent = leBlockerPaintMode ? 'Draw Rect: ON' : 'Draw Rect';
+    if (leBlockerPaintMode) {
+      levelCanvas.style.cursor = 'crosshair';
+      setStatus('Blocker rect draw mode ON — drag to draw blocking rectangles, right-click to delete');
+    } else {
+      levelCanvas.style.cursor = 'default';
+      leSelectedMapBlockerIndex = -1;
+      setStatus('Blocker rect draw mode OFF');
+    }
+    renderLECanvas();
   });
 
   // --- Grid param step buttons (reuse configurator pattern) ---
@@ -1895,9 +1906,7 @@
         0, 0, tileDef.source_rect.w, tileDef.source_rect.h);
 
       // Draw blocker overlay on palette tile when blockers are visible
-      if (leShowBlockers && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
-        pCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
-        pCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+      if (leBlockerDisplayMode !== 'off' && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
         pCtx.lineWidth = 1;
         for (const b of leTilesetData.blockers) {
           if (b.x + b.w <= tileDef.source_rect.x || b.x >= tileDef.source_rect.x + tileDef.source_rect.w) continue;
@@ -1906,8 +1915,13 @@
           const clippedY = Math.max(b.y, tileDef.source_rect.y) - tileDef.source_rect.y;
           const clippedW = Math.min(b.x + b.w, tileDef.source_rect.x + tileDef.source_rect.w) - Math.max(b.x, tileDef.source_rect.x);
           const clippedH = Math.min(b.y + b.h, tileDef.source_rect.y + tileDef.source_rect.h) - Math.max(b.y, tileDef.source_rect.y);
-          pCtx.fillRect(clippedX, clippedY, clippedW, clippedH);
-          pCtx.strokeRect(clippedX + 0.5, clippedY + 0.5, clippedW - 1, clippedH - 1);
+          if (leBlockerDisplayMode === 'overlay') {
+            pCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+            pCtx.fillRect(clippedX, clippedY, clippedW, clippedH);
+          } else {
+            pCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            pCtx.strokeRect(clippedX + 0.5, clippedY + 0.5, clippedW - 1, clippedH - 1);
+          }
         }
       }
       div.appendChild(c);
@@ -2040,10 +2054,8 @@
       lCtx.strokeRect(leHoverWarningTile.x, leHoverWarningTile.y, leHoverWarningTile.w, leHoverWarningTile.h);
     }
 
-    // Blocker overlay
-    if (leShowBlockers && leTilesetData && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
-      lCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
-      lCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+    // Blocker overlay (tileset-defined blockers mapped onto placed tiles)
+    if (leBlockerDisplayMode !== 'off' && leTilesetData && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
       lCtx.lineWidth = 1 / leZoom;
       for (const pt of lePlacedTiles) {
         const td = leTilesetData.tiles.find(t => t.id === pt.tile_id);
@@ -2063,23 +2075,65 @@
           const mapY = pt.y + clippedY * scaleY;
           const mapW = clippedW * scaleX;
           const mapH = clippedH * scaleY;
-          lCtx.fillRect(mapX, mapY, mapW, mapH);
-          lCtx.strokeRect(mapX + 0.5, mapY + 0.5, mapW - 1, mapH - 1);
+          if (leBlockerDisplayMode === 'overlay') {
+            lCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+            lCtx.fillRect(mapX, mapY, mapW, mapH);
+          } else {
+            lCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            lCtx.strokeRect(mapX + 0.5, mapY + 0.5, mapW - 1, mapH - 1);
+          }
         }
       }
     }
 
-    // Per-tile blocking overlay (map-level blocked tiles)
-    if (leShowBlockers) {
-      lCtx.fillStyle = 'rgba(200, 0, 0, 0.35)';
-      lCtx.strokeStyle = 'rgba(200, 0, 0, 0.8)';
+    // Per-tile blocking overlay (map-level blocked tiles — legacy single-tile blocking)
+    if (leBlockerDisplayMode !== 'off') {
       lCtx.lineWidth = 2 / leZoom;
       for (const pt of lePlacedTiles) {
         if (pt.blocked) {
-          lCtx.fillRect(pt.x, pt.y, pt.w, pt.h);
-          lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
+          if (leBlockerDisplayMode === 'overlay') {
+            lCtx.fillStyle = 'rgba(200, 0, 0, 0.35)';
+            lCtx.fillRect(pt.x, pt.y, pt.w, pt.h);
+          } else {
+            lCtx.strokeStyle = 'rgba(200, 0, 0, 0.8)';
+            lCtx.strokeRect(pt.x + 0.5, pt.y + 0.5, pt.w - 1, pt.h - 1);
+          }
         }
       }
+    }
+
+    // Map-level blocker rectangles (drawn by user)
+    if (leBlockerDisplayMode !== 'off' && leMapBlockerRects.length > 0) {
+      lCtx.lineWidth = 2 / leZoom;
+      leMapBlockerRects.forEach((r, i) => {
+        if (leBlockerDisplayMode === 'overlay') {
+          lCtx.fillStyle = 'rgba(255, 60, 60, 0.3)';
+          lCtx.fillRect(r.x, r.y, r.w, r.h);
+          if (i === leSelectedMapBlockerIndex) {
+            lCtx.strokeStyle = '#ffeb3b'; lCtx.lineWidth = 3 / leZoom;
+            lCtx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+          }
+        } else {
+          if (i === leSelectedMapBlockerIndex) {
+            lCtx.strokeStyle = '#ffeb3b'; lCtx.lineWidth = 3 / leZoom;
+          } else {
+            lCtx.strokeStyle = '#ff3c3c'; lCtx.lineWidth = 2 / leZoom;
+          }
+          lCtx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+        }
+      });
+    }
+
+    // In-progress blocker drag rect
+    if (leBlockerDragStart && leBlockerDragCurrent) {
+      const rx = Math.min(leBlockerDragStart.x, leBlockerDragCurrent.x);
+      const ry = Math.min(leBlockerDragStart.y, leBlockerDragCurrent.y);
+      const rw = Math.abs(leBlockerDragCurrent.x - leBlockerDragStart.x);
+      const rh = Math.abs(leBlockerDragCurrent.y - leBlockerDragStart.y);
+      lCtx.strokeStyle = '#ff6b6b'; lCtx.lineWidth = 2 / leZoom;
+      lCtx.setLineDash([6 / leZoom, 3 / leZoom]);
+      lCtx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
+      lCtx.setLineDash([]);
     }
 
     // Map border
@@ -2112,16 +2166,8 @@
     if (e.button !== 0) return;
     const { x: wx, y: wy } = getCanvasWorldPos(e);
 
-    // Blocker paint mode: toggle per-tile blocking
+    // Blocker rect draw mode: handled by mousedown/mouseup, skip click
     if (leBlockerPaintMode) {
-      const idx = findPlacedTileAt(wx, wy);
-      if (idx >= 0) {
-        lePlacedTiles[idx].blocked = !lePlacedTiles[idx].blocked;
-        renderLECanvas();
-        setStatus(`Tile ${lePlacedTiles[idx].tile_id} ${lePlacedTiles[idx].blocked ? 'BLOCKED' : 'unblocked'}`);
-      } else {
-        setStatus('No tile at that position');
-      }
       return;
     }
 
@@ -2210,12 +2256,64 @@
   levelCanvas.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const { x: wx, y: wy } = getCanvasWorldPos(e);
+    // In blocker draw mode, right-click deletes a blocker rect
+    if (leBlockerPaintMode) {
+      for (let i = leMapBlockerRects.length - 1; i >= 0; i--) {
+        const r = leMapBlockerRects[i];
+        if (wx >= r.x && wx < r.x + r.w && wy >= r.y && wy < r.y + r.h) {
+          leMapBlockerRects.splice(i, 1);
+          leSelectedMapBlockerIndex = -1;
+          renderLECanvas();
+          setStatus('Blocker rect deleted');
+          return;
+        }
+      }
+      setStatus('No blocker rect at that position');
+      return;
+    }
     const idx = findPlacedTileAt(wx, wy);
     if (idx >= 0) {
       const removed = lePlacedTiles.splice(idx, 1)[0];
       renderLECanvas();
       setStatus(`Removed: ${removed.tile_id}`);
     }
+  });
+
+  // Blocker rect drawing: mousedown starts drag
+  levelCanvas.addEventListener('mousedown', (e) => {
+    if (!leBlockerPaintMode || e.button !== 0) return;
+    e.preventDefault();
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    leBlockerDragStart = { x: wx, y: wy };
+    leBlockerDragCurrent = { x: wx, y: wy };
+    leSelectedMapBlockerIndex = -1;
+  });
+
+  // Blocker rect drawing: mousemove updates drag preview
+  levelCanvas.addEventListener('mousemove', (e) => {
+    if (!leBlockerPaintMode || !leBlockerDragStart) return;
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    leBlockerDragCurrent = { x: wx, y: wy };
+    renderLECanvas();
+  });
+
+  // Blocker rect drawing: mouseup finalizes the rect
+  levelCanvas.addEventListener('mouseup', (e) => {
+    if (!leBlockerPaintMode || !leBlockerDragStart || e.button !== 0) return;
+    const { x: wx, y: wy } = getCanvasWorldPos(e);
+    const rx = Math.min(leBlockerDragStart.x, wx);
+    const ry = Math.min(leBlockerDragStart.y, wy);
+    const rw = Math.abs(wx - leBlockerDragStart.x);
+    const rh = Math.abs(wy - leBlockerDragStart.y);
+    leBlockerDragStart = null;
+    leBlockerDragCurrent = null;
+    // Only create rect if it has meaningful size (> 2px in each dimension)
+    if (rw > 2 && rh > 2) {
+      leMapBlockerRects.push({ x: Math.round(rx), y: Math.round(ry), w: Math.round(rw), h: Math.round(rh) });
+      leSelectedMapBlockerIndex = leMapBlockerRects.length - 1;
+      setStatus(`Blocker rect created (${Math.round(rw)}x${Math.round(rh)} px)`);
+    }
+    renderLECanvas();
   });
 
   // Mouse wheel zoom
@@ -2258,12 +2356,17 @@
         return entry;
       })
     };
+    // Include map-level blocker rectangles if any exist
+    if (leMapBlockerRects.length > 0) {
+      mapFile.blockers = leMapBlockerRects.map(r => ({ x: r.x, y: r.y, w: r.w, h: r.h }));
+    }
     const blob = new Blob([JSON.stringify(mapFile, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `map_${leTilesetName.replace(/[/\\]/g, '_')}.json`;
     a.click(); URL.revokeObjectURL(a.href);
-    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells${tilesWithLabels > 0 ? ', ' + tilesWithLabels + ' tiles with map labels' : ''})`);
+    const blockerInfo = leMapBlockerRects.length > 0 ? `, ${leMapBlockerRects.length} blocker rects` : '';
+    setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells${tilesWithLabels > 0 ? ', ' + tilesWithLabels + ' tiles with map labels' : ''}${blockerInfo})`);
   });
 
   // ============================================================
