@@ -29,6 +29,10 @@ public:
     void Render(SDL_Renderer* renderer, const Camera& camera, const Viewport& viewport,
                 float zoomLevel, Uint32 elapsedMs);
 
+    // Render the active layer with optional debug overlays.
+    void Render(SDL_Renderer* renderer, const Camera& camera, const Viewport& viewport,
+                float zoomLevel, Uint32 elapsedMs, bool debugShowBlocking);
+
     // Layer switching
     int GetLayerCount() const { return static_cast<int>(m_layers.size()); }
     int GetActiveLayer() const { return m_activeLayer; }

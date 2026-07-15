@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 
     // Load config
     GlobalConfig config;
-    config.Load("renderer_config.json");
+    config.Load("tile_renderer/TileRendererConfig.json");
     const GlobalConfigData& cfg = config.Get();
 
     // Create window
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
         // Render
         SDL_SetRenderDrawColor(renderer, 30, 30, 30, 255);
         SDL_RenderClear(renderer);
-        tileWorld.Render(renderer, camera, viewport, zoomLevel, static_cast<Uint32>(currentTicks));
+        tileWorld.Render(renderer, camera, viewport, zoomLevel, static_cast<Uint32>(currentTicks), cfg.debugShowBlocking);
         SDL_RenderPresent(renderer);
     }
 

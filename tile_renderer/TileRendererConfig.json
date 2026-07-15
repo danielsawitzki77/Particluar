@@ -6,5 +6,6 @@
   "viewport_width": 800,
   "viewport_height": 600,
   "scroll_speed": 200.0,
-  "wfc_max_backtracks": 4
+  "wfc_max_backtracks": 4,
+  "debug_show_blocking": false
 }

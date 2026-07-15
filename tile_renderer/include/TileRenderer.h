@@ -50,6 +50,17 @@ public:
         Uint32 elapsedMs = 0             // elapsed time for animation (0 = static)
     );
 
+    // Render semi-transparent red overlays on blocking tiles in a jigsaw layer.
+    // Uses the tileset's "blockers" set to identify which tiles are blocking.
+    void RenderBlockingOverlay(
+        SDL_Renderer* renderer,
+        const Tileset& tileset,
+        const JigsawMap& map,
+        const Viewport& viewport,
+        const Camera& camera,
+        const MapLayerConfig& config
+    );
+
     // Set the fallback tile color for unresolved tile IDs.
     void SetFallbackColor(Uint8 r, Uint8 g, Uint8 b);
 

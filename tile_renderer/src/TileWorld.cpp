@@ -55,6 +55,7 @@ static TilesetDef BuildTilesetDef(const Tileset& ts)
     def.sheetScale = ts.sheetScale;
     def.tiles = ts.tiles;
     def.idIndex = ts.idIndex;
+    def.blockers = ts.blockers;
     return def;
 }
 
@@ -109,6 +110,12 @@ void TileWorld::Update(const Camera& camera, const Viewport& viewport,
 void TileWorld::Render(SDL_Renderer* renderer, const Camera& camera, const Viewport& viewport,
                        float zoomLevel, Uint32 elapsedMs)
 {
+    Render(renderer, camera, viewport, zoomLevel, elapsedMs, false);
+}
+
+void TileWorld::Render(SDL_Renderer* renderer, const Camera& camera, const Viewport& viewport,
+                       float zoomLevel, Uint32 elapsedMs, bool debugShowBlocking)
+{
     if (m_layers.empty() || m_activeLayer < 0 || m_activeLayer >= static_cast<int>(m_layers.size()))
         return;
 
@@ -126,6 +133,11 @@ void TileWorld::Render(SDL_Renderer* renderer, const Camera& camera, const Viewp
 
     m_tileRenderer.RenderJigsawLayer(
         renderer, layer.tileset, layer.generator.GetMap(), viewport, camera, cfg, elapsedMs);
+
+    if (debugShowBlocking) {
+        m_tileRenderer.RenderBlockingOverlay(
+            renderer, layer.tileset, layer.generator.GetMap(), viewport, camera, cfg);
+    }
 }
 
 void TileWorld::SetActiveLayer(int idx)

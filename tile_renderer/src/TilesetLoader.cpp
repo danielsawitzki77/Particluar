@@ -18,6 +18,26 @@ static bool ExtractStringArray(const picojson::array& arr, std::vector<std::stri
     return true;
 }
 
+// Helper: extract the "blockers" array from the tileset root JSON object.
+static std::set<std::string> ExtractBlockers(const picojson::value& rawJson)
+{
+    std::set<std::string> result;
+    if (!rawJson.is<picojson::object>()) return result;
+    const picojson::object& rootObj = rawJson.get<picojson::object>();
+    const picojson::array* blockersArr = nullptr;
+    if (JsonUtil::GetArray(rootObj, "blockers", blockersArr)) {
+        for (size_t i = 0; i < blockersArr->size(); ++i) {
+            if ((*blockersArr)[i].is<std::string>()) {
+                const std::string& id = (*blockersArr)[i].get<std::string>();
+                if (!id.empty()) {
+                    result.insert(id);
+                }
+            }
+        }
+    }
+    return result;
+}
+
 // Helper: find the first .png and .json file pair in a folder
 static bool FindTilesetFiles(const std::string& folderPath,
                              std::string& outPngPath,
@@ -342,6 +362,9 @@ bool TilesetLoader::LoadTileset(SDL_Renderer* renderer, const std::string& folde
     }
     ParseTsxAnimations(folderPath, out.tiles, texW, columns);
 
+    // Extract "blockers" array from root JSON
+    out.blockers = ExtractBlockers(rawJson);
+
     return true;
 }
 
@@ -403,6 +426,9 @@ bool TilesetLoader::LoadTilesetFromJson(SDL_Renderer* renderer, const std::strin
         out.idIndex[out.tiles[i].id] = i;
     }
 
+    // Extract "blockers" array from root JSON
+    out.blockers = ExtractBlockers(rawJson);
+
     return true;
 }
 
@@ -448,6 +474,9 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     for (size_t i = 0; i < out.tiles.size(); ++i) {
         out.idIndex[out.tiles[i].id] = i;
     }
+
+    // Extract "blockers" array from root JSON
+    out.blockers = ExtractBlockers(rawJson);
 
     return true;
 }
