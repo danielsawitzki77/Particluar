@@ -11,5 +11,11 @@
         "Water_coasts"
       ]
     }
+  ],
+  "submaps": [
+    {
+      "map_file": "test_map.json",
+      "chance": 5
+    }
   ]
 }

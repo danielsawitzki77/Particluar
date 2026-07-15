@@ -57,6 +57,24 @@ bool MapGenConfig::Load(const std::string& filepath)
         }
     }
 
+    // Parse submaps array
+    const picojson::array* submapsArr = nullptr;
+    if (JsonUtil::GetArray(obj, "submaps", submapsArr)) {
+        m_data.submaps.clear();
+        for (const picojson::value& smVal : *submapsArr) {
+            if (!smVal.is<picojson::object>()) continue;
+            const picojson::object& smObj = smVal.get<picojson::object>();
+
+            SubmapRef ref;
+            JsonUtil::GetString(smObj, "map_file", ref.mapFile);
+            if (!JsonUtil::GetInt(smObj, "chance", ref.chance)) {
+                ref.chance = 1;
+            }
+            if (ref.chance < 0) ref.chance = 0;
+            m_data.submaps.push_back(ref);
+        }
+    }
+
     return true;
 }
 
@@ -120,6 +138,24 @@ bool MapGenConfig::ParseFromString(const std::string& jsonStr)
         }
     }
 
+    // Parse submaps array
+    const picojson::array* submapsArr = nullptr;
+    if (JsonUtil::GetArray(obj, "submaps", submapsArr)) {
+        m_data.submaps.clear();
+        for (const picojson::value& smVal : *submapsArr) {
+            if (!smVal.is<picojson::object>()) continue;
+            const picojson::object& smObj = smVal.get<picojson::object>();
+
+            SubmapRef ref;
+            JsonUtil::GetString(smObj, "map_file", ref.mapFile);
+            if (!JsonUtil::GetInt(smObj, "chance", ref.chance)) {
+                ref.chance = 1;
+            }
+            if (ref.chance < 0) ref.chance = 0;
+            m_data.submaps.push_back(ref);
+        }
+    }
+
     return true;
 }
 
@@ -145,6 +181,17 @@ std::string MapGenConfig::Serialize() const
         layersArr.push_back(picojson::value(layerObj));
     }
     obj["layers"] = picojson::value(layersArr);
+
+    picojson::array submapsArr;
+    for (const SubmapRef& ref : m_data.submaps) {
+        picojson::object smObj;
+        smObj["map_file"] = picojson::value(ref.mapFile);
+        smObj["chance"] = picojson::value(static_cast<double>(ref.chance));
+        submapsArr.push_back(picojson::value(smObj));
+    }
+    if (!submapsArr.empty()) {
+        obj["submaps"] = picojson::value(submapsArr);
+    }
 
     picojson::value root(obj);
     return JsonUtil::Serialize(root);
