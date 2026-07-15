@@ -2434,6 +2434,7 @@
     document.getElementById('mgc-height').value = mgcCurrentData.height || 32;
 
     mgcRenderLayers();
+    mgcRenderSubmaps();
   }
 
   function mgcRenderLayers() {
@@ -2526,6 +2527,47 @@
     });
   }
 
+  function mgcRenderSubmaps() {
+    const container = document.getElementById('mgc-submaps-list');
+    if (!container) return;
+    container.innerHTML = '';
+    const submaps = mgcCurrentData.submaps || [];
+
+    submaps.forEach((sm, idx) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0d0d1a;border:1px solid #0f3460;border-radius:4px;margin-bottom:4px;';
+
+      const fileInput = document.createElement('input');
+      fileInput.type = 'text';
+      fileInput.value = sm.map_file || '';
+      fileInput.placeholder = 'map_file.json';
+      fileInput.style.cssText = 'flex:2;padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;';
+      fileInput.addEventListener('change', () => { sm.map_file = fileInput.value.trim(); });
+
+      const chanceLabel = document.createElement('label');
+      chanceLabel.textContent = 'Chance:';
+      chanceLabel.style.cssText = 'font-size:11px;color:#a0a0a0;';
+
+      const chanceInput = document.createElement('input');
+      chanceInput.type = 'number';
+      chanceInput.min = '0';
+      chanceInput.value = sm.chance || 1;
+      chanceInput.style.cssText = 'width:50px;padding:4px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;text-align:center;';
+      chanceInput.addEventListener('change', () => { sm.chance = parseInt(chanceInput.value) || 1; });
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '✕';
+      removeBtn.style.cssText = 'padding:3px 6px;background:#ff6b6b;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;font-weight:bold;';
+      removeBtn.addEventListener('click', () => { submaps.splice(idx, 1); mgcRenderSubmaps(); });
+
+      div.appendChild(fileInput);
+      div.appendChild(chanceLabel);
+      div.appendChild(chanceInput);
+      div.appendChild(removeBtn);
+      container.appendChild(div);
+    });
+  }
+
   // Save config
   document.getElementById('mgc-save-btn').addEventListener('click', async () => {
     if (!mgcCurrentFile || !mgcCurrentData) return;
@@ -2601,6 +2643,14 @@
     if (!mgcCurrentData.layers) mgcCurrentData.layers = [];
     mgcCurrentData.layers.push({ folder: '', allowed_tilesets: [] });
     mgcRenderLayers();
+  });
+
+  // Add submap
+  document.getElementById('mgc-add-submap-btn').addEventListener('click', () => {
+    if (!mgcCurrentData) return;
+    if (!mgcCurrentData.submaps) mgcCurrentData.submaps = [];
+    mgcCurrentData.submaps.push({ map_file: '', chance: 1 });
+    mgcRenderSubmaps();
   });
 
   // ============================================================

@@ -11,6 +11,14 @@ struct MapGenLayerConfig {
     MapGenLayerConfig() {}
 };
 
+// Reference to a submap that can be inserted during generation.
+struct SubmapRef {
+    std::string mapFile;   // filename in assets/maps/ (e.g. "village_3x3.json")
+    int chance;            // absolute chance weight (higher = more likely to be picked)
+
+    SubmapRef() : chance(1) {}
+};
+
 // Top-level random map generation configuration.
 // Loaded from JSON files in assets/mapgen_configs/.
 struct MapGenConfigData {
@@ -19,6 +27,7 @@ struct MapGenConfigData {
     int width;                                 // map width in cells (for offline gen)
     int height;                                // map height in cells (for offline gen)
     std::vector<MapGenLayerConfig> layers;     // per-layer tileset configuration
+    std::vector<SubmapRef> submaps;            // submap references with chance weights
 
     MapGenConfigData() : seed(0), width(32), height(32) {}
 };
