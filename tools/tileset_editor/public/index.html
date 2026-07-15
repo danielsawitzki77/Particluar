@@ -143,6 +143,7 @@
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="configurator">Tileset Configurator</button>
     <button class="tab-btn" data-tab="level-editor">Level Editor</button>
+    <button class="tab-btn" data-tab="mapgen-config">Map Gen Configs</button>
     <button class="close-btn" id="close-server-btn">Close Editor</button>
   </div>
 
@@ -369,6 +370,57 @@
           <select id="le-label-filter"><option value="">All tiles</option></select>
         </div>
         <div id="le-palette" class="palette-wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Gen Configs -->
+  <div class="tab-content" id="tab-mapgen-config">
+    <div style="display:flex;height:100%;min-height:0;overflow:hidden;">
+      <!-- Config List Sidebar -->
+      <div class="sidebar" style="width:240px;min-width:240px;">
+        <h3>&#x1F4C4; Configs</h3>
+        <div id="mgc-config-list" style="flex:1;overflow-y:auto;"></div>
+        <button id="mgc-new-btn" style="width:100%;margin-top:8px;padding:8px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">+ New Config</button>
+      </div>
+
+      <!-- Config Editor -->
+      <div style="flex:1;padding:20px;overflow-y:auto;">
+        <div id="mgc-editor" style="display:none;max-width:700px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <h2 id="mgc-title" style="color:#4fc3f7;font-size:18px;margin:0;"></h2>
+            <button id="mgc-save-btn" style="padding:6px 16px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Save</button>
+            <button id="mgc-delete-btn" style="padding:6px 16px;background:#ff6b6b;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:600;font-size:12px;">Delete</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div>
+              <label style="font-size:12px;color:#a0a0a0;">Name</label>
+              <input type="text" id="mgc-name" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:13px;">
+            </div>
+            <div>
+              <label style="font-size:12px;color:#a0a0a0;">Seed (0 = random)</label>
+              <input type="number" id="mgc-seed" value="0" min="0" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:13px;">
+            </div>
+            <div>
+              <label style="font-size:12px;color:#a0a0a0;">Width (cells)</label>
+              <input type="number" id="mgc-width" value="32" min="1" max="4096" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:13px;">
+            </div>
+            <div>
+              <label style="font-size:12px;color:#a0a0a0;">Height (cells)</label>
+              <input type="number" id="mgc-height" value="32" min="1" max="4096" style="width:100%;padding:6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:13px;">
+            </div>
+          </div>
+
+          <h3 style="color:#4fc3f7;font-size:14px;text-transform:uppercase;margin-bottom:8px;">Layers</h3>
+          <div id="mgc-layers-list"></div>
+          <button id="mgc-add-layer-btn" style="margin-top:8px;padding:6px 14px;background:#0f3460;color:#4fc3f7;border:1px solid #4fc3f7;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;">+ Add Layer</button>
+        </div>
+
+        <div id="mgc-placeholder" style="color:#666;font-size:14px;padding:40px;text-align:center;">
+          <p>Select a config from the left or create a new one.</p>
+          <p style="margin-top:8px;font-size:12px;">Map generation configs define seed, dimensions, and which tileset folders/sheets to use per layer during random map generation.</p>
+        </div>
       </div>
     </div>
   </div>

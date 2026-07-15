@@ -1,0 +1,12 @@
+{
+  "name": "Grassland Large",
+  "seed": 42,
+  "width": 64,
+  "height": 64,
+  "layers": [
+    {
+      "folder": "grassland",
+      "allowed_tilesets": []
+    }
+  ]
+}

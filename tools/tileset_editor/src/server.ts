@@ -412,6 +412,88 @@ app.get('/api/tilesets/:name/parse-tmx/:filename', (req, res) => {
   }
 });
 
+// --- API: Map Generation Configs ---
+const MAPGEN_CONFIGS_DIR = path.join(PROJECT_ROOT, 'assets', 'mapgen_configs');
+
+app.get('/api/mapgen-configs', (req, res) => {
+  try {
+    if (!fs.existsSync(MAPGEN_CONFIGS_DIR)) {
+      return res.json([]);
+    }
+    const files = fs.readdirSync(MAPGEN_CONFIGS_DIR);
+    const jsons = files.filter(f => f.toLowerCase().endsWith('.json'));
+    res.json(jsons);
+  } catch (err) {
+    console.error('Error listing mapgen configs:', err);
+    res.status(500).json({ error: 'Failed to list mapgen configs' });
+  }
+});
+
+app.get('/api/mapgen-configs/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(MAPGEN_CONFIGS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: `Config '${filename}' not found` });
+  }
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    res.json(JSON.parse(content));
+  } catch (err) {
+    console.error(`Error reading mapgen config '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to parse mapgen config' });
+  }
+});
+
+app.put('/api/mapgen-configs/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (!fs.existsSync(MAPGEN_CONFIGS_DIR)) {
+    fs.mkdirSync(MAPGEN_CONFIGS_DIR, { recursive: true });
+  }
+  const filePath = path.join(MAPGEN_CONFIGS_DIR, filename);
+  try {
+    const jsonStr = JSON.stringify(req.body, null, 2) + '\n';
+    fs.writeFileSync(filePath, jsonStr, 'utf-8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`Error saving mapgen config '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to save mapgen config' });
+  }
+});
+
+app.post('/api/mapgen-configs/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (!fs.existsSync(MAPGEN_CONFIGS_DIR)) {
+    fs.mkdirSync(MAPGEN_CONFIGS_DIR, { recursive: true });
+  }
+  const filePath = path.join(MAPGEN_CONFIGS_DIR, filename);
+  if (fs.existsSync(filePath)) {
+    return res.status(409).json({ error: `Config '${filename}' already exists` });
+  }
+  try {
+    const jsonStr = JSON.stringify(req.body, null, 2) + '\n';
+    fs.writeFileSync(filePath, jsonStr, 'utf-8');
+    res.status(201).json({ success: true });
+  } catch (err) {
+    console.error(`Error creating mapgen config '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to create mapgen config' });
+  }
+});
+
+app.delete('/api/mapgen-configs/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(MAPGEN_CONFIGS_DIR, filename);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: `Config '${filename}' not found` });
+  }
+  try {
+    fs.unlinkSync(filePath);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(`Error deleting mapgen config '${filename}':`, err);
+    res.status(500).json({ error: 'Failed to delete mapgen config' });
+  }
+});
+
 // --- API: List map files ---
 const MAPS_DIR = path.join(PROJECT_ROOT, 'assets', 'maps');
 

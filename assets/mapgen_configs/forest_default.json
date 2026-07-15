@@ -1,0 +1,15 @@
+{
+  "name": "Forest Default",
+  "seed": 0,
+  "width": 32,
+  "height": 32,
+  "layers": [
+    {
+      "folder": "forest",
+      "allowed_tilesets": [
+        "Ground_grass",
+        "Water_coasts"
+      ]
+    }
+  ]
+}

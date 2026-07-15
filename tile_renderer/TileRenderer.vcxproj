@@ -119,6 +119,7 @@
     <ClCompile Include="src\TileWorld.cpp" />
     <ClCompile Include="src\TilePlacementSolver.cpp" />
     <ClCompile Include="src\TileLabelQuery.cpp" />
+    <ClCompile Include="src\MapGenConfig.cpp" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
