@@ -1700,6 +1700,7 @@
   leBlockerMode.addEventListener('change', () => {
     leShowBlockers = leBlockerMode.value !== 'off';
     renderLECanvas();
+    renderLEPalette();
   });
   leBlockerBtn.addEventListener('click', () => {
     leBlockerPaintMode = !leBlockerPaintMode;
@@ -1888,9 +1889,27 @@
       const c = document.createElement('canvas');
       c.width = tileDef.source_rect.w;
       c.height = tileDef.source_rect.h;
-      c.getContext('2d').drawImage(leTilesetImage,
+      const pCtx = c.getContext('2d');
+      pCtx.drawImage(leTilesetImage,
         tileDef.source_rect.x, tileDef.source_rect.y, tileDef.source_rect.w, tileDef.source_rect.h,
         0, 0, tileDef.source_rect.w, tileDef.source_rect.h);
+
+      // Draw blocker overlay on palette tile when blockers are visible
+      if (leShowBlockers && leTilesetData.blockers && leTilesetData.blockers.length > 0) {
+        pCtx.fillStyle = 'rgba(255, 0, 0, 0.25)';
+        pCtx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+        pCtx.lineWidth = 1;
+        for (const b of leTilesetData.blockers) {
+          if (b.x + b.w <= tileDef.source_rect.x || b.x >= tileDef.source_rect.x + tileDef.source_rect.w) continue;
+          if (b.y + b.h <= tileDef.source_rect.y || b.y >= tileDef.source_rect.y + tileDef.source_rect.h) continue;
+          const clippedX = Math.max(b.x, tileDef.source_rect.x) - tileDef.source_rect.x;
+          const clippedY = Math.max(b.y, tileDef.source_rect.y) - tileDef.source_rect.y;
+          const clippedW = Math.min(b.x + b.w, tileDef.source_rect.x + tileDef.source_rect.w) - Math.max(b.x, tileDef.source_rect.x);
+          const clippedH = Math.min(b.y + b.h, tileDef.source_rect.y + tileDef.source_rect.h) - Math.max(b.y, tileDef.source_rect.y);
+          pCtx.fillRect(clippedX, clippedY, clippedW, clippedH);
+          pCtx.strokeRect(clippedX + 0.5, clippedY + 0.5, clippedW - 1, clippedH - 1);
+        }
+      }
       div.appendChild(c);
 
       // Direction arrow overlay
