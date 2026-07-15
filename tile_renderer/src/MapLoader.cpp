@@ -328,6 +328,11 @@ std::string MapLoader::SerializeJigsawMap(const JigsawMap& map) const
             tileObj["labels"] = picojson::value(lblArr);
         }
 
+        // Serialize per-tile blocking flag if set
+        if (tile.blocked) {
+            tileObj["blocked"] = picojson::value(true);
+        }
+
         tilesArr.push_back(picojson::value(tileObj));
     }
 
@@ -479,6 +484,12 @@ bool MapLoader::LoadJigsawMap(const std::string& filepath, JigsawMap& out)
                     }
                 }
             }
+        }
+
+        // Parse optional per-tile blocking flag
+        bool blockedVal = false;
+        if (JsonUtil::GetBool(tileObj, "blocked", blockedVal)) {
+            tile.blocked = blockedVal;
         }
 
         // AddTile handles overlap rejection — for deserialization we add directly
