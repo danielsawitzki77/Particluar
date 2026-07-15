@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
 
     // Load config
     GlobalConfig config;
-    config.Load("renderer_config.json");
+    config.Load("tile_renderer/TileRendererConfig.json");
     const GlobalConfigData& cfg = config.Get();
 
     // Create window

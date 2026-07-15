@@ -67,7 +67,7 @@ sequenceDiagram
     participant VP as Viewport
     participant TR as TileRenderer
 
-    App->>Cfg: LoadConfig("renderer_config.json")
+    App->>Cfg: LoadConfig("tile_renderer/TileRendererConfig.json")
     Cfg-->>App: config (or defaults on failure)
 
     App->>TL: LoadTileset("assets/tilesets/forest")
@@ -174,7 +174,7 @@ private:
 ```
 
 **Responsibilities**:
-- Parse renderer_config.json via picojson
+- Parse tile_renderer/TileRendererConfig.json via picojson
 - Validate all fields against specified ranges
 - Fall back to hard-coded defaults on any error (missing file, parse error, invalid values)
 - Log warnings via SDL_Log indicating fallback reason
