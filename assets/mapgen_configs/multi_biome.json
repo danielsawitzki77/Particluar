@@ -1,0 +1,21 @@
+{
+  "name": "Multi-Biome",
+  "seed": 0,
+  "width": 48,
+  "height": 48,
+  "layers": [
+    {
+      "folder": "forest",
+      "allowed_tilesets": [
+        "Ground_grass"
+      ]
+    },
+    {
+      "folder": "grassland",
+      "allowed_tilesets": [
+        "ground_grasss",
+        "Water_coasts"
+      ]
+    }
+  ]
+}

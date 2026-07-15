@@ -97,6 +97,9 @@ public:
     // Data-only load (no texture). For CLI tools and WFC.
     bool LoadTilesetDef(const std::string& folderPath, TilesetDef& out);
 
+    // Data-only load from a specific JSON path. For CLI tools with config files.
+    bool LoadTilesetDefFromJson(const std::string& jsonPath, TilesetDef& out);
+
 private:
     bool ParseSidecarJson(const std::string& jsonPath, int texW, int texH,
                           std::vector<TileDef>& outTiles, picojson::value& rawJson);

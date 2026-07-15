@@ -481,6 +481,51 @@ bool TilesetLoader::LoadTilesetDef(const std::string& folderPath, TilesetDef& ou
     return true;
 }
 
+bool TilesetLoader::LoadTilesetDefFromJson(const std::string& jsonPath, TilesetDef& out)
+{
+    // Derive name from JSON path (base name without extension)
+    std::string basePath = jsonPath;
+    if (basePath.size() > 5 && basePath.substr(basePath.size() - 5) == ".json") {
+        basePath = basePath.substr(0, basePath.size() - 5);
+    }
+    size_t sep = basePath.find_last_of("/\\");
+    std::string name = (sep != std::string::npos) ? basePath.substr(sep + 1) : basePath;
+
+    // Data-only load: skip texture, pass texW=0, texH=0
+    std::vector<TileDef> tiles;
+    picojson::value rawJson;
+    if (!ParseSidecarJson(jsonPath, 0, 0, tiles, rawJson)) {
+        return false;
+    }
+
+    out.name = name;
+    out.textureWidth = 0;
+    out.textureHeight = 0;
+    out.tiles = std::move(tiles);
+    out.rawJson = rawJson;
+
+    // Extract per-sheet scale
+    out.sheetScale = 1.0f;
+    if (rawJson.is<picojson::object>()) {
+        const picojson::object& rootObj = rawJson.get<picojson::object>();
+        double sheetScaleVal = 0.0;
+        if (JsonUtil::GetDouble(rootObj, "scale", sheetScaleVal) ||
+            JsonUtil::GetDouble(rootObj, "sheet_scale", sheetScaleVal)) {
+            out.sheetScale = static_cast<float>(sheetScaleVal);
+            if (out.sheetScale <= 0.0f) out.sheetScale = 1.0f;
+        }
+    }
+
+    out.idIndex.clear();
+    for (size_t i = 0; i < out.tiles.size(); ++i) {
+        out.idIndex[out.tiles[i].id] = i;
+    }
+
+    out.blockers = ExtractBlockers(rawJson);
+
+    return true;
+}
+
 // ============================================================================
 // TSX Animation Parsing
 // ============================================================================

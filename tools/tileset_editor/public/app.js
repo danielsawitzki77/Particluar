@@ -17,8 +17,11 @@
     if (btn) btn.classList.add('active');
     const tabEl = document.getElementById('tab-' + tabName);
     if (tabEl) tabEl.classList.add('active');
-    const url = tabName === 'configurator' ? '/tileset-configurator' : '/level-editor';
+    let url = '/tileset-configurator';
+    if (tabName === 'level-editor') url = '/level-editor';
+    else if (tabName === 'mapgen-config') url = '/mapgen-configs';
     history.replaceState(null, '', url);
+    if (tabName === 'mapgen-config') mgcLoadList();
   }
 
   tabBtns.forEach(btn => {
@@ -2367,6 +2370,237 @@
     a.click(); URL.revokeObjectURL(a.href);
     const blockerInfo = leMapBlockerRects.length > 0 ? `, ${leMapBlockerRects.length} blocker rects` : '';
     setStatus(`Exported map (${lePlacedTiles.length} tiles, ${leMapW}x${leMapH} cells${tilesWithLabels > 0 ? ', ' + tilesWithLabels + ' tiles with map labels' : ''}${blockerInfo})`);
+  });
+
+  // ============================================================
+  // MAP GEN CONFIG EDITOR
+  // ============================================================
+
+  let mgcCurrentFile = null;
+  let mgcCurrentData = null;
+  let mgcTilesetFolders = []; // cached folder list
+
+  async function mgcLoadList() {
+    try {
+      const res = await fetch('/api/mapgen-configs');
+      const files = await res.json();
+      const listEl = document.getElementById('mgc-config-list');
+      listEl.innerHTML = '';
+      files.forEach(f => {
+        const div = document.createElement('div');
+        div.className = 'tileset-item' + (f === mgcCurrentFile ? ' selected' : '');
+        div.textContent = f.replace('.json', '');
+        div.addEventListener('click', () => mgcLoadConfig(f));
+        listEl.appendChild(div);
+      });
+
+      // Also cache tileset folders for layer dropdowns
+      const foldersRes = await fetch('/api/tilesets');
+      mgcTilesetFolders = await foldersRes.json();
+    } catch (err) {
+      console.error('Error loading mapgen config list:', err);
+    }
+  }
+
+  async function mgcLoadConfig(filename) {
+    try {
+      const res = await fetch(`/api/mapgen-configs/${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error('Not found');
+      mgcCurrentData = await res.json();
+      mgcCurrentFile = filename;
+      mgcRenderEditor();
+      mgcLoadList(); // refresh selection highlight
+    } catch (err) {
+      console.error('Error loading mapgen config:', err);
+      setStatus('Failed to load config: ' + filename);
+    }
+  }
+
+  function mgcRenderEditor() {
+    const editor = document.getElementById('mgc-editor');
+    const placeholder = document.getElementById('mgc-placeholder');
+    if (!mgcCurrentData) {
+      editor.style.display = 'none';
+      placeholder.style.display = 'block';
+      return;
+    }
+    editor.style.display = 'block';
+    placeholder.style.display = 'none';
+
+    document.getElementById('mgc-title').textContent = mgcCurrentFile ? mgcCurrentFile.replace('.json', '') : 'New Config';
+    document.getElementById('mgc-name').value = mgcCurrentData.name || '';
+    document.getElementById('mgc-seed').value = mgcCurrentData.seed || 0;
+    document.getElementById('mgc-width').value = mgcCurrentData.width || 32;
+    document.getElementById('mgc-height').value = mgcCurrentData.height || 32;
+
+    mgcRenderLayers();
+  }
+
+  function mgcRenderLayers() {
+    const container = document.getElementById('mgc-layers-list');
+    container.innerHTML = '';
+    const layers = mgcCurrentData.layers || [];
+
+    layers.forEach((layer, idx) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'background:#0d0d1a;border:1px solid #0f3460;border-radius:6px;padding:12px;margin-bottom:8px;';
+
+      // Layer header
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+      header.innerHTML = `<span style="color:#4fc3f7;font-weight:600;font-size:12px;">Layer ${idx}</span>`;
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = '✕ Remove';
+      removeBtn.style.cssText = 'padding:3px 8px;background:#ff6b6b;color:white;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      removeBtn.addEventListener('click', () => { layers.splice(idx, 1); mgcRenderLayers(); });
+      header.appendChild(removeBtn);
+      div.appendChild(header);
+
+      // Folder select
+      const folderLabel = document.createElement('label');
+      folderLabel.style.cssText = 'font-size:11px;color:#a0a0a0;display:block;margin-bottom:2px;';
+      folderLabel.textContent = 'Tileset Folder';
+      div.appendChild(folderLabel);
+
+      const folderSelect = document.createElement('select');
+      folderSelect.style.cssText = 'width:100%;padding:5px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:12px;margin-bottom:8px;';
+      folderSelect.innerHTML = '<option value="">(select folder)</option>';
+      mgcTilesetFolders.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        if (f === layer.folder) opt.selected = true;
+        folderSelect.appendChild(opt);
+      });
+      folderSelect.addEventListener('change', () => {
+        layer.folder = folderSelect.value;
+        layer.allowed_tilesets = [];
+        mgcRenderLayers();
+      });
+      div.appendChild(folderSelect);
+
+      // Allowed tilesets
+      const allowedLabel = document.createElement('label');
+      allowedLabel.style.cssText = 'font-size:11px;color:#a0a0a0;display:block;margin-bottom:2px;';
+      allowedLabel.textContent = 'Allowed Tilesets (empty = all in folder)';
+      div.appendChild(allowedLabel);
+
+      const allowedDiv = document.createElement('div');
+      allowedDiv.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;';
+      (layer.allowed_tilesets || []).forEach((ts, tsi) => {
+        const tag = document.createElement('span');
+        tag.className = 'adj-tag';
+        tag.innerHTML = `${escapeHtml(ts)} <span class="remove-btn" style="cursor:pointer;color:#ff6b6b;font-weight:bold;">×</span>`;
+        tag.querySelector('.remove-btn').addEventListener('click', () => {
+          layer.allowed_tilesets.splice(tsi, 1);
+          mgcRenderLayers();
+        });
+        allowedDiv.appendChild(tag);
+      });
+      div.appendChild(allowedDiv);
+
+      // Add allowed tileset input
+      const addRow = document.createElement('div');
+      addRow.style.cssText = 'display:flex;gap:4px;';
+      const addInput = document.createElement('input');
+      addInput.type = 'text';
+      addInput.placeholder = 'Tileset JSON name (without .json)';
+      addInput.style.cssText = 'flex:1;padding:4px 6px;background:#1a1a2e;border:1px solid #0f3460;color:#e0e0e0;border-radius:3px;font-size:11px;';
+      const addBtn = document.createElement('button');
+      addBtn.textContent = '+';
+      addBtn.style.cssText = 'padding:4px 8px;background:#4fc3f7;color:#1a1a2e;border:none;border-radius:3px;cursor:pointer;font-weight:bold;font-size:12px;';
+      addBtn.addEventListener('click', () => {
+        const val = addInput.value.trim();
+        if (!val) return;
+        if (!layer.allowed_tilesets) layer.allowed_tilesets = [];
+        layer.allowed_tilesets.push(val);
+        addInput.value = '';
+        mgcRenderLayers();
+      });
+      addInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBtn.click(); });
+      addRow.appendChild(addInput);
+      addRow.appendChild(addBtn);
+      div.appendChild(addRow);
+
+      container.appendChild(div);
+    });
+  }
+
+  // Save config
+  document.getElementById('mgc-save-btn').addEventListener('click', async () => {
+    if (!mgcCurrentFile || !mgcCurrentData) return;
+
+    mgcCurrentData.name = document.getElementById('mgc-name').value.trim();
+    mgcCurrentData.seed = parseInt(document.getElementById('mgc-seed').value) || 0;
+    mgcCurrentData.width = parseInt(document.getElementById('mgc-width').value) || 32;
+    mgcCurrentData.height = parseInt(document.getElementById('mgc-height').value) || 32;
+
+    try {
+      const res = await fetch(`/api/mapgen-configs/${encodeURIComponent(mgcCurrentFile)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mgcCurrentData)
+      });
+      if (res.ok) {
+        setStatus('Config saved: ' + mgcCurrentFile);
+      } else {
+        setStatus('Failed to save config');
+      }
+    } catch (err) {
+      console.error('Error saving config:', err);
+      setStatus('Error saving config');
+    }
+  });
+
+  // Delete config
+  document.getElementById('mgc-delete-btn').addEventListener('click', async () => {
+    if (!mgcCurrentFile) return;
+    if (!confirm(`Delete config "${mgcCurrentFile}"?`)) return;
+    try {
+      await fetch(`/api/mapgen-configs/${encodeURIComponent(mgcCurrentFile)}`, { method: 'DELETE' });
+      mgcCurrentFile = null;
+      mgcCurrentData = null;
+      mgcRenderEditor();
+      mgcLoadList();
+      setStatus('Config deleted');
+    } catch (err) {
+      console.error('Error deleting config:', err);
+    }
+  });
+
+  // New config
+  document.getElementById('mgc-new-btn').addEventListener('click', async () => {
+    const filename = prompt('Config filename (without .json):');
+    if (!filename || !filename.trim()) return;
+    const cleanName = filename.trim().replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+    const newData = { name: filename.trim(), seed: 0, width: 32, height: 32, layers: [] };
+    try {
+      const res = await fetch(`/api/mapgen-configs/${encodeURIComponent(cleanName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newData)
+      });
+      if (res.ok || res.status === 201) {
+        mgcCurrentFile = cleanName;
+        mgcCurrentData = newData;
+        mgcRenderEditor();
+        mgcLoadList();
+        setStatus('Created config: ' + cleanName);
+      } else {
+        const err = await res.json();
+        setStatus('Error: ' + (err.error || 'Failed to create'));
+      }
+    } catch (err) {
+      console.error('Error creating config:', err);
+    }
+  });
+
+  // Add layer
+  document.getElementById('mgc-add-layer-btn').addEventListener('click', () => {
+    if (!mgcCurrentData) return;
+    if (!mgcCurrentData.layers) mgcCurrentData.layers = [];
+    mgcCurrentData.layers.push({ folder: '', allowed_tilesets: [] });
+    mgcRenderLayers();
   });
 
   // ============================================================
