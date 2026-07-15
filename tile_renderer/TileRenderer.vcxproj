@@ -118,6 +118,7 @@
     <ClCompile Include="src\StreamingMapGenerator.cpp" />
     <ClCompile Include="src\TileWorld.cpp" />
     <ClCompile Include="src\TilePlacementSolver.cpp" />
+    <ClCompile Include="src\OfflineMapGenerator.cpp" />
     <ClCompile Include="src\TileLabelQuery.cpp" />
     <ClCompile Include="src\MapGenConfig.cpp" />
   </ItemGroup>
