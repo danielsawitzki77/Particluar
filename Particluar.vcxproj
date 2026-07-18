@@ -161,6 +161,8 @@
   <!-- Source files will be added as implementation progresses -->
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\App.cpp" />
+    <ClCompile Include="src\TileRendererDemo.cpp" />
   </ItemGroup>
 
   <ItemGroup>
